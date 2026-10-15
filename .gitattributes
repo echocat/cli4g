@@ -1,0 +1,11 @@
+*.md     text eol=lf
+*.sh     text eol=lf
+*.go     text eol=lf
+*.ts     text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.toml   text eol=lf
+*.lock   text eol=lf
+go.mod   text eol=lf
+go.sum   text eol=lf
+LICENSE  text eol=lf

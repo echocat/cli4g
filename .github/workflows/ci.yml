@@ -1,0 +1,214 @@
+name: Continuous Integration
+
+on:
+  release:
+    types:
+      - published
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    env:
+      MISE_ENV: ci-lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install mise
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+
+      - name: Cache Go and golangci-lint
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~/AppData/Local/go-build
+            ~/.cache/golangci-lint
+            ~/Library/Caches/golangci-lint
+            ~/AppData/Local/golangci-lint
+          key: lint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise*.lock', 'go.mod', 'go.sum') }}
+
+      - name: Lint
+        run: mise run lint:go
+
+  test:
+    name: Test
+    strategy:
+      fail-fast: false
+      matrix:
+        go:
+          - version: '1.27.0'
+            mise-env: ci-minimum
+          - version: stable
+            mise-env: ci-stable
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    env:
+      MISE_ENV: ${{ matrix.go.mise-env }}
+      CLI4G_CI: '1'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install mise
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+
+      - name: Cache Go
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~/AppData/Local/go-build
+          key: test-${{ runner.os }}-${{ runner.arch }}-${{ matrix.go.version }}-${{ hashFiles('mise*.lock', 'go.mod', 'go.sum') }}
+
+      - name: Test
+        run: mise run test:go
+
+      - name: Build and smoke-test examples
+        run: mise run test:examples:examples
+
+      - name: Verify coverage profiles
+        shell: bash
+        run: |
+          for profile in profile.cov.full profile.examples.cov; do
+            if [[ ! -s "$profile" ]] || [[ $(wc -l < "$profile") -le 1 ]]; then
+              echo "::error::Missing or empty coverage profile: $profile"
+              exit 1
+            fi
+          done
+
+      - name: Store test artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: tests-go-${{ matrix.go.version }}-${{ matrix.os }}-${{ github.run_number }}
+          path: |
+            profile.cov.full
+            profile.examples.cov
+          retention-days: 1
+          if-no-files-found: warn
+
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install mise
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+
+      - name: Cache Go and golangci-lint
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: quality-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock', 'go.mod', 'go.sum') }}
+
+      - name: Run quality gate
+        run: >-
+          mise run format:check ::: lint:mod ::: lint:workflow :::
+          test:examples:code ::: test:module ::: test:benchmarks ::: test:fuzz ::: vuln
+
+  coverage:
+    name: Coverage
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download coverage profiles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: tests-go-*
+          path: coverage
+
+      - name: Collect coverage profiles
+        id: profiles
+        shell: bash
+        run: |
+          shopt -s nullglob
+          directories=(coverage/tests-go-*)
+          if [[ ${#directories[@]} -eq 0 ]]; then
+            echo "::error::No test coverage artifacts were downloaded."
+            exit 1
+          fi
+
+          profiles=()
+          for directory in "${directories[@]}"; do
+            for filename in profile.cov.full profile.examples.cov; do
+              profile="$directory/$filename"
+              if [[ ! -s "$profile" ]] || [[ $(wc -l < "$profile") -le 1 ]]; then
+                echo "::error::Missing or empty coverage profile: $profile"
+                exit 1
+              fi
+              profiles+=("$profile")
+            done
+          done
+          printf 'files=%s\n' "${profiles[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Send coverage
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2
+        with:
+          flag-name: cli4g
+          format: golang
+          base-path: ${{ github.workspace }}
+          files: ${{ steps.profiles.outputs.files }}
+
+  finish:
+    name: Finish
+    needs: [ lint, quality, test, coverage ]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        shell: bash
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+        run: |
+          if [[ "$LINT_RESULT" != "success" ||
+                "$QUALITY_RESULT" != "success" ||
+                 "$TEST_RESULT" != "success" ||
+                 "$COVERAGE_RESULT" != "success" ]]; then
+            echo "::error::Required CI jobs did not all succeed: lint=${LINT_RESULT}, quality=${QUALITY_RESULT}, test=${TEST_RESULT}, coverage=${COVERAGE_RESULT}"
+            exit 1
+          fi

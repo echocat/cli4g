@@ -1,0 +1,32 @@
+# Examples
+
+Run from the repository root with `mise example <name> [arguments...]`.
+
+| Example | Shows |
+| --- | --- |
+| [simple](simple) | Typed options, a default flag, a required argument, and help |
+| [argument-syntax](argument-syntax) | Optional/variadic arguments and the -- terminator |
+| [commands](commands) | Two independent commands with no root handler |
+| [commands-subcommands](commands-subcommands) | A command group with two leaf commands |
+| [commands-inheritance](commands-inheritance) | Borrowing application and parent command options |
+| [commands-introspection](commands-introspection) | Inspecting the invocation's command path and help metadata |
+| [typed-context](typed-context) | Reading typed application, command, and flag values from context |
+| [builder-fields](builder-fields) | Explicit flags/arguments and WithField instead of tags |
+| [embedded-options](embedded-options) | Reusing tagged flag groups through struct embedding |
+| [options-factory](options-factory) | Creating options from configuration and injecting a service |
+| [validation](validation) | Options validation and input-error responses |
+| [validation-errors](validation-errors) | Explicit validation markers, technical errors, and preserved causes |
+| [environment](environment) | CLI/environment/default priority |
+| [repeatable-flags](repeatable-flags) | Collecting repeated flag values in a slice |
+| [date-time](date-time) | Date/DateTime codecs, custom layouts, and repeatable dates |
+| [files](files) | File tags, runtime handles, and automatic resource cleanup |
+| [lifecycle](lifecycle) | Options initialization and cleanup after success or failure |
+| [cancellation](cancellation) | Ctrl+C and an endless context-aware handler with a configurable duration |
+| [manual-invocation](manual-invocation) | Explicit Create/Parse/Execute/Close and independent invocations |
+| [custom-values](custom-values) | Automatic Set/String adapters and cumulative map flags |
+| [custom-text-marshaller](custom-text-marshaller) | Adapting TextMarshaler/TextUnmarshaler types |
+| [custom-codec](custom-codec) | Implementing a codec with separate requirement and runtime types |
+| [named-codecs](named-codecs) | Selecting different codecs for the same Go type through type tags |
+| [custom-resource-codec](custom-resource-codec) | Acquiring resources in Resolve and registering scope cleanup |
+| [custom-help](custom-help) | Custom application, usage, flag, and argument help templates |
+| [error-handling](error-handling) | Returning error responses and caller-selected exit codes |

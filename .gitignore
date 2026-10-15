@@ -1,0 +1,10 @@
+/.idea
+/*.iml
+/var
+/.run
+profile.cov
+profile.cov.full
+profile.examples.cov
+/mise.local.toml
+/mise.local.lock
+/.mise/locks/mise.local/
