@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
+
+	"github.com/echocat/cli4g/codec"
 )
 
 var ErrApplicationClosed = errors.New("application is closed")
@@ -10,8 +13,13 @@ var ErrApplicationClosed = errors.New("application is closed")
 // Definitions contain immutable resource-free requirements. Closing invalidates
 // new operations; it needs no resource leases, release callbacks or reader locks.
 type definitionLifecycle struct {
-	closed       atomic.Bool
-	errorHandler ErrorHandler
+	closed          atomic.Bool
+	errorHandler    ErrorHandler
+	fallbackToStdio bool
+}
+
+func (this *definitionLifecycle) prepareContext(ctx context.Context) context.Context {
+	return codec.ContextWithFallbackToStdio(ctx, this != nil && this.fallbackToStdio)
 }
 
 func (this *definitionLifecycle) beginRead() error {

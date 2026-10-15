@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -20,7 +19,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showTags(_ context.Context, opts options) error {
-	_, err := fmt.Printf("tags=%v\n", opts.Tags)
-	return err
+func showTags(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "tags=%v\n", opts.Tags)
 }

@@ -25,12 +25,31 @@
 //
 // # Custom values
 //
-// Adapt Set/String types with [NewValue] or [NewValueP]. Adapt text-marshaled
-// types with [NewMarshaller] or [NewMarshallerP]. Factories must create fresh
+// CLI struct tags automatically adapt concrete T or *T fields whose pointer
+// implements [Value], or both encoding.TextMarshaler and encoding.TextUnmarshaler.
+// Explicit/registered codecs take precedence; Value wins when both adapters
+// apply. Automatic targets must support Set/UnmarshalText on their zero value.
+// See [AutomaticFlagValue] and [AutomaticMarshaller].
+//
+// For explicit adapters, use [NewValue] or [NewValueP] for Set/String types and
+// [NewMarshaller] or [NewMarshallerP] for text-marshaled types. Factories must create fresh
 // targets and support concurrent calls. These adapters preserve returned errors:
 // mark user mistakes with [NewValidationError], and return technical errors normally.
 //
 //	return NewValidationErrorf("port must be between 1 and 65535")
+//
+// # Context streams
+//
+// [ContextWithStdio] supplies borrowed stdin, stdout and stderr streams. Read them
+// with [StdioOfContext], [StdinOfContext], [StdoutOfContext] or [StderrOfContext]. These getters
+// never fall back to process stdio. CLI applications prepare their operation
+// contexts according to their fallback policy; standalone callers may explicitly
+// opt in with [ContextWithFallbackToStdio]. Explicit streams, including nil
+// stdin/stdout, always take precedence over fallback. Nil stderr uses stdout;
+// pass io.Discard to suppress stderr explicitly. Streams are never closed.
+// [Print], [Printf] and [Println] write to context stdout; their Err* counterparts
+// use context stderr. Missing output is a no-op.
+// [FileCodec.WithAllowStdio] requires context streams of type *os.File.
 //
 // # Requirements and resources
 //

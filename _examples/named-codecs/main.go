@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -45,7 +44,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showDurations(_ context.Context, opts options) error {
-	_, err := fmt.Printf("interval=%s delay=%s\n", opts.Interval, opts.Delay)
-	return err
+func showDurations(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "interval=%s delay=%s\n", opts.Interval, opts.Delay)
 }

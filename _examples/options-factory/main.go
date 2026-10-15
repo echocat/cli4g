@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/echocat/cli4g"
+	"github.com/echocat/cli4g/codec"
 )
 
 type configuration struct {
@@ -30,7 +31,6 @@ type options struct {
 
 func main() {
 	config := configuration{Greeting: "Welcome"}
-	service := &greetingService{output: os.Stdout}
 	cli.NewApplication[*options]().
 		WithName("options-factory").
 		WithDescription("Create options from configuration and inject a service.").
@@ -38,7 +38,8 @@ func main() {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			// Allocate fresh options for each invocation; share the provided service.
+			// Bind each invocation's service to its own context output.
+			service := &greetingService{output: codec.StdoutOfContext(ctx)}
 			return &options{Greeting: config.Greeting, Service: service}, nil
 		}).
 		WithHandler(greet).

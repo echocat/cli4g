@@ -30,6 +30,6 @@ func printDocument(ctx context.Context, opts options) error {
 	if opts.Fail {
 		return errors.New("simulated execution failure")
 	}
-	_, err := io.Copy(os.Stdout, opts.Document.Reader)
+	_, err := io.Copy(cli.StdoutOfContext(ctx), opts.Document.Reader)
 	return err
 }

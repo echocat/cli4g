@@ -9,7 +9,7 @@ import (
 )
 
 type options struct {
-	Input *os.File `argument:"input" required:"true" fileMode:"read" allowSpecial:"false" description:"File to print."`
+	Input *os.File `argument:"input" required:"true" fileMode:"read" allowSpecial:"false" allowStdio:"true" description:"File to print (- or stdin for standard input)."`
 }
 
 func main() {
@@ -20,8 +20,8 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func printFile(_ context.Context, opts options) error {
+func printFile(ctx context.Context, opts options) error {
 	// The invocation owns this handle and closes it after execution.
-	_, err := io.Copy(os.Stdout, opts.Input)
+	_, err := io.Copy(cli.StdoutOfContext(ctx), opts.Input)
 	return err
 }

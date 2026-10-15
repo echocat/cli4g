@@ -13,14 +13,15 @@ import (
 func fileTagCodec(field reflect.StructField) (codec.Codec[any, any], error) {
 	modeText, hasMode := field.Tag.Lookup("fileMode")
 	_, hasSpecial := field.Tag.Lookup("allowSpecial")
-	if !hasMode && !hasSpecial {
+	_, hasStdio := field.Tag.Lookup("allowStdio")
+	if !hasMode && !hasSpecial && !hasStdio {
 		return nil, nil
 	}
 	if field.Type != reflect.TypeFor[*os.File]() && field.Type != reflect.TypeFor[[]*os.File]() {
-		return nil, errSchema("field %s: fileMode and allowSpecial require *os.File or []*os.File", field.Name)
+		return nil, errSchema("field %s: fileMode, allowSpecial and allowStdio require *os.File or []*os.File", field.Name)
 	}
 	if field.Tag.Get("type") != "" {
-		return nil, errSchema("field %s: fileMode and allowSpecial cannot be combined with a named type codec", field.Name)
+		return nil, errSchema("field %s: fileMode, allowSpecial and allowStdio cannot be combined with a named type codec", field.Name)
 	}
 	mode := codec.FileRead
 	if hasMode {
@@ -38,7 +39,11 @@ func fileTagCodec(field reflect.StructField) (codec.Codec[any, any], error) {
 	if err != nil {
 		return nil, err
 	}
-	return fileCodecForType(field.Type, codec.NewFile(mode).WithAllowSpecial(allowSpecial)), nil
+	allowStdio, err := boolTag(field, "allowStdio", false)
+	if err != nil {
+		return nil, err
+	}
+	return fileCodecForType(field.Type, codec.NewFile(mode).WithAllowSpecial(allowSpecial).WithAllowStdio(allowStdio)), nil
 }
 
 func fileCodecForType(typ reflect.Type, source codec.FileCodec) codec.Codec[any, any] {

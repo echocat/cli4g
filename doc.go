@@ -32,6 +32,11 @@
 // Builders offer the same inputs. Bind them explicitly with
 // [FlagRequirement.WithField] or [ArgumentRequirement.WithField]; names alone do
 // not bind fields. Explicit bindings override tags on that field.
+// Tagged T or *T fields also automatically adapt codec.Value (Set/String) and
+// encoding.TextMarshaler/TextUnmarshaler implementations on *T. Their zero value
+// must be ready for Set/UnmarshalText. Explicit/registered codecs take precedence;
+// codec.Value wins when both interfaces apply. Text defaults remain input strings,
+// and UnmarshalText runs only when resolving an invocation's fresh value.
 //
 // # Input rules
 //
@@ -70,9 +75,25 @@
 // See [Validatable], [Initializable], and [ApplicationRequirement.WithCloseHandler].
 //
 // Mark invalid user input with [NewValidationError] or [NewValidationErrorf].
-// Other errors remain operational. [DefaultErrorHandler] writes to stderr and
+// Other errors remain operational. [DefaultErrorHandler] writes to context stderr and
 // exits with 2 for invalid input, 130 for cancellation, or 1 for other errors.
 // Disable responses when embedding the library: os.Exit does not run caller defers.
+//
+// # Context streams
+//
+// Supply borrowed streams with [ContextWithStdio](ctx, stdin, stdout, stderr).
+// Consumers use [StdioOfContext], [StdinOfContext], [StdoutOfContext] or [StderrOfContext].
+// [Print], [Printf] and [Println] write to context stdout; their Err* counterparts
+// write to context stderr. Missing output is a no-op.
+// NewApplication enables process-stdio fallback when no streams are set;
+// disable it with [ApplicationRequirement.WithFallbackToStdio]. Explicit streams
+// always take precedence, including nil stdin/stdout, and are never closed by
+// the library. Nil stderr uses stdout; pass io.Discard to suppress stderr.
+// Without context streams or fallback, the getters return nil.
+// Pass the same context to Parse and Execute when calling them separately:
+// file aliases resolve during Parse and cannot be replaced later by Execute.
+// Built-in help/error handlers use context stderr, or io.Discard when missing.
+// Their WithOutput methods can select an explicit writer instead.
 //
 // # Help and files
 //
@@ -83,6 +104,11 @@
 //
 // File tags fileMode:"read|write|readWrite" and allowSpecial:"true" configure
 // *os.File inputs. Invocations own codec-opened handles. Write modes create missing
-// files but do not truncate existing files. Use the codec package for explicit
-// append/truncate policies, dates, adapters, and custom value types.
+// files but do not truncate existing files. With allowStdio:"true", "-"/"stdin"
+// in read mode borrow context stdin, and "-"/"stdout" in write mode borrow context
+// stdout. These file inputs require non-nil *os.File streams; arbitrary readers
+// and writers can be used directly through the context helpers.
+// Invocations never close these streams. Use ./stdin, ./stdout or ./- for literal
+// paths with opt-in enabled. Use the codec package for explicit append/truncate
+// policies, dates, adapters, and custom value types.
 package cli

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -44,7 +43,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func greet(_ context.Context, opts options) error {
-	_, err := fmt.Printf("%s, %s!\n", opts.Greeting, opts.Name)
-	return err
+func greet(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "%s, %s!\n", opts.Greeting, opts.Name)
 }

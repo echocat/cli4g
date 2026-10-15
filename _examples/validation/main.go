@@ -32,7 +32,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func sayHello(_ context.Context, opts options) error {
-	_, err := fmt.Fprint(os.Stdout, strings.Repeat(fmt.Sprintf("Hello, %s!\n", opts.Name), int(opts.Count)))
-	return err
+func sayHello(ctx context.Context, opts options) error {
+	return cli.Print(ctx, strings.Repeat(fmt.Sprintf("Hello, %s!\n", opts.Name), int(opts.Count)))
 }

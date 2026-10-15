@@ -42,11 +42,10 @@ func sum(_ context.Context, opts numbersOptions) error {
 	return err
 }
 
-func product(_ context.Context, opts numbersOptions) error {
+func product(ctx context.Context, opts numbersOptions) error {
 	total := 1
 	for _, number := range opts.Numbers {
 		total *= number
 	}
-	_, err := fmt.Printf("Product: %d\n", total)
-	return err
+	return cli.Printf(ctx, "Product: %d\n", total)
 }

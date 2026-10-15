@@ -40,7 +40,7 @@ func (this *Application[O]) Validate(ctx context.Context, options O) error {
 		return err
 	}
 	frame := directOptionsFrame(this, options)
-	return frame.validate(withContainerContext(ctx, this))
+	return frame.validate(withContainerContext(this.prepareContext(ctx), this))
 }
 
 // Initialize runs options methods and callbacks like Parse. Use pointer options
@@ -50,7 +50,7 @@ func (this *Application[O]) Initialize(ctx context.Context, options O) error {
 		return err
 	}
 	frame := directOptionsFrame(this, options)
-	return frame.initialize(withContainerContext(ctx, this))
+	return frame.initialize(withContainerContext(this.prepareContext(ctx), this))
 }
 
 // Execute runs the application handler with caller-owned options.

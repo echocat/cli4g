@@ -58,8 +58,7 @@ func executeInvocation(ctx context.Context, app *cli.Application[*options], args
 	return invocation.HelpRequested(), invocation.Execute(ctx)
 }
 
-func greet(_ context.Context, opts *options) error {
+func greet(ctx context.Context, opts *options) error {
 	opts.Calls++
-	_, err := fmt.Printf("%s, %s! (calls=%d)\n", opts.Greeting, opts.Name, opts.Calls)
-	return err
+	return cli.Printf(ctx, "%s, %s! (calls=%d)\n", opts.Greeting, opts.Name, opts.Calls)
 }

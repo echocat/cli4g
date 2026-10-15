@@ -17,6 +17,8 @@ import (
 // Callbacks must honor cancellation. The definition supports repeated and
 // concurrent parsing; each invocation owns its options and resources.
 // Direct Execute calls from parse hooks share this operation's error boundary.
+// Context streams are available throughout parsing and the options lifecycle.
+// File aliases resolve now; pass the same stream context to Execute.
 func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...string) (_ *Invocation[O], err error) {
 	if this == nil {
 		return nil, fmt.Errorf("nil application")
@@ -24,9 +26,7 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 	if this.definition.closed.Load() {
 		return nil, ErrApplicationClosed
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = this.definition.prepareContext(ctx)
 	var input parseInput
 	var result *Invocation[O]
 	failureTarget := Container(this)

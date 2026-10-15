@@ -49,7 +49,7 @@ func (c *Command[O]) Validate(ctx context.Context, options O) error {
 		return err
 	}
 	frame := directOptionsFrame(c, options)
-	return frame.validate(withContainerContext(ctx, c))
+	return frame.validate(withContainerContext(c.prepareContext(ctx), c))
 }
 
 // Initialize runs options methods and callbacks. Use pointer options to retain
@@ -59,7 +59,7 @@ func (c *Command[O]) Initialize(ctx context.Context, options O) error {
 		return err
 	}
 	frame := directOptionsFrame(c, options)
-	return frame.initialize(withContainerContext(ctx, c))
+	return frame.initialize(withContainerContext(c.prepareContext(ctx), c))
 }
 
 // Execute runs this command's handler with caller-owned options.

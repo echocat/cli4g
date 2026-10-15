@@ -13,7 +13,8 @@ import (
 type ErrorHandler func(context.Context, InvocationLike, error) error
 
 // DefaultErrorHandler is captured by Create when no error handler is set.
-// Its built-in value writes to os.Stderr, shows help for ErrValidation, and exits with
+// Its built-in value writes to context stderr (or discards output when unavailable),
+// shows help for ErrValidation, and exits with
 // status 2 for input errors, 130 for context.Canceled, or 1 for other operational
 // errors. Configure this variable before Create, without concurrent modification.
 // Nil disables the global fallback; individual applications can disable error handling.
@@ -72,9 +73,7 @@ func respondError(ctx context.Context, invocation InvocationLike, container Cont
 // executeDirect dispatches supplied options without acquiring their ownership.
 // During parsing or invocation execution, the outer boundary reports errors.
 func (this *containerBase) executeDirect(ctx context.Context, container Container, options any) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = this.prepareContext(ctx)
 	ctx = withContainerContext(ctx, container)
 	var handler ErrorHandler
 	if this.plan != nil && this.plan.definition != nil {

@@ -57,6 +57,5 @@ func printGreeting(ctx context.Context) error {
 	if !found {
 		return fmt.Errorf("verbose flag is unavailable")
 	}
-	_, err := fmt.Printf("%s, %s%s verbose=%t\n", application.Greeting, current.Name, parent.Punctuation, verbose)
-	return err
+	return cli.Printf(ctx, "%s, %s%s verbose=%t\n", application.Greeting, current.Name, parent.Punctuation, verbose)
 }

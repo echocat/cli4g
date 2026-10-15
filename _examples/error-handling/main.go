@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -36,10 +35,9 @@ func run(args []string) int {
 	return 70
 }
 
-func printMessage(_ context.Context, opts options) error {
+func printMessage(ctx context.Context, opts options) error {
 	if opts.Fail {
 		return errors.New("simulated execution failure")
 	}
-	_, err := fmt.Fprintln(os.Stdout, opts.Message)
-	return err
+	return cli.Println(ctx, opts.Message)
 }

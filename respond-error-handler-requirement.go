@@ -13,13 +13,15 @@ func NewRespondErrorHandler() *RespondErrorHandlerRequirement {
 // Zero codes return the original error joined with any response errors.
 // Nonzero codes call os.Exit, which does not run caller defers.
 type RespondErrorHandlerRequirement struct {
-	Output             io.Writer   // nil selects os.Stderr
+	Output             io.Writer   // nil selects context stderr, or io.Discard when unavailable
 	HelpHandler        HelpHandler // nil selects the invocation's application handler
 	ValidationExitCode int         // zero returns validation errors normally
 	CanceledExitCode   int         // zero returns context.Canceled errors normally
 	ExecutionExitCode  int         // zero returns operational errors normally
 }
 
+// WithOutput selects a caller-owned writer. Nil uses context stderr at each
+// response, or io.Discard when no output is supplied by the context.
 func (this *RespondErrorHandlerRequirement) WithOutput(v io.Writer) *RespondErrorHandlerRequirement {
 	this.SetOutput(v)
 	return this

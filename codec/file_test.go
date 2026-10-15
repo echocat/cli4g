@@ -15,7 +15,7 @@ import (
 
 func TestFileRequirementSerializationPreservesOpaquePathAndAllOptions(t *testing.T) {
 	source := codec.NewFile()
-	original := codec.FileRequirement{Path: "opaque-\xff-path", Mode: codec.FileReadWrite, Create: true, Append: true, Permission: 0640, AllowSpecial: true}
+	original := codec.FileRequirement{Path: "opaque-\xff-path", Mode: codec.FileReadWrite, Create: true, Append: true, Permission: 0640, AllowSpecial: true, AllowStdio: true}
 	plain, err := source.FormatRequirement(context.Background(), original)
 	require.NoError(t, err)
 	copy, err := source.ParseRequirement(context.Background(), codec.UsageDefault, plain...)

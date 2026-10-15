@@ -10,9 +10,10 @@ import (
 
 // NewApplication starts a CLI builder with automatic --help/-h enabled.
 // O must be a struct or pointer to a struct; exported tags define inputs.
-// By default, input and execution errors use [DefaultErrorHandler].
+// By default, input and execution errors use [DefaultErrorHandler], and missing
+// context streams fall back to process stdin/stdout/stderr.
 func NewApplication[O any]() *ApplicationRequirement[O] {
-	return &ApplicationRequirement[O]{Help: true}
+	return &ApplicationRequirement[O]{Help: true, FallbackToStdio: true}
 }
 
 // NewSimpleApplication starts a builder without an options struct.
@@ -33,6 +34,10 @@ type ApplicationRequirement[O any] struct {
 	HelpHandler          HelpHandler
 	ErrorHandler         ErrorHandler
 	errorHandlerDisabled bool
+	// FallbackToStdio supplies process stdin/stdout/stderr only when no stream
+	// configuration exists in the operation's context. Constructors enable it by default;
+	// a zero-valued requirement has it disabled.
+	FallbackToStdio bool
 
 	Commands  []CommandRequirementLike
 	Codecs    []codec.Registration
@@ -72,6 +77,16 @@ func (this *ApplicationRequirement[O]) WithHelp(v bool) *ApplicationRequirement[
 }
 
 func (this *ApplicationRequirement[O]) SetHelp(v bool) { this.Help = v }
+
+// WithFallbackToStdio controls fallback to process stdin/stdout/stderr when the
+// context has no streams. NewApplication enables it by default. Explicit streams
+// from [codec.ContextWithStdio], including nil streams, always take precedence.
+func (this *ApplicationRequirement[O]) WithFallbackToStdio(v bool) *ApplicationRequirement[O] {
+	this.SetFallbackToStdio(v)
+	return this
+}
+
+func (this *ApplicationRequirement[O]) SetFallbackToStdio(v bool) { this.FallbackToStdio = v }
 
 // WithHelpHandler replaces DefaultHelpHandler. Execute invokes it only for a
 // help invocation; normal handlers and the options lifecycle are skipped.

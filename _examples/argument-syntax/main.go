@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -21,7 +20,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showArguments(_ context.Context, opts options) error {
-	_, err := fmt.Printf("file=%s more=%v\n", opts.File, opts.More)
-	return err
+func showArguments(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "file=%s more=%v\n", opts.File, opts.More)
 }

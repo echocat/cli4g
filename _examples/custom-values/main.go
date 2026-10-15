@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -66,7 +65,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showOptions(_ context.Context, opts options) error {
-	_, err := fmt.Printf("level=%s headers=[%s]\n", opts.Level, opts.Headers)
-	return err
+func showOptions(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "level=%s headers=[%s]\n", opts.Level, opts.Headers)
 }

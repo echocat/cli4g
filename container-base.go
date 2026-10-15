@@ -27,6 +27,14 @@ func (this *containerBase) base() *containerBase {
 	return this
 }
 
+func (this *containerBase) prepareContext(ctx context.Context) context.Context {
+	var definition *definitionLifecycle
+	if this.plan != nil {
+		definition = this.plan.definition
+	}
+	return definition.prepareContext(ctx)
+}
+
 // Direct container operations dispatch new work only while their owning
 // application is open. Cleanup and immutable metadata remain available.
 func (this *containerBase) requireOpen() error {

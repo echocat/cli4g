@@ -71,7 +71,7 @@ func printMessage(ctx context.Context, opts *options) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintln(os.Stderr, "Execute"); err != nil {
+	if err := cli.ErrPrintln(ctx, "Execute"); err != nil {
 		return err
 	}
 	if opts.Fail {
@@ -80,6 +80,6 @@ func printMessage(ctx context.Context, opts *options) error {
 	if _, err := opts.file.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	_, err := io.Copy(os.Stdout, opts.file)
+	_, err := io.Copy(cli.StdoutOfContext(ctx), opts.file)
 	return err
 }

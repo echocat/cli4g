@@ -128,8 +128,10 @@ func TestFactoryCancellationRetainsOwnedOptionsAndSkipsLaterFactories(t *testing
 	laterCalled := false
 	app := NewApplication[*factoryOwnedOptions]().WithName("app").
 		WithCreateOptionsHandler(func(received context.Context) (*factoryOwnedOptions, error) {
-			assert.Same(t, ctx, received)
+			assert.Equal(t, ctx.Done(), received.Done())
+			assert.NoError(t, received.Err())
 			cancel()
+			assert.ErrorIs(t, received.Err(), context.Canceled)
 			return &factoryOwnedOptions{name: "app", closed: &closed}, nil
 		}).
 		WithCommand(NewSimpleCommand().
