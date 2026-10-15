@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/echocat/cli4g/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +20,9 @@ func TestLookupEnvReceivesCallerContextAndYieldsToExplicitFlags(t *testing.T) {
 	ctx := context.WithValue(context.Background(), contextKey{}, "parse")
 	lookups := 0
 	opts := &ParseOpts{LookupEnv: func(received context.Context, name string) (string, bool) {
-		assert.Same(t, ctx, received)
+		assert.Equal(t, ctx.Done(), received.Done())
+		assert.Same(t, os.Stdin, codec.StdinOfContext(received))
+		assert.Same(t, os.Stdout, codec.StdoutOfContext(received))
 		assert.Equal(t, "parse", received.Value(contextKey{}))
 		assert.Equal(t, "VALUE", name)
 		lookups++

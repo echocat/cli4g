@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -33,16 +32,14 @@ func main() {
 	cli.NewApplication[options]().
 		WithName("custom-text-marshaller").
 		WithDescription("Use a type implementing text marshaling.").
-		WithCodec(codec.NewMarshaller[date]()).
 		WithHandler(showDate).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showDate(_ context.Context, opts options) error {
+func showDate(ctx context.Context, opts options) error {
 	text, err := opts.Date.MarshalText()
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Printf("date=%s\n", text)
-	return err
+	return cli.Printf(ctx, "date=%s\n", text)
 }

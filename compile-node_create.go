@@ -169,5 +169,8 @@ func resolveDraftCodec(stack []*compileNode, explicit codec.Codec[any, any], typ
 	if resolved, found, err := codec.AutomaticFlagValue(context.Background(), typ); found || err != nil {
 		return resolved, err
 	}
+	if resolved, found, err := codec.AutomaticMarshaller(context.Background(), typ); found || err != nil {
+		return resolved, err
+	}
 	return nil, fmt.Errorf("no codec for type %s", typ)
 }

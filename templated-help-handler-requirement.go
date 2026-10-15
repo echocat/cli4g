@@ -18,7 +18,7 @@ func NewTemplatedHelpHandler() *TemplatedHelpHandlerRequirement {
 // Create reports invalid syntax; execution reports render/write/default errors.
 type TemplatedHelpHandlerRequirement struct {
 	// Output remains caller-owned. Custom writers and handlers need their own synchronization.
-	Output   io.Writer // nil selects os.Stderr
+	Output   io.Writer // nil selects context stderr, or io.Discard when unavailable
 	ExitCode int       // non-zero calls os.Exit after successful rendering/writing
 
 	ApplicationTemplate  string           // template "application": root help
@@ -30,6 +30,8 @@ type TemplatedHelpHandlerRequirement struct {
 	Funcs                template.FuncMap // custom functions must be concurrent-safe
 }
 
+// WithOutput selects a caller-owned writer. Nil uses context stderr at each
+// invocation, or io.Discard when no output is supplied by the context.
 func (this *TemplatedHelpHandlerRequirement) WithOutput(v io.Writer) *TemplatedHelpHandlerRequirement {
 	this.SetOutput(v)
 	return this

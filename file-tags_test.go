@@ -170,6 +170,24 @@ func TestInvalidFileTagsAreConfigurationErrors(t *testing.T) {
 		},
 		func() error {
 			_, err := NewApplication[struct {
+				File *os.File `flag:"file" allowStdio:"invalid"`
+			}]().WithName("app").Create()
+			return err
+		},
+		func() error {
+			_, err := NewApplication[struct {
+				Name string `flag:"name" allowStdio:"true"`
+			}]().WithName("app").Create()
+			return err
+		},
+		func() error {
+			_, err := NewApplication[struct {
+				File *os.File `flag:"file" allowStdio:"true" type:"named"`
+			}]().WithName("app").Create()
+			return err
+		},
+		func() error {
+			_, err := NewApplication[struct {
 				Name string `flag:"name" fileMode:"read"`
 			}]().WithName("app").Create()
 			return err

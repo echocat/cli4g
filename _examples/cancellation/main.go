@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -39,7 +38,7 @@ func work(ctx context.Context, opts options) error {
 	ticker := time.NewTicker(opts.Sleep)
 	defer ticker.Stop()
 
-	if _, err := fmt.Fprintln(os.Stdout, "Working. Press Ctrl+C to stop."); err != nil {
+	if err := cli.Println(ctx, "Working. Press Ctrl+C to stop."); err != nil {
 		return err
 	}
 	for step := 1; ; step++ {
@@ -50,7 +49,7 @@ func work(ctx context.Context, opts options) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(os.Stdout, "Step %d\n", step); err != nil {
+			if err := cli.Printf(ctx, "Step %d\n", step); err != nil {
 				return err
 			}
 		}

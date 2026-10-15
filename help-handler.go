@@ -23,7 +23,7 @@ var defaultHelpHandler = sync.OnceValue(func() HelpHandler {
 // DefaultHelpHandler is the overridable fallback captured by ApplicationRequirement.Create
 // when no application handler is set. Configure it before Create, without concurrent
 // modification. Its built-in value compiles templates once on first use, writes
-// to os.Stderr and returns normally.
+// to context stderr (or discards output when unavailable) and returns normally.
 var DefaultHelpHandler HelpHandler = func(ctx context.Context, invocation InvocationLike) error {
 	if ctx == nil {
 		ctx = context.Background()

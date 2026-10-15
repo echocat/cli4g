@@ -53,7 +53,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showValue(_ context.Context, opts options) error {
-	_, err := fmt.Fprintln(os.Stdout, "Accepted:", opts.Value)
-	return err
+func showValue(ctx context.Context, opts options) error {
+	return cli.Println(ctx, "Accepted:", opts.Value)
 }

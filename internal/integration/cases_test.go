@@ -10,7 +10,11 @@ func failure(name string, args []string, code int, diagnostic string, help bool)
 
 func exampleCases() map[string][]smokeCase {
 	return map[string][]smokeCase{
-		"simple":                 {success("greeting", []string{"World"}, "Hello, World!\n")},
+		"simple": {success("greeting", []string{"World"}, "Hello, World!\n")},
+		"stdio": {
+			success("injected streams", nil, "Injected input.\n"),
+			success("uppercase", []string{"--uppercase"}, "INJECTED INPUT.\n"),
+		},
 		"argument-syntax":        {success("terminator", []string{"--", "-report.txt", "--help"}, "file=-report.txt more=[--help]\n")},
 		"builder-fields":         {success("override", []string{"-g", "Hey", "Carl"}, "Hey, Carl!\n")},
 		"commands":               {success("sum", []string{"sum", "2", "3", "4"}, "Sum: 9\n")},

@@ -23,7 +23,10 @@ const (
 
 // FileRequirement describes how to open a file; typed defaults choose all settings.
 // Append and Truncate require write access and cannot be combined. Permission=0
-// means 0600 for newly created files, subject to umask. Paths are literal.
+// means 0600 for newly created files, subject to umask. Paths are literal unless
+// AllowStdio enables exact aliases: "-"/"stdin" for FileRead and "-"/"stdout"
+// for FileWrite. Stdio aliases reject read/write access, mismatched directions,
+// Append and Truncate; Create and Permission have no effect on them.
 // Create/Truncate can affect files before options validation; closing is not rollback.
 type FileRequirement struct {
 	Path         string      `json:"path"`
@@ -33,17 +36,24 @@ type FileRequirement struct {
 	Truncate     bool        `json:"truncate"`
 	Permission   fs.FileMode `json:"permission"`
 	AllowSpecial bool        `json:"allowSpecial"`
+	AllowStdio   bool        `json:"allowStdio"`
 }
 
 var ErrSpecialFile = NewValidationError(errors.New("special files require explicit opt-in"))
 
-// FileCodec resolves paths to invocation-owned *os.File handles.
-// Only regular files are accepted unless [FileCodec.WithAllowSpecial] is enabled.
+// ErrStdioUnavailable marks a stdio alias without a usable *os.File in its context.
+var ErrStdioUnavailable = errors.New("stdio file stream unavailable")
+
+// FileCodec resolves paths to invocation-owned *os.File handles or borrowed
+// standard streams when [FileCodec.WithAllowStdio] is enabled.
+// Filesystem paths must name regular files unless [FileCodec.WithAllowSpecial]
+// is enabled.
 // Help and default inspection do not open files. Use named options fields:
 // anonymous io.Closer embeddings would transfer cleanup to two owners.
 type FileCodec struct {
 	mode         FileMode
 	allowSpecial bool
+	allowStdio   bool
 }
 
 // NewFile creates a file codec; omitted mode means [FileRead].
@@ -66,6 +76,15 @@ func NewFile(mode ...FileMode) FileCodec {
 // Typed [FileRequirement] values choose their own AllowSpecial policy.
 func (this FileCodec) WithAllowSpecial(allow bool) FileCodec { this.allowSpecial = allow; return this }
 
+// WithAllowStdio interprets "-"/"stdin" as context stdin in FileRead mode and
+// "-"/"stdout" as context stdout in FileWrite mode, independently of AllowSpecial.
+// These streams are borrowed and never closed by the scope. Use ./stdin,
+// ./stdout or ./- for literal paths. Typed [FileRequirement] values choose
+// their own AllowStdio policy. Streams must be non-nil *os.File values;
+// missing or incompatible streams return [ErrStdioUnavailable]. No implicit
+// process-stdio fallback is performed by the codec.
+func (this FileCodec) WithAllowStdio(allow bool) FileCodec { this.allowStdio = allow; return this }
+
 func (this FileCodec) ToRaw(ctx context.Context) Codec[any, any] { return Raw(ctx, this) }
 
 func (FileCodec) CanHandleType(ctx context.Context, typ reflect.Type) (bool, error) {
@@ -78,7 +97,7 @@ func (this FileCodec) ParseRequirement(ctx context.Context, usage Usage, args ..
 	if err := EnsureArgumentsMatching(ctx, usage, this, args...); err != nil {
 		return FileRequirement{}, err
 	}
-	requirement := FileRequirement{Path: args[0], Mode: this.mode, Create: this.mode != FileRead, AllowSpecial: this.allowSpecial}
+	requirement := FileRequirement{Path: args[0], Mode: this.mode, Create: this.mode != FileRead, AllowSpecial: this.allowSpecial, AllowStdio: this.allowStdio}
 	if usage == UsageDefault && strings.HasPrefix(args[0], "file+json:") {
 		var wire fileRequirementWire
 		decoder := json.NewDecoder(strings.NewReader(strings.TrimPrefix(args[0], "file+json:")))
@@ -102,7 +121,7 @@ func (FileCodec) FormatRequirement(ctx context.Context, requirement FileRequirem
 	if err := validateFileRequirement(requirement); err != nil {
 		return nil, err
 	}
-	encoded, err := json.Marshal(fileRequirementWire{Path: []byte(requirement.Path), Mode: requirement.Mode, Create: requirement.Create, Append: requirement.Append, Truncate: requirement.Truncate, Permission: requirement.Permission, AllowSpecial: requirement.AllowSpecial})
+	encoded, err := json.Marshal(fileRequirementWire{Path: []byte(requirement.Path), Mode: requirement.Mode, Create: requirement.Create, Append: requirement.Append, Truncate: requirement.Truncate, Permission: requirement.Permission, AllowSpecial: requirement.AllowSpecial, AllowStdio: requirement.AllowStdio})
 	if err != nil {
 		return nil, err
 	}
@@ -119,10 +138,11 @@ type fileRequirementWire struct {
 	Truncate     bool        `json:"truncate"`
 	Permission   fs.FileMode `json:"permission"`
 	AllowSpecial bool        `json:"allowSpecial"`
+	AllowStdio   bool        `json:"allowStdio"`
 }
 
 func (wire fileRequirementWire) requirement() FileRequirement {
-	return FileRequirement{Path: string(wire.Path), Mode: wire.Mode, Create: wire.Create, Append: wire.Append, Truncate: wire.Truncate, Permission: wire.Permission, AllowSpecial: wire.AllowSpecial}
+	return FileRequirement{Path: string(wire.Path), Mode: wire.Mode, Create: wire.Create, Append: wire.Append, Truncate: wire.Truncate, Permission: wire.Permission, AllowSpecial: wire.AllowSpecial, AllowStdio: wire.AllowStdio}
 }
 
 func (FileCodec) DisplayRequirement(ctx context.Context, requirement FileRequirement) ([]string, error) {
@@ -148,6 +168,20 @@ func (FileCodec) Resolve(ctx context.Context, scope Scope, requirement FileRequi
 	}
 	if err := validateFileRequirement(requirement); err != nil {
 		return nil, err
+	}
+	if requirement.AllowStdio && isStdioPath(requirement.Path) {
+		var stream any
+		name := "stdout"
+		if requirement.Mode == FileRead {
+			name, stream = "stdin", StdinOfContext(ctx)
+		} else {
+			stream = StdoutOfContext(ctx)
+		}
+		file, ok := stream.(*os.File)
+		if !ok || file == nil {
+			return nil, fmt.Errorf("%w: %s alias %q requires a non-nil *os.File in context (got %T)", ErrStdioUnavailable, name, requirement.Path, stream)
+		}
+		return file, nil
 	}
 	var flags int
 	switch requirement.Mode {
@@ -227,5 +261,20 @@ func validateFileRequirement(requirement FileRequirement) error {
 	if requirement.Permission&^fs.ModePerm != 0 {
 		return fmt.Errorf("%w: file permission must contain only permission bits", ErrIllegalArgument)
 	}
+	if requirement.AllowStdio && isStdioPath(requirement.Path) {
+		if requirement.Mode == FileReadWrite {
+			return fmt.Errorf("%w: stdio alias %q does not support read/write access", ErrIllegalArgument, requirement.Path)
+		}
+		if requirement.Mode == FileRead && requirement.Path == "stdout" || requirement.Mode == FileWrite && requirement.Path == "stdin" {
+			return fmt.Errorf("%w: stdio alias %q does not match file mode", ErrIllegalArgument, requirement.Path)
+		}
+		if requirement.Append || requirement.Truncate {
+			return fmt.Errorf("%w: stdio alias %q cannot append or truncate", ErrIllegalArgument, requirement.Path)
+		}
+	}
 	return nil
+}
+
+func isStdioPath(path string) bool {
+	return path == "-" || path == "stdin" || path == "stdout"
 }

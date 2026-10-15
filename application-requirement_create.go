@@ -16,7 +16,7 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	if r == nil || r.Name == "" {
 		return nil, errSchema("application needs a name")
 	}
-	definition := &definitionLifecycle{}
+	definition := &definitionLifecycle{fallbackToStdio: r.FallbackToStdio}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, definition.Close())

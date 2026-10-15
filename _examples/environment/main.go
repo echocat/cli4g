@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -21,7 +20,6 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func showOptions(_ context.Context, opts options) error {
-	_, err := fmt.Printf("profile=%s port=%d\n", opts.Profile, opts.Port)
-	return err
+func showOptions(ctx context.Context, opts options) error {
+	return cli.Printf(ctx, "profile=%s port=%d\n", opts.Profile, opts.Port)
 }

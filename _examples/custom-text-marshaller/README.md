@@ -1,6 +1,12 @@
 # Custom text marshaller
 
-A date type implements `encoding.TextMarshaler` and `encoding.TextUnmarshaler`. `WithCodec(codec.NewMarshaller[date]())` registers the adapter for the tagged field. Its requirement is the input string; `UnmarshalText` creates the date during resolution, while `MarshalText` formats it for the example's output. Invalid dates use `codec.NewValidationErrorf`, preserving the original parse error with `%w`.
+A date type implements `encoding.TextMarshaler` and `encoding.TextUnmarshaler`. The tagged field selects the text adapter automatically, without `WithCodec` or a `type` tag. Its requirement is the input string; `UnmarshalText` creates the date during resolution, while `MarshalText` formats it for the example's output. Invalid dates use `codec.NewValidationErrorf`, preserving the original parse error with `%w`.
+
+Automatic detection supports value and pointer fields whose pointer implements
+both text interfaces and whose zero value is ready for unmarshaling. Explicit
+or registered codecs take precedence. Types also implementing `codec.Value`
+retain their existing Set/String behavior. Use `codec.NewMarshallerP` with an
+explicit factory when construction requires more than a zero value.
 
 Run from the repository root:
 

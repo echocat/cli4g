@@ -15,9 +15,6 @@ func (this *RespondErrorHandlerRequirement) Create() (ErrorHandler, error) {
 		return nil, fmt.Errorf("nil respond error handler requirement")
 	}
 	output := this.Output
-	if output == nil {
-		output = os.Stderr
-	}
 	help := this.HelpHandler
 	validationExitCode, executionExitCode := this.ValidationExitCode, this.ExecutionExitCode
 	canceledExitCode := this.CanceledExitCode
@@ -48,7 +45,7 @@ func (this *RespondErrorHandlerRequirement) Create() (ErrorHandler, error) {
 		n, err := func() (int, error) {
 			handlerOutputMutex.Lock()
 			defer handlerOutputMutex.Unlock()
-			return io.WriteString(output, message)
+			return io.WriteString(handlerOutput(ctx, output), message)
 		}()
 		result := original
 		if err != nil {

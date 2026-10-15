@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/echocat/cli4g"
@@ -33,16 +32,14 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func greet(_ context.Context, opts greetOptions) error {
-	_, err := fmt.Printf("Hello, %s!\n", opts.Name)
-	return err
+func greet(ctx context.Context, opts greetOptions) error {
+	return cli.Printf(ctx, "Hello, %s!\n", opts.Name)
 }
 
-func sum(_ context.Context, opts sumOptions) error {
+func sum(ctx context.Context, opts sumOptions) error {
 	total := 0
 	for _, number := range opts.Numbers {
 		total += number
 	}
-	_, err := fmt.Printf("Sum: %d\n", total)
-	return err
+	return cli.Printf(ctx, "Sum: %d\n", total)
 }

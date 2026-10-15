@@ -36,9 +36,6 @@ func (this *TemplatedHelpHandlerRequirement) Create() (HelpHandler, error) {
 		return nil, err
 	}
 	output := this.Output
-	if output == nil {
-		output = os.Stderr
-	}
 	exitCode := this.ExitCode
 	return func(ctx context.Context, invocation InvocationLike) error {
 		if ctx == nil {
@@ -68,7 +65,7 @@ func (this *TemplatedHelpHandlerRequirement) Create() (HelpHandler, error) {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			n, err := output.Write(buffer.Bytes())
+			n, err := handlerOutput(ctx, output).Write(buffer.Bytes())
 			if err != nil {
 				return fmt.Errorf("write help: %w", err)
 			}

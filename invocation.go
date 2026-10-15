@@ -159,10 +159,13 @@ func (this Invocation[O]) Argument(i int) (*Argument[any, any], any) {
 // handler, failures close this invocation before reporting. Without one,
 // the caller retains cleanup responsibility. Successful invocations must be closed.
 // A help invocation executes only the application's HelpHandler.
+// Context streams apply to handlers; file values already resolved by Parse
+// retain their original streams. Use the same stream context for both phases.
 func (this *Invocation[O]) Execute(ctx context.Context) (err error) {
 	if this == nil || this.lifecycle == nil || !this.lifecycle.ready {
 		return ErrInvocationNotReady
 	}
+	ctx = this.application.definition.prepareContext(ctx)
 	target := Container(this.application)
 	handler := this.ErrorHandler()
 	defer func() {
@@ -185,6 +188,7 @@ func (this Invocation[O]) ErrorHandler() ErrorHandler {
 }
 
 func (this *Invocation[O]) executeAndClose(ctx context.Context) (err error) {
+	ctx = this.application.definition.prepareContext(ctx)
 	handler := this.ErrorHandler()
 	target := Container(this.application)
 	closed := false

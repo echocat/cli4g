@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 
@@ -34,18 +33,17 @@ func main() {
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }
 
-func greet(_ context.Context, opts greetOptions) error {
-	return printMessage(opts.OutputOptions, "Hello, "+opts.Name+"!")
+func greet(ctx context.Context, opts greetOptions) error {
+	return printMessage(ctx, opts.OutputOptions, "Hello, "+opts.Name+"!")
 }
 
-func echo(_ context.Context, opts echoOptions) error {
-	return printMessage(opts.OutputOptions, opts.Message)
+func echo(ctx context.Context, opts echoOptions) error {
+	return printMessage(ctx, opts.OutputOptions, opts.Message)
 }
 
-func printMessage(opts OutputOptions, message string) error {
+func printMessage(ctx context.Context, opts OutputOptions, message string) error {
 	if opts.Uppercase {
 		message = strings.ToUpper(message)
 	}
-	_, err := fmt.Fprintln(os.Stdout, message)
-	return err
+	return cli.Println(ctx, message)
 }

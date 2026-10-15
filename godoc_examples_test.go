@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cli "github.com/echocat/cli4g"
+	"github.com/echocat/cli4g/codec"
 )
 
 func ExampleNewApplication() {
@@ -13,8 +14,8 @@ func ExampleNewApplication() {
 		Greeting string `flag:"greeting" short:"g" default:"Hello"`
 	}
 	cli.NewApplication[options]().WithName("greet").
-		WithHandler(func(_ context.Context, opts options) error {
-			_, err := fmt.Printf("%s, %s!\n", opts.Greeting, opts.Name)
+		WithHandler(func(ctx context.Context, opts options) error {
+			_, err := fmt.Fprintf(codec.StdoutOfContext(ctx), "%s, %s!\n", opts.Greeting, opts.Name)
 			return err
 		}).MustCreateParseAndExecute(context.Background(), nil, "Ada")
 	// Output: Hello, Ada!
@@ -88,8 +89,8 @@ func ExampleNewCommand() {
 		Name string `argument:"name" default:"Ada"`
 	}
 	command := cli.NewCommand[options]().WithName("hello").
-		WithHandler(func(_ context.Context, opts options) error {
-			_, err := fmt.Println("Hello, " + opts.Name + "!")
+		WithHandler(func(ctx context.Context, opts options) error {
+			_, err := fmt.Fprintln(codec.StdoutOfContext(ctx), "Hello, "+opts.Name+"!")
 			return err
 		})
 	cli.NewSimpleApplication().

@@ -11,6 +11,7 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [commands-inheritance](commands-inheritance) | Borrowing application and parent command options |
 | [commands-introspection](commands-introspection) | Inspecting the invocation's command path and help metadata |
 | [typed-context](typed-context) | Reading typed application, command, and flag values from context |
+| [stdio](stdio) | Injecting in-memory context streams and disabling process-stdio fallback |
 | [builder-fields](builder-fields) | Explicit flags/arguments and WithField instead of tags |
 | [embedded-options](embedded-options) | Reusing tagged flag groups through struct embedding |
 | [options-factory](options-factory) | Creating options from configuration and injecting a service |
@@ -30,3 +31,12 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [custom-resource-codec](custom-resource-codec) | Acquiring resources in Resolve and registering scope cleanup |
 | [custom-help](custom-help) | Custom application, usage, flag, and argument help templates |
 | [error-handling](error-handling) | Returning error responses and caller-selected exit codes |
+
+Handlers can use `cli.Print`, `cli.Printf`, and `cli.Println` for stdout and
+`cli.ErrPrint`, `cli.ErrPrintf`, and `cli.ErrPrintln` for stderr. Missing output is
+a no-op. `cli.StdioOfContext(ctx)` returns all three streams for direct I/O;
+single-stream helpers and the same conveniences are also available in `codec`.
+`NewApplication` defaults to process stdin/stdout/stderr when no streams are set.
+`cli.ContextWithStdio(ctx, stdin, stdout, stderr)` takes precedence; nil stderr
+shares stdout. Disable implicit fallback with `WithFallbackToStdio(false)`.
+Built-in help/error handlers also honor context stderr. See [stdio](stdio).
