@@ -1,0 +1,265 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[settings]
+lockfile = true
+
+[tool_config]
+locked = true
+
+[env]
+GOTOOLCHAIN = "local"
+
+[vars]
+go_stable = "latest"
+go_minimum = "1.27.0"
+golangci_lint = "latest"
+actionlint = "latest"
+shellcheck = "latest"
+govulncheck = "latest"
+
+[tools]
+go = "{{vars.go_stable}}"
+
+[task_templates.test_options]
+usage = '''
+flag "--race" help="Enable the Go race detector" default=#false
+flag "--coverage" help="Collect atomic Go coverage with the race detector" default=#false
+arg "[args]..." double_dash="required" help="Additional go test arguments"
+'''
+
+[task_templates.go_test]
+usage = '''
+flag "--race" help="Enable the Go race detector" default=#false
+flag "--coverage" help="Collect atomic Go coverage with the race detector" default=#false
+arg "[args]..." double_dash="required" help="Additional go test arguments"
+'''
+vars.go_test_command = "go test"
+shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
+# PowerShell otherwise splits the dotted filename into an extra package argument.
+run = '''
+{% set ci = get_env(name='CLI4G_CI', default='0') == '1' %}
+{{vars.go_test_command}} {% if usage.race or usage.coverage or ci %}-race {% endif %}{% if ci %}-v {% endif %}{% if usage.coverage or ci %}-covermode=atomic "-coverprofile={% if ci %}profile.cov.full{% else %}profile.cov{% endif %}" {% endif %}./... {% for arg in usage.args | default(value=[]) %}{% if os() == 'windows' %}'{{arg | replace(from="'", to="''")}}'{% else %}{{arg | quote}}{% endif %} {% endfor %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+'''
+
+[tasks.format]
+description = "Format Go code and module files"
+alias = "fmt"
+depends = ["format:go"]
+
+[tasks."format:go"]
+description = "Format Go code and module files"
+depends = ["format:go:code", "format:go:mod"]
+
+[tasks."format:go:code"]
+description = "Format all Go packages"
+tools.golangci-lint = "{{vars.golangci_lint}}"
+run = "golangci-lint fmt"
+
+[tasks."format:go:mod"]
+description = "Tidy the Go module"
+alias = "tidy"
+run = "go mod tidy"
+
+[tasks."format:check"]
+description = "Check formatting in all packages"
+tools.golangci-lint = "{{vars.golangci_lint}}"
+run = "golangci-lint fmt --diff"
+
+[tasks.test]
+extends = "test_options"
+description = "Check Go packages and all example modules"
+alias = "t"
+depends = [
+  "test:go {% if usage.race %}--race {% endif %}{% if usage.coverage %}--coverage {% endif %}{% if usage.args | default(value=[]) | length > 0 %}-- {% for arg in usage.args %}{{arg | quote}} {% endfor %}{% endif %}",
+  "test:examples {% if usage.coverage %}--coverage{% endif %}",
+]
+
+[tasks."test:go"]
+extends = "test_options"
+description = "Compile and test all Go packages"
+depends = [
+  "test:go:build",
+  "test:go:code {% if usage.race %}--race {% endif %}{% if usage.coverage %}--coverage {% endif %}{% if usage.args | default(value=[]) | length > 0 %}-- {% for arg in usage.args %}{{arg | quote}} {% endfor %}{% endif %}",
+]
+
+[tasks."test:go:build"]
+description = "Check that all packages compile"
+run = "go build ./..."
+
+[tasks."test:go:code"]
+extends = "go_test"
+description = "Test all Go packages"
+
+[tasks."test:module"]
+description = "Build a Go module archive and test it without nested modules or Git metadata"
+env.GOWORK = "off"
+run = 'go test -count=1 -v ./internal/integration -run "^TestModuleArchive$" -args -module-archive'
+
+[tasks."test:benchmarks"]
+description = "Check benchmark adapters, formatting, module files, vet, and lint"
+dir = "{{config_root}}/_benchmarks"
+tools.golangci-lint = "{{vars.golangci_lint}}"
+env.GOWORK = "off"
+run = [
+  "go test -race ./...",
+  "go vet ./...",
+  "go mod tidy -diff",
+  "golangci-lint fmt --diff",
+  'golangci-lint run --config "{{config_root}}/.golangci.yaml"',
+]
+
+[tasks.bench]
+description = "Measure one-shot and reused CLI lifecycles across libraries"
+dir = "{{config_root}}/_benchmarks"
+env.GOWORK = "off"
+run = "go run ./cmd/report"
+
+[tasks."test:fuzz"]
+description = "Run all bounded fuzz tests"
+depends = ["test:go:fuzz"]
+
+[tasks."test:go:fuzz"]
+description = "Run bounded parser fuzzing with two workers per target"
+run = [
+  'go test -run "^$" -fuzz "^FuzzShortFlagInlineStringPreservesBytes$" -fuzztime=3s -parallel=2 .',
+  'go test -run "^$" -fuzz "^FuzzApplicationParseTokens$" -fuzztime=3s -parallel=2 .',
+  'go test -run "^$" -fuzz "^FuzzStructuredInvocationValues$" -fuzztime=3s -parallel=2 .',
+]
+
+[tasks."test:examples"]
+description = "Check example code and run native-binary smoke tests"
+usage = '''
+flag "--coverage" help="Collect coverage from example binaries and cli4g" default=#false
+arg "[args]..." double_dash="required" help="Additional example go test arguments"
+'''
+depends = [
+  "test:examples:code",
+  "test:examples:examples {% if usage.coverage %}--coverage {% endif %}{% if usage.args | default(value=[]) | length > 0 %}-- {% for arg in usage.args %}{{arg | quote}} {% endfor %}{% endif %}",
+]
+
+[tasks."test:examples:code"]
+description = "Check formatting, module files, vet, and lint in all example modules"
+tools.golangci-lint = "{{vars.golangci_lint}}"
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+run = 'go test -count=1 -v ./internal/integration -run "^TestExamples$" -args -examples=code'
+
+[tasks."test:examples:examples"]
+description = "Build all example modules and run native-binary smoke tests"
+usage = '''
+flag "--coverage" help="Collect coverage from example binaries and cli4g" default=#false
+arg "[args]..." double_dash="required" help="Additional example go test arguments"
+'''
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
+run = '''
+go test -count=1 -v ./internal/integration -run "^TestExamples$" {% for arg in usage.args | default(value=[]) %}{% if os() == 'windows' %}'{{arg | replace(from="'", to="''")}}'{% else %}{{arg | quote}}{% endif %} {% endfor %}-args -examples=smoke {% if usage.coverage or get_env(name='CLI4G_CI', default='0') == '1' %}-examples-coverprofile="{{config_root}}/profile.examples.cov"{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+'''
+
+[tasks."example:run"]
+description = "Run an example module"
+alias = ["example", "examples:run", "examples"]
+raw_args = true
+quiet = true
+raw = true
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+run = '"{{config_root}}/mise-tasks/go/run.sh" "{{config_root}}" ./internal/examplecmd run'
+run_windows = 'pwsh -NoProfile -File "{{config_root}}/mise-tasks/go/run.ps1" "{{config_root}}" ./internal/examplecmd run'
+
+[tasks."example:ls"]
+description = "List example modules"
+alias = ["example:list", "examples:ls", "examples:list"]
+raw_args = true
+quiet = true
+raw = true
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+run = '"{{config_root}}/mise-tasks/go/run.sh" "{{config_root}}" ./internal/examplecmd list'
+run_windows = 'pwsh -NoProfile -File "{{config_root}}/mise-tasks/go/run.ps1" "{{config_root}}" ./internal/examplecmd list'
+
+[tasks."test:matrix"]
+description = "Run all test version matrices"
+alias = "matrix"
+depends = ["test:go:matrix"]
+
+[tasks."test:go:matrix"]
+description = "Test minimum and stable Go versions with the race detector"
+depends = ["test:go:minimum --race", "test:go:code --race"]
+
+[tasks."test:go:minimum"]
+extends = "go_test"
+description = "Test all Go packages with Go 1.27.0"
+vars.go_test_command = "mise -E ci-minimum exec -- go test"
+
+[tasks.lint]
+description = "Lint Go code, module files, and GitHub Actions workflows"
+alias = "l"
+depends = ["lint:go", "lint:mod", "lint:workflow"]
+
+[tasks."lint:go"]
+description = "Lint and vet all Go packages"
+depends = ["lint:go:code", "lint:go:vet"]
+
+[tasks."lint:go:code"]
+description = "Lint all Go packages"
+tools.golangci-lint = "{{vars.golangci_lint}}"
+run = 'golangci-lint run --config "{{config_root}}/.golangci.yaml"'
+
+[tasks."lint:go:vet"]
+description = "Vet all packages"
+alias = "vet"
+run = "go vet ./..."
+
+[tasks."lint:mod"]
+description = "Check that the Go module is tidy"
+alias = "tidy:check"
+run = "go mod tidy -diff"
+
+[tasks."lint:workflow"]
+description = "Lint GitHub Actions workflows"
+alias = "actionlint"
+tools.actionlint = "{{vars.actionlint}}"
+tools.shellcheck = "{{vars.shellcheck}}"
+run = 'actionlint -pyflakes=""'
+
+[tasks."tools:lock"]
+description = "Regenerate all tool lockfiles for supported platforms"
+run = [
+  "mise -E ci-minimum lock --jobs 1 --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise -E ci-lint lock --jobs 1 --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise -E ci-stable lock --jobs 1 --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise lock --jobs 1 --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+]
+
+[tasks."tools:update"]
+description = "Update all tool lockfiles to releases at least seven days old"
+run = [
+  "mise -E ci-minimum lock --jobs 1 --bump --minimum-release-age 7d --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise -E ci-lint lock --jobs 1 --bump --minimum-release-age 7d --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise -E ci-stable lock --jobs 1 --bump --minimum-release-age 7d --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+  "mise lock --jobs 1 --bump --minimum-release-age 7d --platform linux-x64,linux-arm64,macos-x64,macos-arm64,windows-x64",
+]
+
+[tasks.vuln]
+description = "Scan all packages for known vulnerabilities"
+tools."go:golang.org/x/vuln/cmd/govulncheck" = "{{vars.govulncheck}}"
+run = "govulncheck ./..."
+
+[tasks."check:quality"]
+description = "Run compilation, lint, formatting, example, fuzz, and vulnerability checks"
+depends = ["test:go:build", "format:check", "lint", "vuln", "test:examples", "test:module", "test:fuzz"]
+
+[tasks.check]
+description = "Run the standard local quality gate"
+alias = "ci"
+depends = ["format:check", "lint", "test --race"]
+
+[tasks."check:full"]
+description = "Run all checks, the Go version matrix, and vulnerability scans"
+depends = ["check", "check:quality", "test:matrix", "test:benchmarks"]

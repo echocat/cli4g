@@ -1,0 +1,59 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+
+	"github.com/echocat/cli4g"
+)
+
+type options struct {
+	Value    string `argument:"value" default:"42" description:"An integer checked by Validate."`
+	FailRead bool   `flag:"fail-read" description:"Simulate a technical read failure during Validate."`
+}
+
+func (opts options) Validate(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if opts.FailRead {
+		return fmt.Errorf("reading configuration: %w", io.ErrUnexpectedEOF)
+	}
+	if _, err := strconv.Atoi(opts.Value); err != nil {
+		return cli.NewValidationErrorf("value must be an integer: %w", err)
+	}
+	return nil
+}
+
+func main() {
+	response := cli.DefaultErrorHandler
+	cli.NewApplication[options]().
+		WithName("validation-errors").
+		WithDescription("Distinguish invalid input from technical failures in Validate.").
+		WithErrorHandler(func(ctx context.Context, invocation cli.InvocationLike, err error) error {
+			var number *strconv.NumError
+			var detail string
+			switch {
+			case cli.IsValidationError(err) && errors.As(err, &number):
+				detail = "Cause: strconv.NumError"
+			case errors.Is(err, io.ErrUnexpectedEOF):
+				detail = "Cause: io.ErrUnexpectedEOF"
+			}
+			if detail != "" {
+				_, printErr := fmt.Fprintln(os.Stderr, detail)
+				err = errors.Join(err, printErr)
+			}
+			return response(ctx, invocation, err)
+		}).
+		WithHandler(showValue).
+		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
+}
+
+func showValue(_ context.Context, opts options) error {
+	_, err := fmt.Fprintln(os.Stdout, "Accepted:", opts.Value)
+	return err
+}

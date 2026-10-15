@@ -1,0 +1,46 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+
+linters:
+  exclusions:
+    paths:
+      - .idea
+      - .github
+      - var
+    rules:
+      # The public API normalizes nil contexts; tests deliberately exercise it.
+      - path: '_test\.go$'
+        linters:
+          - staticcheck
+        text: 'SA1012:'
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - misspell
+    - copyloopvar
+    - exptostd
+    - importas
+  settings:
+    misspell:
+      locale: US
+      ignore-rules:
+        - echocat
+        - cli4g
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST1003"
+        # Keep the source project's receiver and explicit-selector conventions.
+        - "-ST1006"
+        - "-ST1018"
+        - "-QF1001"
+        - "-QF1003"
+        - "-QF1008"
+run:
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+  allow-serial-runners: true
