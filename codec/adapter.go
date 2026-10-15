@@ -15,7 +15,7 @@ func Snapshot(ctx context.Context, value any) (Codec[any, any], error) {
 		return nil, fmt.Errorf("%w: nil codec", ErrInvalid)
 	}
 	if raw, ok := value.(Codec[any, any]); ok {
-		return checkedSnapshot(raw)
+		return checkedSnapshot(ctx, raw)
 	}
 	adapter, ok := value.(interface {
 		ToRaw(context.Context) Codec[any, any]
@@ -30,14 +30,17 @@ func Snapshot(ctx context.Context, value any) (Codec[any, any], error) {
 	if isNil(result) {
 		return nil, fmt.Errorf("%w: %T returned a nil raw codec", ErrInvalid, value)
 	}
-	return checkedSnapshot(result)
+	return checkedSnapshot(ctx, result)
 }
 
-func checkedSnapshot(source Codec[any, any]) (Codec[any, any], error) {
+func checkedSnapshot(ctx context.Context, source Codec[any, any]) (Codec[any, any], error) {
 	if schema, ok := source.(interface{ RequirementType() reflect.Type }); ok {
 		if !policyForRequirement(schema.RequirementType()).valid {
 			return nil, fmt.Errorf("%w: %s", ErrResourceRequirement, schema.RequirementType())
 		}
+	}
+	if _, err := DisplayEnum(ctx, source); err != nil {
+		return nil, fmt.Errorf("enum metadata: %w", err)
 	}
 	return source, nil
 }

@@ -34,6 +34,10 @@ func NewMap[K MapKey, V, R any](element Codec[V, R]) Codec[map[K]V, map[K]R] {
 
 type mapCodec[K MapKey, V, R any] struct{ element Codec[V, R] }
 
+func (this mapCodec[K, V, R]) EnumChoices(ctx context.Context) ([]EnumChoice, error) {
+	return DisplayEnum(ctx, this.element)
+}
+
 func (this mapCodec[K, V, R]) ToRaw(ctx context.Context) Codec[any, any] {
 	return Raw(ctx, this)
 }

@@ -38,6 +38,27 @@
 //
 //	return NewValidationErrorf("port must be between 1 and 65535")
 //
+// # Enums
+//
+// [Enum] is an optional codec contract enumerating all valid resource-free
+// requirements as [EnumVariant] values. Custom implementations remain responsible
+// for enforcing their advertised set. Metadata must not resolve runtime values.
+// [Raw] preserves typed enums through an Enum[any] adapter.
+//
+// [NewEnum] restricts an existing codec's requirements; [NewEnumVariants] also
+// accepts descriptions. The source codec's parsing/normalization rules remain in
+// effect. Enums select one alternative and are not cumulative: wrap them with
+// [NewSlice] or [NewMap] for repeated elements. Collections expose their element
+// choices through [EnumChoices], without claiming a finite collection space.
+// [DisplayEnum] supplies independent, display-safe choices for help and tooling.
+//
+// [NewMarshallerEnum] and [NewValueEnum] take typed runtime alternatives and retain
+// only their canonical text/tokens as requirements. Their Variants counterparts
+// add descriptions; their PEnum counterparts use explicit pointer factories.
+// Text is derived once during construction, not during help or parsing. Value
+// enums require String output to be accepted by Set. Undeclared input tokens are
+// rejected before UnmarshalText/Set; Resolve still creates fresh runtime targets.
+//
 // # Context streams
 //
 // [ContextWithStdio] supplies borrowed stdin, stdout and stderr streams. Read them

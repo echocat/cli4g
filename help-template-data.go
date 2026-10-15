@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/echocat/cli4g/codec"
 )
 
 // HelpTemplateData supplies visible commands, inputs, and display-safe defaults
@@ -36,31 +38,44 @@ type HelpCommandTemplateData struct {
 // HelpFlagTemplateData is the input to the flag template, including safe default text.
 type HelpFlagTemplateData struct {
 	HelpFlagInfo
-	Names       []string
-	Shorts      []rune
-	Label       string
-	Description string
-	Placeholder string
-	ValueType   reflect.Type
-	Required    bool
-	EnvVars     []string
-	HasDefault  bool
-	Default     []string
-	DefaultText string
+	Names                 []string
+	Shorts                []rune
+	Label                 string
+	Description           string
+	Placeholder           string
+	ValueType             reflect.Type
+	Required              bool
+	EnvVars               []string
+	HasDefault            bool
+	Default               []string
+	DefaultText           string
+	Choices               []HelpEnumChoice
+	ChoicesText           string
+	HasChoiceDescriptions bool
 }
 
 // HelpArgumentTemplateData is the input to the argument template.
 type HelpArgumentTemplateData struct {
 	HelpArgumentInfo
-	Name        string
-	Label       string
+	Name                  string
+	Label                 string
+	Description           string
+	Placeholder           string
+	ValueType             reflect.Type
+	Required              bool
+	HasDefault            bool
+	Default               []string
+	DefaultText           string
+	Choices               []HelpEnumChoice
+	ChoicesText           string
+	HasChoiceDescriptions bool
+}
+
+// HelpEnumChoice describes an accepted scalar or collection-element value.
+type HelpEnumChoice struct {
+	Values      []string
+	Text        string
 	Description string
-	Placeholder string
-	ValueType   reflect.Type
-	Required    bool
-	HasDefault  bool
-	Default     []string
-	DefaultText string
 }
 
 func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (HelpTemplateData, error) {
@@ -105,19 +120,26 @@ func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (Help
 		if err != nil {
 			return data, fmt.Errorf("help flag --%s default: %w", definition.Name(), err)
 		}
+		choices, choicesText, described, err := helpEnumChoices(ctx, definition.Codec())
+		if err != nil {
+			return data, fmt.Errorf("help flag --%s choices: %w", definition.Name(), err)
+		}
 		entry := HelpFlagTemplateData{
-			HelpFlagInfo: flag,
-			Names:        definition.Names(),
-			Shorts:       definition.Shorts(),
-			Label:        helpFlagLabel(flag),
-			Description:  definition.Description(),
-			Placeholder:  definition.Placeholder(),
-			ValueType:    definition.ValueType(),
-			Required:     definition.IsRequired(),
-			EnvVars:      definition.EnvVars(),
-			HasDefault:   hasDefault,
-			Default:      formatted,
-			DefaultText:  helpDefaultText(formatted),
+			HelpFlagInfo:          flag,
+			Names:                 definition.Names(),
+			Shorts:                definition.Shorts(),
+			Label:                 helpFlagLabel(flag),
+			Description:           definition.Description(),
+			Placeholder:           definition.Placeholder(),
+			ValueType:             definition.ValueType(),
+			Required:              definition.IsRequired(),
+			EnvVars:               definition.EnvVars(),
+			HasDefault:            hasDefault,
+			Default:               formatted,
+			DefaultText:           helpDefaultText(formatted),
+			Choices:               choices,
+			ChoicesText:           choicesText,
+			HasChoiceDescriptions: described,
 		}
 		if flag.Inherited {
 			data.InheritedFlags = append(data.InheritedFlags, entry)
@@ -140,6 +162,10 @@ func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (Help
 		if err != nil {
 			return data, fmt.Errorf("help argument %s default: %w", definition.Name(), err)
 		}
+		choices, choicesText, described, err := helpEnumChoices(ctx, definition.Codec())
+		if err != nil {
+			return data, fmt.Errorf("help argument %s choices: %w", definition.Name(), err)
+		}
 		label := helpValueLabel(definition.Placeholder(), definition.Name(), argument.MinValues, argument.MaxValues)
 		usageLabel := label
 		if definition.IsRequired() {
@@ -151,19 +177,39 @@ func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (Help
 			data.Usage += " " + usageLabel
 		}
 		data.Arguments = append(data.Arguments, HelpArgumentTemplateData{
-			HelpArgumentInfo: argument,
-			Name:             definition.Name(),
-			Label:            label,
-			Description:      definition.Description(),
-			Placeholder:      definition.Placeholder(),
-			ValueType:        definition.ValueType(),
-			Required:         definition.IsRequired(),
-			HasDefault:       hasDefault,
-			Default:          formatted,
-			DefaultText:      helpDefaultText(formatted),
+			HelpArgumentInfo:      argument,
+			Name:                  definition.Name(),
+			Label:                 label,
+			Description:           definition.Description(),
+			Placeholder:           definition.Placeholder(),
+			ValueType:             definition.ValueType(),
+			Required:              definition.IsRequired(),
+			HasDefault:            hasDefault,
+			Default:               formatted,
+			DefaultText:           helpDefaultText(formatted),
+			Choices:               choices,
+			ChoicesText:           choicesText,
+			HasChoiceDescriptions: described,
 		})
 	}
 	return data, ctx.Err()
+}
+
+func helpEnumChoices(ctx context.Context, source codec.Codec[any, any]) ([]HelpEnumChoice, string, bool, error) {
+	variants, err := codec.DisplayEnum(ctx, source)
+	if err != nil {
+		return nil, "", false, err
+	}
+	var choices []HelpEnumChoice
+	var labels []string
+	described := false
+	for _, variant := range variants {
+		label := helpDefaultText(variant.Values)
+		choices = append(choices, HelpEnumChoice{Values: variant.Values, Text: label, Description: variant.Description})
+		labels = append(labels, label)
+		described = described || variant.Description != ""
+	}
+	return choices, strings.Join(labels, ", "), described, ctx.Err()
 }
 
 func helpFlagLabel(info HelpFlagInfo) string {

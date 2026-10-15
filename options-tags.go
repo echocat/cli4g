@@ -66,9 +66,14 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 			return err
 		}
 		codecName := field.Tag.Get("type")
-		fileCodec, err := fileTagCodec(field)
+		fieldCodec, err := fileTagCodec(field)
 		if err != nil {
 			return err
+		}
+		if enumCodec, err := enumTagCodec(field); err != nil {
+			return err
+		} else if enumCodec != nil {
+			fieldCodec = enumCodec
 		}
 		required, err := boolTag(field, "required", false)
 		if err != nil {
@@ -89,7 +94,7 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 			}
 			f := &Flag[any, any]{names: splitTag(flagName), shorts: shorts, envVars: splitTag(field.Tag.Get("env")),
 				description: field.Tag.Get("description"), placeholder: field.Tag.Get("placeholder"),
-				required: required, visible: visible, valueType: field.Type, codec: fileCodec}
+				required: required, visible: visible, valueType: field.Type, codec: fieldCodec}
 			if value, exists := field.Tag.Lookup("default"); exists {
 				f.defaultValue = &valueDefault[any]{strings: []string{value}, isString: true}
 			}
@@ -101,7 +106,7 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 		} else {
 			a := &Argument[any, any]{name: argName, description: field.Tag.Get("description"),
 				placeholder: field.Tag.Get("placeholder"), required: required,
-				valueType: field.Type, codec: fileCodec}
+				valueType: field.Type, codec: fieldCodec}
 			if value, exists := field.Tag.Lookup("default"); exists {
 				a.defaultValue = &valueDefault[any]{strings: []string{value}, isString: true}
 			}

@@ -38,6 +38,12 @@
 // codec.Value wins when both interfaces apply. Text defaults remain input strings,
 // and UnmarshalText runs only when resolving an invocation's fresh value.
 //
+// The enum:"auto|always|never" tag restricts a string/string-based field to literal
+// choices and publishes them in help. It selects a field-local codec and cannot
+// be combined with type. For typed alternatives, descriptions, or custom parsing,
+// register codec.NewEnum, codec.NewMarshallerEnum, or codec.NewValueEnum instead.
+// Custom codecs can publish their complete valid set through codec.Enum[R].
+//
 // # Input rules
 //
 //   - Flags accept `--name=value`, `--name value`, short flags, and short clusters.

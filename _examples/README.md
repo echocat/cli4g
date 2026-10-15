@@ -18,6 +18,7 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [validation](validation) | Options validation and input-error responses |
 | [validation-errors](validation-errors) | Explicit validation markers, technical errors, and preserved causes |
 | [environment](environment) | CLI/environment/default priority |
+| [enums](enums) | Typed text/Value enums, enum tags, and choices in help and errors |
 | [repeatable-flags](repeatable-flags) | Collecting repeated flag values in a slice |
 | [date-time](date-time) | Date/DateTime codecs, custom layouts, and repeatable dates |
 | [files](files) | File tags, runtime handles, and automatic resource cleanup |

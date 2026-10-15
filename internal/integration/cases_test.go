@@ -52,6 +52,14 @@ func exampleCases() map[string][]smokeCase {
 		},
 		"embedded-options": {success("uppercase", []string{"echo", "-u", "Some text"}, "SOME TEXT\n")},
 		"environment":      {{name: "CLI priority", args: []string{"--profile", "staging"}, env: []string{"CLI4G_PROFILE=production", "CLI4G_PORT=9090"}, want: expected{stdout: text("profile=staging port=9090\n")}}},
+		"enums": {
+			success("defaults", nil, "color=auto format=json level=info extra=0\n"),
+			success("typed choices", []string{"--color", "never", "--format", "yaml", "--extra-format", "json", "debug"}, "color=never format=yaml level=debug extra=1\n"),
+			failure("unknown format", []string{"--format", "toml"}, 2, `expected one of: "json", "yaml"`, true),
+			failure("strict case", []string{"--format", "JSON"}, 2, "invalid enum value", true),
+			failure("unknown level", []string{"trace"}, 2, `expected one of: "info", "debug"`, true),
+			failure("unknown tag value", []string{"--color", "sometimes"}, 2, `expected one of: "auto", "always", "never"`, true),
+		},
 		"error-handling": {
 			success("message", []string{"Hello"}, "Hello\n"),
 			failure("unknown flag", []string{"--unknown"}, 64, "unknown flag", true),
