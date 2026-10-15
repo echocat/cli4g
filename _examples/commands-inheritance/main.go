@@ -7,6 +7,10 @@ import (
 	"github.com/echocat/cli4g"
 )
 
+type commonOptions struct {
+	ExitCode int `flag:"exitCode" description:"Will use this code in case of success."`
+}
+
 type applicationOptions struct {
 	Greeting string `flag:"greeting" default:"Hello" description:"Greeting to use."`
 }
@@ -16,6 +20,7 @@ type messageOptions struct {
 }
 
 type greetOptions struct {
+	commonOptions
 	Application *applicationOptions `parent:"application"`
 	Message     *messageOptions     `parent:"matchingType"`
 	Name        string              `argument:"name" required:"true" description:"Name to greet."`
@@ -38,5 +43,11 @@ func main() {
 }
 
 func greet(ctx context.Context, opts greetOptions) error {
-	return cli.Printf(ctx, "%s, %s%s\n", opts.Application.Greeting, opts.Name, opts.Message.Punctuation)
+	if err := cli.Printf(ctx, "%s, %s%s\n", opts.Application.Greeting, opts.Name, opts.Message.Punctuation); err != nil {
+		return err
+	}
+	if v := opts.ExitCode; v != 0 {
+		os.Exit(v)
+	}
+	return nil
 }
