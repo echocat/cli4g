@@ -34,6 +34,13 @@ type options struct {
 - A field cannot be both a flag and an argument.
 - Required inputs cannot have declared defaults; options-factory values do not satisfy them.
 - Slice flags append one value per occurrence. A slice argument must be last.
+- Map flags accept one `key=value` pair per occurrence; map arguments must be last.
+  Duplicate decoded keys are parse errors. String-keyed maps of standard scalar
+  values are selected automatically; register other key types explicitly with
+  [`codec.NewMap[K](valueCodec)`](https://pkg.go.dev/github.com/echocat/cli4g/codec#NewMap).
+  CLI maps replace defaults. Values are split at the first `=` only, so
+  `--labels env=prod`, `--labels=env=prod`, and `-Lenv=prod` are equivalent
+  for `Labels map[string]string` tagged `flag:"labels" short:"L"`.
 - `fileMode`/`allowSpecial` require `*os.File` or `[]*os.File` and cannot be combined with `type`.
 - `parent` cannot be combined with input tags; borrowed options remain parent-owned.
 - Anonymous struct embeddings expose their tags. Named subobjects need explicit builder binding.

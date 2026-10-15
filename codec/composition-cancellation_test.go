@@ -59,6 +59,31 @@ func TestSliceRequirementCallbacksStopAfterCancellation(t *testing.T) {
 	}
 }
 
+func TestMapRequirementCallbacksStopAfterCancellation(t *testing.T) {
+	for _, operation := range []string{"parse", "format", "display", "clone"} {
+		t.Run(operation, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			calls := 0
+			source := codec.NewMap[string](cancelingRequirementCallbacks{Codec: codec.NewString(), cancel: cancel, calls: &calls})
+			values := map[string]string{"a": "one", "b": "two"}
+			var err error
+			switch operation {
+			case "parse":
+				_, err = source.ParseRequirement(ctx, codec.UsageDefault, "a=one", "b=two")
+			case "format":
+				_, err = source.FormatRequirement(ctx, values)
+			case "display":
+				_, err = source.DisplayRequirement(ctx, values)
+			case "clone":
+				_, err = codec.CloneRequirement(ctx, source, values)
+			}
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Equal(t, 1, calls)
+		})
+	}
+}
+
 type cancelingElementCodec struct {
 	codec.Codec[int, int]
 	cancel context.CancelFunc
@@ -79,6 +104,20 @@ func TestSliceResolveStopsAfterElementCancelsAndRetainsCleanup(t *testing.T) {
 	source := codec.NewSlice(cancelingElementCodec{Codec: codec.NewInt(), cancel: cancel, calls: &calls, closes: &closes})
 	scope := new(codec.ResourceScope)
 	_, err := source.Resolve(ctx, scope, []int{1, 2, 3})
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, calls)
+	require.NoError(t, scope.Close())
+	require.NoError(t, scope.Close())
+	assert.Equal(t, 1, closes)
+}
+
+func TestMapResolveStopsAfterElementCancelsAndRetainsCleanup(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calls, closes := 0, 0
+	source := codec.NewMap[string](cancelingElementCodec{Codec: codec.NewInt(), cancel: cancel, calls: &calls, closes: &closes})
+	scope := new(codec.ResourceScope)
+	_, err := source.Resolve(ctx, scope, map[string]int{"a": 1, "b": 2, "c": 3})
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, 1, calls)
 	require.NoError(t, scope.Close())
