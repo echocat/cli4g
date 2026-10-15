@@ -64,8 +64,12 @@ func (this *CommandRequirement[O]) SetDescription(v string) {
 }
 
 func (this *CommandRequirement[O]) WithCommand(v ...CommandRequirementLike) *CommandRequirement[O] {
-	this.Commands = append(this.Commands, v...)
+	this.AddCommand(v...)
 	return this
+}
+
+func (this *CommandRequirement[O]) AddCommand(v ...CommandRequirementLike) {
+	this.Commands = append(this.Commands, v...)
 }
 
 func (this *CommandRequirement[O]) SetCommands(v []CommandRequirementLike) {
@@ -77,27 +81,39 @@ func (this *CommandRequirement[O]) OptionsType() reflect.Type {
 }
 
 func (this *CommandRequirement[O]) WithFlag(v ...FlagRequirementLike) *CommandRequirement[O] {
+	this.AddFlag(v...)
+	return this
+}
+
+func (this *CommandRequirement[O]) AddFlag(v ...FlagRequirementLike) {
 	this.Flags = append(this.Flags, v...)
-	return this
-}
-
-// WithCodec accepts an immutable codec.Codec[V, R]; Create validates it.
-func (this *CommandRequirement[O]) WithCodec(v any, names ...string) *CommandRequirement[O] {
-	this.Codecs = append(this.Codecs, codec.NewRegistration(v, names...))
-	return this
-}
-
-func (this *CommandRequirement[O]) SetCodecs(v []codec.Registration) {
-	this.Codecs = slices.Clone(v)
 }
 
 func (this *CommandRequirement[O]) SetFlags(v []FlagRequirementLike) {
 	this.Flags = v
 }
 
-func (this *CommandRequirement[O]) WithArgument(v ...ArgumentRequirementLike) *CommandRequirement[O] {
-	this.Arguments = append(this.Arguments, v...)
+// WithCodec accepts an immutable codec.Codec[V, R]; Create validates it.
+func (this *CommandRequirement[O]) WithCodec(v any, names ...string) *CommandRequirement[O] {
+	this.AddCodec(v, names...)
 	return this
+}
+
+func (this *CommandRequirement[O]) AddCodec(v any, names ...string) {
+	this.Codecs = append(this.Codecs, codec.NewRegistration(v, names...))
+}
+
+func (this *CommandRequirement[O]) SetCodecs(v []codec.Registration) {
+	this.Codecs = slices.Clone(v)
+}
+
+func (this *CommandRequirement[O]) WithArgument(v ...ArgumentRequirementLike) *CommandRequirement[O] {
+	this.AddArgument(v...)
+	return this
+}
+
+func (this *CommandRequirement[O]) AddArgument(v ...ArgumentRequirementLike) {
+	this.Arguments = append(this.Arguments, v...)
 }
 
 func (this *CommandRequirement[O]) SetArguments(v []ArgumentRequirementLike) {

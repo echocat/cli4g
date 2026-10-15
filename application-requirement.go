@@ -108,8 +108,12 @@ func (this *ApplicationRequirement[O]) SetErrorHandlerEnabled(v bool) {
 
 // WithCommand adds subcommands. Different commands may use different options types.
 func (this *ApplicationRequirement[O]) WithCommand(v ...CommandRequirementLike) *ApplicationRequirement[O] {
-	this.Commands = append(this.Commands, v...)
+	this.AddCommand(v...)
 	return this
+}
+
+func (this *ApplicationRequirement[O]) AddCommand(v ...CommandRequirementLike) {
+	this.Commands = append(this.Commands, v...)
 }
 
 func (this *ApplicationRequirement[O]) SetCommands(v []CommandRequirementLike) {
@@ -122,30 +126,42 @@ func (this *ApplicationRequirement[O]) OptionsType() reflect.Type {
 
 // WithFlag adds explicit flags. Bind options fields with [FlagRequirement.WithField].
 func (this *ApplicationRequirement[O]) WithFlag(v ...FlagRequirementLike) *ApplicationRequirement[O] {
+	this.AddFlag(v...)
+	return this
+}
+
+func (this *ApplicationRequirement[O]) AddFlag(v ...FlagRequirementLike) {
 	this.Flags = append(this.Flags, v...)
-	return this
-}
-
-// WithCodec accepts an immutable codec.Codec[V, R]. Create validates and
-// snapshots the codec; names bind it to matching options type tags.
-func (this *ApplicationRequirement[O]) WithCodec(v any, names ...string) *ApplicationRequirement[O] {
-	this.Codecs = append(this.Codecs, codec.NewRegistration(v, names...))
-	return this
-}
-
-func (this *ApplicationRequirement[O]) SetCodecs(v []codec.Registration) {
-	this.Codecs = slices.Clone(v)
 }
 
 func (this *ApplicationRequirement[O]) SetFlags(v []FlagRequirementLike) {
 	this.Flags = v
 }
 
+// WithCodec accepts an immutable codec.Codec[V, R]. Create validates and
+// snapshots the codec; names bind it to matching options type tags.
+func (this *ApplicationRequirement[O]) WithCodec(v any, names ...string) *ApplicationRequirement[O] {
+	this.AddCodec(v, names...)
+	return this
+}
+
+func (this *ApplicationRequirement[O]) AddCodec(v any, names ...string) {
+	this.Codecs = append(this.Codecs, codec.NewRegistration(v, names...))
+}
+
+func (this *ApplicationRequirement[O]) SetCodecs(v []codec.Registration) {
+	this.Codecs = slices.Clone(v)
+}
+
 // WithArgument adds positional arguments in order. Variadic arguments must be last.
 // Bind options fields with [ArgumentRequirement.WithField].
 func (this *ApplicationRequirement[O]) WithArgument(v ...ArgumentRequirementLike) *ApplicationRequirement[O] {
-	this.Arguments = append(this.Arguments, v...)
+	this.AddArgument(v...)
 	return this
+}
+
+func (this *ApplicationRequirement[O]) AddArgument(v ...ArgumentRequirementLike) {
+	this.Arguments = append(this.Arguments, v...)
 }
 
 func (this *ApplicationRequirement[O]) SetArguments(v []ArgumentRequirementLike) {
