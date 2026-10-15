@@ -82,6 +82,9 @@ func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (Help
 	data.FullName = strings.Join(data.NamePath, " ")
 	data.Usage = data.FullName
 	for _, command := range info.Commands {
+		if !command.IsVisible() {
+			continue
+		}
 		data.Commands = append(data.Commands, HelpCommandTemplateData{
 			Definition:  command,
 			Names:       command.Names(),

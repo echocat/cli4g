@@ -8,6 +8,7 @@ import (
 // CommandLike allows commands with different options types in one command tree.
 type CommandLike interface {
 	Container
+	IsVisible() bool
 	isCommand()
 }
 
@@ -16,6 +17,7 @@ type CommandLike interface {
 type Command[O any] struct {
 	names       []string
 	description string
+	visible     bool
 	*containerBase
 }
 
@@ -34,6 +36,11 @@ func (c *Command[O]) Names() []string {
 // Description returns the help description.
 func (c *Command[O]) Description() string {
 	return c.description
+}
+
+// IsVisible reports whether the command appears in help listings.
+func (c *Command[O]) IsVisible() bool {
+	return c.visible
 }
 
 // Validate runs the options' Validate method followed by the configured callback.
