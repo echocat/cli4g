@@ -131,7 +131,7 @@ func TestFileStdioLiteralPathsAndTypedPolicy(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "literal", string(content))
 			require.NoError(t, scope.Close())
-			_, err = file.Stat()
+			_, err = file.Read(make([]byte, 1))
 			assert.ErrorIs(t, err, os.ErrClosed)
 		}
 	}

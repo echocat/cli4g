@@ -73,7 +73,7 @@ func TestAutomaticMarshallerOwnsFreshTargetsIncludingPartialFailures(t *testing.
 			require.NoError(t, err)
 			require.NoError(t, scope.Close())
 			require.NoError(t, scope.Close())
-			_, err = file.Stat()
+			_, err = file.Read(make([]byte, 1))
 			assert.ErrorIs(t, err, os.ErrClosed)
 		}
 		canceled, cancel := context.WithCancel(ctx)
