@@ -17,6 +17,7 @@ for the input and lifecycle rules.
 | `placeholder` | Flag / argument | `placeholder:"PORT"` | Help value label; normally derived from the input name |
 | `visible` | Flag | `visible:"false"` | Hide from default help; default `true` |
 | `type` | Flag / argument | `type:"date"` | Select a registered named codec |
+| `enum` | String flag / argument | `enum:"auto\|always\|never"` | Restrict literal string choices and advertise them in help |
 | `fileMode` | File input | `fileMode:"readWrite"` | `read`, `write`, or `readWrite`; implicit mode is `read` |
 | `allowSpecial` | File input | `allowSpecial:"true"` | Permit nonregular files; default `false` |
 | `allowStdio` | File input | `allowStdio:"true"` | Interpret `-`/`stdin` as stdin in `read` mode and `-`/`stdout` as stdout in `write` mode; default `false` |
@@ -43,6 +44,9 @@ type options struct {
   `--labels env=prod`, `--labels=env=prod`, and `-Lenv=prod` are equivalent
   for `Labels map[string]string` tagged `flag:"labels" short:"L"`.
 - `fileMode`/`allowSpecial`/`allowStdio` require `*os.File` or `[]*os.File` and cannot be combined with `type`.
+- `enum` requires a string/string-based field and cannot be combined with `type`.
+  It selects a field-local literal codec. Use an explicit enum codec to retain
+  custom TextMarshaler/Value parsing or to support collection elements.
 - `parent` cannot be combined with input tags; borrowed options remain parent-owned.
 - Anonymous struct embeddings expose their tags. Named subobjects need explicit builder binding.
 - Explicit [`WithField`](https://pkg.go.dev/github.com/echocat/cli4g#FlagRequirement.WithField)
@@ -66,6 +70,24 @@ inspection does not call `MarshalText` or `UnmarshalText`. For types needing
 initialization, register an explicit factory adapter such as
 `codec.NewMarshallerP`. Collection codecs for slices/maps of these custom types
 must still be registered explicitly.
+
+## Enums
+
+```go
+type options struct {
+    Color string `flag:"color" enum:"auto|always|never" default:"auto"`
+    Side  string `argument:"side" enum:"left|right"`
+}
+```
+
+Choices are exact and case-sensitive, with declaration order preserved in help
+and validation errors. An empty entry represents the empty string; duplicate
+entries are configuration errors. `default` and environment values must satisfy
+the same restriction as CLI inputs. Explicit `WithField` bindings override tags.
+
+For typed alternatives, use `codec.NewMarshallerEnum` or `codec.NewValueEnum`.
+The optional `codec.Enum[R]` contract also lets third-party codecs expose their
+full requirement set. See the [enums example](../_examples/enums).
 
 ## Standard streams
 

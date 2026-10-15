@@ -15,7 +15,48 @@ func Raw[V, R any](ctx context.Context, source Codec[V, R]) Codec[any, any] {
 	if ctx.Err() != nil || isNil(source) {
 		return nil
 	}
-	return raw[V, R]{source}
+	result := raw[V, R]{source}
+	if enumeration, ok := source.(Enum[R]); ok {
+		return rawEnum[V, R]{raw: result, enumeration: enumeration}
+	}
+	return result
+}
+
+// Only actual enums expose Enum[any]. Collection choices use a separate
+// projection, so adapting a collection never claims to enumerate all collections.
+type rawEnum[V, R any] struct {
+	raw[V, R]
+	enumeration Enum[R]
+}
+
+func (this rawEnum[V, R]) ToRaw(ctx context.Context) Codec[any, any] {
+	if ctx.Err() != nil {
+		return nil
+	}
+	return this
+}
+
+func (this rawEnum[V, R]) EnumVariants(ctx context.Context) ([]EnumVariant[any], error) {
+	variants, err := this.enumeration.EnumVariants(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]EnumVariant[any], len(variants))
+	for i, variant := range variants {
+		if err := ValidateRequirement(variant.Value); err != nil {
+			return nil, err
+		}
+		value, err := CloneRequirement(ctx, this.source, variant.Value)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = EnumVariant[any]{Value: value, Description: variant.Description}
+	}
+	return result, ctx.Err()
+}
+
+func (this raw[V, R]) EnumChoices(ctx context.Context) ([]EnumChoice, error) {
+	return DisplayEnum(ctx, this.source)
 }
 
 func (this raw[V, R]) ToRaw(ctx context.Context) Codec[any, any] {

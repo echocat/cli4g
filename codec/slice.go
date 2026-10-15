@@ -23,6 +23,10 @@ func NewStrings() Codec[[]string, []string] { return NewStringSlice() }
 
 type slice[V, R any] struct{ element Codec[V, R] }
 
+func (this slice[V, R]) EnumChoices(ctx context.Context) ([]EnumChoice, error) {
+	return DisplayEnum(ctx, this.element)
+}
+
 func (slice[V, R]) IsCumulative() bool { return true }
 
 func (this slice[V, R]) ParseRequirementInto(ctx context.Context, usage Usage, previous []R, args ...string) ([]R, error) {
