@@ -16,7 +16,7 @@ func (*pointerFactoryText) UnmarshalText([]byte) error   { return nil }
 func TestMarshallerPointerHelpersDeferInvalidFactoryUntilCreate(t *testing.T) {
 	var factory func() *pointerFactoryText
 	for _, scope := range []string{"app", "command"} {
-		for _, kind := range []string{"flag", "slice-flag", "argument", "slice-argument"} {
+		for _, kind := range []string{"flag", "slice-flag", "map-flag", "argument", "slice-argument", "map-argument"} {
 			t.Run(scope+"/"+kind, func(t *testing.T) {
 				root := NewSimpleApplication().WithName("app")
 				child := NewSimpleCommand().WithName("run")
@@ -27,10 +27,14 @@ func TestMarshallerPointerHelpersDeferInvalidFactoryUntilCreate(t *testing.T) {
 							root.WithMarshallerPFlag("value", factory)
 						case "slice-flag":
 							root.WithMarshallerPSliceFlag("value", factory)
+						case "map-flag":
+							root.WithMarshallerPMapFlag("value", factory)
 						case "argument":
 							root.WithMarshallerPArgument("value", factory)
 						case "slice-argument":
 							root.WithMarshallerPSliceArgument("value", factory)
+						case "map-argument":
+							root.WithMarshallerPMapArgument("value", factory)
 						}
 					} else {
 						switch kind {
@@ -38,10 +42,14 @@ func TestMarshallerPointerHelpersDeferInvalidFactoryUntilCreate(t *testing.T) {
 							child.WithMarshallerPFlag("value", factory)
 						case "slice-flag":
 							child.WithMarshallerPSliceFlag("value", factory)
+						case "map-flag":
+							child.WithMarshallerPMapFlag("value", factory)
 						case "argument":
 							child.WithMarshallerPArgument("value", factory)
 						case "slice-argument":
 							child.WithMarshallerPSliceArgument("value", factory)
+						case "map-argument":
+							child.WithMarshallerPMapArgument("value", factory)
 						}
 						root.WithCommand(child)
 					}

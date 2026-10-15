@@ -1,12 +1,27 @@
 // Package codec parses CLI inputs into typed values and provides codecs for
-// custom types, dates, durations, slices, and invocation-owned files.
+// custom types, dates, durations, slices, maps, and invocation-owned files.
 //
 // # Standard values
 //
 // The CLI package selects standard codecs for bool, string, numeric types,
-// time.Duration, time.Time, and their slices. Dates use [DateTimeCodec] by default;
+// time.Duration, time.Time, their slices, and string-keyed maps of these types.
+// Dates use [DateTimeCodec] by default;
 // select [NewDate] for date-only inputs. Named registrations override automatic
-// selection. See [NewDuration], [NewDateTime], [NewSlice], and [NewFile].
+// selection. See [NewDuration], [NewDateTime], [NewSlice], [NewMap], and [NewFile].
+//
+// # Maps
+//
+// [NewMap] supports [MapKey] keys: strings, booleans, integers, and named types
+// based on them. Compose the value codec independently, for example
+// NewMap[uint32](NewString()) for map[uint32]string. Register non-string-keyed
+// maps explicitly or supply their codec directly to a flag or argument builder.
+// Shortcuts such as [NewInt32Map] always use string keys.
+//
+// Each input is key=value, split at the first '='. A map flag consumes one pair
+// per occurrence; a map argument consumes remaining pairs and must be last.
+// Duplicate decoded keys are validation errors, even with different spellings
+// such as 42 and 0x2a. Maps preserve nil/empty defaults and format in stable key
+// order. CLI input replaces defaults rather than merging with them.
 //
 // # Custom values
 //

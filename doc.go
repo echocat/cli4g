@@ -39,11 +39,13 @@
 //   - Bare bool flags mean true; use `--verbose=false` for false.
 //   - Slice flags collect one element per occurrence, preserving order and duplicates.
 //   - Slice arguments collect remaining values and must be last.
+//   - Map flags collect one key=value pair per occurrence; duplicate keys are errors.
+//   - Map arguments collect remaining pairs and must be last. Map helpers use string keys.
 //   - Use `--` before positional values starting with `-`, including negative numbers.
 //   - Subcommands are selected before the first positional value; flags are inherited.
 //
 // Flag precedence is CLI, environment, declared default, options factory, zero.
-// Arguments omit the environment step. CLI slices replace defaults/factory values.
+// Arguments omit the environment step. CLI slices and maps replace defaults/factory values.
 // Inputs are not shell-split or CSV-split. Required inputs cannot have defaults;
 // factory values do not satisfy them. Required parent arguments cannot precede
 // subcommands. See [FlagRequirement], [ArgumentRequirement], and [ParseOpts].

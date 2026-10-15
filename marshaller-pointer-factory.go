@@ -31,3 +31,16 @@ func marshallerPointerSliceFactory[T interface {
 		return codec.NewSlice(element), nil
 	}
 }
+
+func marshallerPointerMapFactory[T interface {
+	encoding.TextMarshaler
+	encoding.TextUnmarshaler
+}](factory func() T) func() (codec.Codec[map[string]T, map[string]string], error) {
+	return func() (codec.Codec[map[string]T, map[string]string], error) {
+		element, err := marshallerPointerFactory(factory)()
+		if err != nil {
+			return nil, err
+		}
+		return codec.NewMap[string](element), nil
+	}
+}
