@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -80,6 +82,60 @@ func TestTemplatedHelpRendersRootAndCommandMetadataAndCodecDefaults(t *testing.T
 			assert.Contains(t, text, "(required)")
 			assert.Contains(t, text, "Inherited flags:")
 			assert.Contains(t, text, `default: ["one two", three]`)
+		}
+	}
+}
+
+func TestTemplatedHelpOmitsHiddenCommands(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		for _, visibleSibling := range []bool{false, true} {
+			t.Run(fmt.Sprintf("nested=%t/visibleSibling=%t", nested, visibleSibling), func(t *testing.T) {
+				var output bytes.Buffer
+				var calls int
+				hidden := NewSimpleCommand().
+					WithName("secret", "secret-alias").
+					WithDescription("Hidden command description.").
+					WithVisible(false).
+					WithHandler(func(context.Context, NoOptions) error {
+						calls++
+						return nil
+					})
+				commands := []CommandRequirementLike{hidden}
+				if visibleSibling {
+					commands = append(commands, NewSimpleCommand().WithName("public").WithDescription("Public command."))
+				}
+				var path []string
+				if nested {
+					commands = []CommandRequirementLike{NewSimpleCommand().WithName("parent").WithCommand(commands...)}
+					path = []string{"parent"}
+				}
+				app := NewSimpleApplication().WithName("app").
+					WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).
+					WithCommand(commands...).MustCreate()
+				defer func() { assert.NoError(t, app.Close()) }()
+				hidden.SetVisible(true) // Compiled commands retain their own visibility snapshot.
+				invocation := app.MustParse(context.Background(), nil, append(slices.Clone(path), "--help")...)
+				require.NoError(t, invocation.Execute(nil))
+				require.NoError(t, invocation.Close())
+				assert.NotContains(t, output.String(), "secret")
+				assert.NotContains(t, output.String(), "Hidden command description.")
+				if visibleSibling {
+					assert.Contains(t, output.String(), "public")
+					assert.Contains(t, output.String(), "[command]")
+				} else {
+					assert.NotContains(t, output.String(), "Commands:")
+					assert.NotContains(t, output.String(), "[command]")
+				}
+				for _, command := range invocation.HelpInfo().Commands {
+					assert.Equal(t, command.Name() == "public", command.IsVisible())
+				}
+				for _, name := range []string{"secret", "secret-alias"} {
+					invocation := app.MustParse(context.Background(), nil, append(slices.Clone(path), name)...)
+					require.NoError(t, invocation.Execute(nil))
+					require.NoError(t, invocation.Close())
+				}
+				assert.Equal(t, 2, calls)
+			})
 		}
 	}
 }

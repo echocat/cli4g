@@ -8,10 +8,11 @@ import (
 	"github.com/echocat/cli4g/codec"
 )
 
-// NewCommand starts a command builder with struct or pointer-to-struct options O.
+// NewCommand starts a visible command builder with struct or pointer-to-struct options O.
 // Attach it using [ApplicationRequirement.WithCommand] or [CommandRequirement.WithCommand].
 func NewCommand[O any]() *CommandRequirement[O] {
-	return &CommandRequirement[O]{}
+	// Unlike a zero-valued requirement, constructed commands are visible by default.
+	return &CommandRequirement[O]{Visible: true}
 }
 
 // NewSimpleCommand starts a command without an options struct.
@@ -26,6 +27,7 @@ type CommandRequirement[O any] struct {
 	Names []string
 
 	Description string
+	Visible     bool
 
 	Commands  []CommandRequirementLike
 	Codecs    []codec.Registration
@@ -61,6 +63,16 @@ func (this *CommandRequirement[O]) WithDescription(v string) *CommandRequirement
 
 func (this *CommandRequirement[O]) SetDescription(v string) {
 	this.Description = v
+}
+
+// WithVisible controls whether the command appears in help listings.
+func (this *CommandRequirement[O]) WithVisible(v bool) *CommandRequirement[O] {
+	this.SetVisible(v)
+	return this
+}
+
+func (this *CommandRequirement[O]) SetVisible(v bool) {
+	this.Visible = v
 }
 
 func (this *CommandRequirement[O]) WithCommand(v ...CommandRequirementLike) *CommandRequirement[O] {

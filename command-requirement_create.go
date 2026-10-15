@@ -39,6 +39,7 @@ func (r CommandRequirement[O]) createNode(
 	command := &Command[O]{
 		names:       slices.Clone(r.Names),
 		description: r.Description,
+		visible:     r.Visible,
 		containerBase: newContainerBase(
 			r.CreateOptionsHandler,
 			r.ValidateHandler,
