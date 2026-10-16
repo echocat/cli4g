@@ -11,6 +11,7 @@ for the input and lifecycle rules.
 | `arg` | Argument | `arg:"file"` | Alias for `argument`; `argument` takes precedence |
 | `short` | Flag | `short:"p\|P"` | Single-rune short aliases |
 | `env` | Flag | `env:"PORT\|APP_PORT"` | Environment fallback names, tried in order |
+| `profile` | Flag / argument | `profile:"A\|B"` | Active if any listed profile is selected in `ParseOpts.Profiles`; absent/empty means always active |
 | `default` | Flag / argument | `default:"8080"` | One codec input token; `default:""` is a declared default |
 | `required` | Flag / argument | `required:"true"` | Demand explicit input; default `false` |
 | `description` | Flag / argument | `description:"Listen port."` | Help description |

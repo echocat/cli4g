@@ -28,6 +28,7 @@
 //   - required=<true|false>: demands explicit input
 //   - type=<NAME>: selects a named codec registered with [ApplicationRequirement.WithCodec]
 //   - visible=<true|false>: If `false`, hides a flag from default help
+//   - profile=<NAME>: selects profiles for an input; `|` separates alternatives
 //
 // Builders offer the same inputs. Bind them explicitly with
 // [FlagRequirement.WithField] or [ArgumentRequirement.WithField]; names alone do
@@ -70,6 +71,36 @@
 // Anonymous parent fields must not promote Validate, Initialize, or Close methods.
 // Use [ApplicationFromContext], [CommandFromContext], or [Command.OptionsFrom]
 // to read the current typed options.
+//
+// # Profiles
+//
+// Assign inputs with profile:"A|B" or [FlagRequirement.WithProfiles] and
+// [ArgumentRequirement.WithProfiles]; use [CommandRequirement.WithProfiles] for
+// commands. [ParseOpts.Profiles] is the only profile-selection mechanism. A
+// definition without assignments is always active within its active parent;
+// otherwise any selected matching profile activates it once. Child commands do
+// not activate ancestors: a B child under an A parent requires both A and B.
+//
+// Create rejects conflicting profile-free or overlapping-profile definitions.
+// Disjoint variants may use the same name with different types and defaults;
+// selecting a conflicting combination is a parse error, even with --help or no
+// input for that definition. Unknown profiles also fail before scanning tokens.
+// Inactive definitions do not participate in help, defaults, environment lookup,
+// required checks, decoding, or resource acquisition. Active positional arguments
+// consume inputs in declaration order without gaps; Argument(index) retains the
+// stable complete-definition index, not the filtered input position.
+//
+// [Application.Profiles] lists all known profiles alphabetically, including
+// commands and descendants; [Application.ContainsProfile] checks exact names.
+// Container Flags and Commands list every variant. Flag, ShortFlag and Command
+// find only profile-free definitions; their OfProfile counterparts find explicit
+// assignments without fallback. [FindCommandOfProfile] provides typed path access.
+// Invocations expose the values and help metadata of their own selected schema,
+// allowing concurrent parses with different selections on the same application.
+// [Invocation.Profiles] and [Invocation.ContainsProfile] expose the invocation's
+// selected profiles. [ProfilesFromContext] and [ContextContainsProfile] make
+// this selection available throughout parsing and execution, including factories,
+// decoding, help, and error callbacks.
 //
 // # Lifecycle and errors
 //

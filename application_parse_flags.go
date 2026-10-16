@@ -10,7 +10,7 @@ import (
 	"github.com/echocat/cli4g/codec"
 )
 
-func scanLongFlag(ctx context.Context, vs []string, pos *int, path []Container, selectCommands bool) (flagInput, error) {
+func scanLongFlag(ctx context.Context, vs []string, pos *int, path []selectedContainer, selectCommands bool) (flagInput, error) {
 	name, inline, hasValue := strings.Cut(vs[*pos][2:], "=")
 	scope, definition := findInputFlag(path, name, 0)
 	if definition == nil {
@@ -30,7 +30,7 @@ func scanLongFlag(ctx context.Context, vs []string, pos *int, path []Container, 
 	return flagInput{scope: scope, definition: definition, values: values}, nil
 }
 
-func scanShortFlags(ctx context.Context, vs []string, pos *int, path []Container, selectCommands bool) ([]flagInput, bool, error) {
+func scanShortFlags(ctx context.Context, vs []string, pos *int, path []selectedContainer, selectCommands bool) ([]flagInput, bool, error) {
 	shorts := vs[*pos][1:]
 	var result []flagInput
 	for len(shorts) > 0 {
@@ -93,7 +93,7 @@ func scanHelpFlag(ctx context.Context, flag flagInput) (bool, error) {
 // -v=false). Required values are consumed even when they equal a command name.
 // Additional variadic values stop
 // at the next option or still-selectable command. -- always ends value consumption.
-func consumeFlagValues(ctx context.Context, vs []string, pos *int, values []string, arity valueArity, current Container, selectCommands bool) ([]string, error) {
+func consumeFlagValues(ctx context.Context, vs []string, pos *int, values []string, arity valueArity, current selectedContainer, selectCommands bool) ([]string, error) {
 	if arity.max == 0 || arity == (valueArity{min: 0, max: 1}) {
 		return values, ctx.Err()
 	}
@@ -110,7 +110,7 @@ func consumeFlagValues(ctx context.Context, vs []string, pos *int, values []stri
 				break
 			}
 			if selectCommands {
-				if _, ok := current.Command(next); ok {
+				if _, ok := current.commandByName[next]; ok {
 					break
 				}
 			}
@@ -121,14 +121,14 @@ func consumeFlagValues(ctx context.Context, vs []string, pos *int, values []stri
 	return values, ctx.Err()
 }
 
-func findInputFlag(path []Container, name string, short rune) (int, *Flag[any, any]) {
+func findInputFlag(path []selectedContainer, name string, short rune) (int, *Flag[any, any]) {
 	for i, p := range slices.Backward(path) {
 		var definition *Flag[any, any]
 		var found bool
 		if name != "" {
-			definition, found = p.Flag(name)
+			definition, found = p.schema.flagByName[name]
 		} else {
-			definition, found = p.ShortFlag(short)
+			definition, found = p.schema.flagByShort[short]
 		}
 		if found {
 			return i, definition

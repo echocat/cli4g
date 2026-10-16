@@ -25,6 +25,9 @@ func NewSimpleCommand() *CommandRequirement[NoOptions] {
 type CommandRequirement[O any] struct {
 	// Names contains the primary name followed by aliases.
 	Names []string
+	// Profiles activates this command when any listed profile is selected and
+	// its parent is active. An empty list only requires an active parent.
+	Profiles []string
 
 	Description string
 	Visible     bool
@@ -39,6 +42,17 @@ type CommandRequirement[O any] struct {
 	InitializeHandler    func(context.Context, O) error
 	Handler              func(context.Context, O) error
 	CloseHandler         func(O) error
+}
+
+// WithProfiles replaces the profile selection. No profiles means always active
+// within an active parent; selecting a child never activates its ancestors.
+func (this *CommandRequirement[O]) WithProfiles(v ...string) *CommandRequirement[O] {
+	this.SetProfiles(v)
+	return this
+}
+
+func (this *CommandRequirement[O]) SetProfiles(v []string) {
+	this.Profiles = slices.Clone(v)
 }
 
 // WithName replaces the primary name and optional aliases. WithAliases appends aliases.

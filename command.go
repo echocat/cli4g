@@ -9,6 +9,7 @@ import (
 type CommandLike interface {
 	Container
 	IsVisible() bool
+	Profiles() []string
 	isCommand()
 }
 
@@ -16,12 +17,17 @@ type CommandLike interface {
 // Build it with [NewCommand]. Read selected options with [Command.OptionsFrom].
 type Command[O any] struct {
 	names       []string
+	profiles    []string
 	description string
 	visible     bool
 	*containerBase
 }
 
 func (*Command[O]) isCommand() {}
+
+// Profiles returns a copy of the explicit profile assignments. Empty means the
+// command is active whenever its parent is active.
+func (c *Command[O]) Profiles() []string { return slices.Clone(c.profiles) }
 
 // Name returns the primary command name.
 func (c *Command[O]) Name() string {

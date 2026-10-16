@@ -15,8 +15,6 @@ func InvocationFromContext(ctx context.Context) (InvocationLike, bool) {
 }
 
 func withInvocationContext(ctx context.Context, invocation InvocationLike) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = withProfilesContext(ctx, invocation)
 	return context.WithValue(ctx, invocationContextKey{}, invocation)
 }

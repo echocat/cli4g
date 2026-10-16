@@ -12,6 +12,7 @@ import (
 // values; use [Invocation.Flag] to read V and [Flag.Default] to read a default R.
 type Flag[V, R any] struct {
 	names        []string
+	profiles     []string
 	shorts       []rune
 	envVars      []string
 	description  string
@@ -27,6 +28,9 @@ type Flag[V, R any] struct {
 	isHelp       bool // framework-owned flag, never set by user requirements
 	cumulative   bool
 }
+
+// Profiles returns a copy of the explicit profile assignments; empty means always active.
+func (this *Flag[V, R]) Profiles() []string { return slices.Clone(this.profiles) }
 
 func (this *Flag[V, R]) Name() string {
 	return this.names[0]

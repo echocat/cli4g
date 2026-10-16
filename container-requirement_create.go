@@ -17,8 +17,31 @@ type schemaDraft struct {
 	flagFields        map[*Flag[any, any]][]int
 	argumentFields    map[*Argument[any, any]][]int
 	parentFields      []parentField
-	argumentOverrides map[string]*Argument[any, any]
+	argumentOverrides map[string][]*Argument[any, any]
 	taggedArguments   []*Argument[any, any]
+	bindings          []draftFieldBinding
+}
+
+type draftFieldBinding struct {
+	index    []int
+	name     string
+	profiles []string
+}
+
+func (s *schemaDraft) registerBinding(index []int, name string, profiles []string) error {
+	if len(index) == 0 {
+		return nil
+	}
+	for _, previous := range s.bindings {
+		if pathsOverlap(index, previous.index) && profilesOverlap(profiles, previous.profiles) {
+			if len(index) == len(previous.index) {
+				return errSchema("options field %s is bound more than once (profiles %v and %v)", name, previous.profiles, profiles)
+			}
+			return errSchema("overlapping options field binding for %s and %s (profiles %v and %v)", name, previous.name, previous.profiles, profiles)
+		}
+	}
+	s.bindings = append(s.bindings, draftFieldBinding{index: index, name: name, profiles: profiles})
+	return nil
 }
 
 func buildSchema(typ reflect.Type, cs []codec.Registration, fs []FlagRequirementLike, as []ArgumentRequirementLike) (schemaDraft, error) {
@@ -32,7 +55,7 @@ func buildSchema(typ reflect.Type, cs []codec.Registration, fs []FlagRequirement
 		flagFields:        make(map[*Flag[any, any]][]int),
 		argumentNames:     make(map[*Argument[any, any]]string),
 		argumentFields:    make(map[*Argument[any, any]][]int),
-		argumentOverrides: make(map[string]*Argument[any, any]),
+		argumentOverrides: make(map[string][]*Argument[any, any]),
 	}
 	registry, err := codec.NewRegistry(context.Background(), cs)
 	if err != nil {
@@ -59,12 +82,16 @@ func buildSchema(typ reflect.Type, cs []codec.Registration, fs []FlagRequirement
 		if err != nil {
 			return s, err
 		}
-		fieldIndex, err := bindUniqueField(typ, f.fieldPath, f.valueType, bound)
-		if err != nil {
+		var fieldIndex []int
+		if err := bindField(typ, f.fieldPath, f.valueType, &fieldIndex); err != nil {
+			return s, err
+		}
+		if err := s.registerBinding(fieldIndex, fmt.Sprint(f.fieldPath), f.profiles); err != nil {
 			return s, err
 		}
 		if len(fieldIndex) > 0 {
 			s.flagFields[f] = fieldIndex
+			bound[fmt.Sprint(fieldIndex)] = true
 		}
 		if err = s.schema.addFlag(f); err != nil {
 			return s, err
@@ -78,13 +105,18 @@ func buildSchema(typ reflect.Type, cs []codec.Registration, fs []FlagRequirement
 		if err != nil {
 			return s, err
 		}
-		fieldIndex, err := bindUniqueField(typ, a.fieldPath, a.valueType, bound)
-		if err != nil {
+		var fieldIndex []int
+		if err := bindField(typ, a.fieldPath, a.valueType, &fieldIndex); err != nil {
+			return s, err
+		}
+		if err := s.registerBinding(fieldIndex, fmt.Sprint(a.fieldPath), a.profiles); err != nil {
 			return s, err
 		}
 		if len(fieldIndex) > 0 {
 			s.argumentFields[a] = fieldIndex
-			s.argumentOverrides[fmt.Sprint(fieldIndex)] = a
+			key := fmt.Sprint(fieldIndex)
+			s.argumentOverrides[key] = append(s.argumentOverrides[key], a)
+			bound[key] = true
 		}
 		if err = s.schema.addArgument(a); err != nil {
 			return s, err

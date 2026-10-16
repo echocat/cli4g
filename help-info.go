@@ -36,10 +36,18 @@ func (this Invocation[O]) HelpInfo() HelpInfo {
 		info.Path[i] = this.frames[i].container
 	}
 	info.Target = info.Path[len(info.Path)-1]
-	for command := range info.Target.Commands() {
-		info.Commands = append(info.Commands, command)
-	}
 	plan := info.Target.base().plan
+	if len(this.selected) > 0 {
+		info.Commands = append(info.Commands, this.selected[len(this.selected)-1].commands...)
+		plan = &parsePlan{schemas: make([]containerSchema, len(this.selected))}
+		for i, selected := range this.selected {
+			plan.schemas[i] = selected.schema
+		}
+	} else {
+		for command := range info.Target.Commands() {
+			info.Commands = append(info.Commands, command)
+		}
+	}
 	for i, schema := range plan.schemas {
 		for _, flag := range schema.flags {
 			info.Flags = append(info.Flags, HelpFlagInfo{

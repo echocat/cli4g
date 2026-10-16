@@ -15,7 +15,11 @@ func compilePaths(node *compileNode, parents []*compileNode, path string, owner 
 	if len(node.children) > 0 {
 		for _, argument := range node.draft.schema.arguments {
 			if argument.IsRequired() {
-				return fmt.Errorf("%s: required positional argument %q cannot be combined with subcommands", path, argument.Name())
+				for _, child := range node.children {
+					if profilesOverlap(argument.profiles, child.container.(CommandLike).Profiles()) {
+						return fmt.Errorf("%s: required positional argument %q cannot be combined with subcommands", path, argument.Name())
+					}
+				}
 			}
 		}
 	}
@@ -66,6 +70,7 @@ func resolveSchema(draft schemaDraft, stack []*compileNode, owner *definitionLif
 			return result, fmt.Errorf("flag --%s: required cannot be combined with a default", source.Name())
 		}
 		flag := *source
+		flag.profiles = slices.Clone(source.profiles)
 		flag.names, flag.shorts, flag.envVars = slices.Clone(source.names), slices.Clone(source.shorts), slices.Clone(source.envVars)
 		binding, err := compileFieldBinding(draft.schema.optionsType, draft.flagFields[source], source.valueType)
 		if err != nil {
@@ -93,11 +98,12 @@ func resolveSchema(draft schemaDraft, stack []*compileNode, owner *definitionLif
 			return result, err
 		}
 	}
-	for i, source := range draft.schema.arguments {
+	for _, source := range draft.schema.arguments {
 		if source.required && source.HasDefault() {
 			return result, fmt.Errorf("argument %s: required cannot be combined with a default", source.Name())
 		}
 		argument := *source
+		argument.profiles = slices.Clone(source.profiles)
 		binding, err := compileFieldBinding(draft.schema.optionsType, draft.argumentFields[source], source.valueType)
 		if err != nil {
 			return result, fmt.Errorf("argument %s: %w", source.Name(), err)
@@ -119,11 +125,17 @@ func resolveSchema(draft schemaDraft, stack []*compileNode, owner *definitionLif
 		if err != nil {
 			return result, fmt.Errorf("argument %s: %w", source.Name(), err)
 		}
-		if i < len(draft.schema.arguments)-1 && argument.arity != (valueArity{min: 1, max: 1}) {
-			return result, fmt.Errorf("argument %s: only the final argument may be variadic", source.Name())
-		}
 		if err := result.addArgument(&argument); err != nil {
 			return result, err
+		}
+	}
+	for i, argument := range result.arguments {
+		if argument.arity != (valueArity{min: 1, max: 1}) {
+			for _, later := range result.arguments[i+1:] {
+				if profilesOverlap(argument.profiles, later.profiles) {
+					return result, fmt.Errorf("argument %s: only the final argument may be variadic", argument.Name())
+				}
+			}
 		}
 	}
 	return result, nil

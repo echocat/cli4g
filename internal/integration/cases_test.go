@@ -60,6 +60,14 @@ func exampleCases() map[string][]smokeCase {
 			failure("unknown level", []string{"trace"}, 2, `expected one of: "info", "debug"`, true),
 			failure("unknown tag value", []string{"--color", "sometimes"}, 2, `expected one of: "auto", "always", "never"`, true),
 		},
+		"profiles": {
+			{name: "text default", args: []string{"convert"}, env: []string{"CLI4G_PROFILES=text"}, want: expected{stdout: text("hello!\n")}},
+			{name: "number variant", args: []string{"convert", "--foo", "7", "6"}, env: []string{"CLI4G_PROFILES=number"}, want: expected{stdout: text("42\n")}},
+			{name: "text greeting", args: []string{"greet", "--principal", "Ada"}, env: []string{"CLI4G_PROFILES=text"}, want: expected{stdout: text("Hello, Ada\n")}},
+			{name: "number greeting", args: []string{"greet", "--principal", "42"}, env: []string{"CLI4G_PROFILES=number"}, want: expected{stdout: text("Hello, #42\n")}},
+			{name: "conflicting variants", env: []string{"CLI4G_PROFILES=text,number"}, want: expected{code: 2, stderrContains: `command "convert" is duplicated`, help: boolean(true)}},
+			{name: "unknown profile", args: []string{"--help"}, env: []string{"CLI4G_PROFILES=typo"}, want: expected{code: 2, stderrContains: `unknown profile "typo"`, help: boolean(true)}},
+		},
 		"error-handling": {
 			success("message", []string{"Hello"}, "Hello\n"),
 			failure("unknown flag", []string{"--unknown"}, 64, "unknown flag", true),

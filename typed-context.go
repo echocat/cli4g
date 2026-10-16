@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"reflect"
+	"slices"
 )
 
 // ApplicationFromContext returns the current root options, without cloning or
@@ -23,7 +24,8 @@ func ApplicationFromContext[O any](ctx context.Context) (O, bool) {
 
 // CommandFromContext returns the current command's options when path is empty.
 // An explicit path starts at the application and must identify a command selected
-// in this invocation. Aliases are accepted; no options are created by this getter.
+// in this invocation. It follows the selected stack, including profile-specific
+// variants and ancestors. Aliases are accepted; no options are created by this getter.
 func CommandFromContext[O any](ctx context.Context, path ...string) (O, bool) {
 	var zero O
 	invocation, found := InvocationFromContext(ctx)
@@ -41,14 +43,16 @@ func CommandFromContext[O any](ctx context.Context, path ...string) (O, bool) {
 		}
 		container = current
 	} else {
-		container = invocation.Root()
-		for _, name := range path {
-			command, found := container.Command(name)
-			if !found {
+		stack := invocation.Stack()
+		if len(path) > len(stack) {
+			return zero, false
+		}
+		for i, name := range path {
+			if !slices.Contains(stack[i].Command.Names(), name) {
 				return zero, false
 			}
-			container = command
 		}
+		container = stack[len(path)-1].Command
 	}
 	value, found := invocation.optionsFor(container)
 	if !found {
