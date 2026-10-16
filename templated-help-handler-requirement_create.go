@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"golang.org/x/term"
 )
 
 // Create compiles an independent template set. Template execution may run
@@ -17,6 +19,9 @@ import (
 func (this *TemplatedHelpHandlerRequirement) Create() (HelpHandler, error) {
 	if this == nil {
 		return nil, fmt.Errorf("nil templated help handler requirement")
+	}
+	if this.Width < 0 {
+		return nil, fmt.Errorf("help width must not be negative")
 	}
 	funcs := template.FuncMap{"join": strings.Join, "quote": strconv.Quote}
 	for name, function := range this.Funcs {
@@ -37,6 +42,7 @@ func (this *TemplatedHelpHandlerRequirement) Create() (HelpHandler, error) {
 	}
 	output := this.Output
 	exitCode := this.ExitCode
+	width, formatting := this.Width, !this.formattingDisabled
 	return func(ctx context.Context, invocation InvocationLike) error {
 		if ctx == nil {
 			ctx = context.Background()
@@ -59,17 +65,25 @@ func (this *TemplatedHelpHandlerRequirement) Create() (HelpHandler, error) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		writer := handlerOutput(ctx, output)
+		text := buffer.Bytes()
+		if formatting {
+			text, err = formatHelp(ctx, text, helpOutputWidth(writer, width, term.GetSize))
+			if err != nil {
+				return err
+			}
+		}
 		err = func() error {
 			handlerOutputMutex.Lock()
 			defer handlerOutputMutex.Unlock()
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			n, err := handlerOutput(ctx, output).Write(buffer.Bytes())
+			n, err := writer.Write(text)
 			if err != nil {
 				return fmt.Errorf("write help: %w", err)
 			}
-			if n != buffer.Len() {
+			if n != len(text) {
 				return fmt.Errorf("write help: %w", io.ErrShortWrite)
 			}
 			return ctx.Err()

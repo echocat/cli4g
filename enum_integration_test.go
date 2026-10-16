@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/echocat/cli4g/codec"
@@ -72,7 +73,7 @@ func TestEnumsIntegrateWithTagsTypedAdaptersCollectionsAndHelp(t *testing.T) {
 	defer func() { assert.NoError(t, app.Close()) }()
 	ctx := context.Background()
 	require.NoError(t, app.ParseAndExecute(ctx, nil, "--help"))
-	assert.Contains(t, output.String(), "choices: auto, always, never")
+	assert.Contains(t, strings.Join(strings.Fields(output.String()), " "), "choices: auto, always, never")
 	assert.Contains(t, output.String(), "choices: left, right")
 	assert.Contains(t, output.String(), "choices: json, yaml")
 	assert.Contains(t, output.String(), "JSON encoding.")

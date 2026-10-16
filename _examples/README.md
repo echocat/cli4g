@@ -31,7 +31,7 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [custom-codec](custom-codec) | Implementing a codec with separate requirement and runtime types |
 | [named-codecs](named-codecs) | Selecting different codecs for the same Go type through type tags |
 | [custom-resource-codec](custom-resource-codec) | Acquiring resources in Resolve and registering scope cleanup |
-| [custom-help](custom-help) | Custom application, usage, flag, and argument help templates |
+| [custom-help](custom-help) | Custom help templates with automatic column alignment and word wrapping |
 | [error-handling](error-handling) | Returning error responses and caller-selected exit codes |
 
 Handlers can use `cli.Print`, `cli.Printf`, and `cli.Println` for stdout and

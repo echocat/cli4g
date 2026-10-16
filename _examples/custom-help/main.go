@@ -16,10 +16,10 @@ Inputs:
 Options:
 {{range .Flags}}{{template "flag" .}}{{end}}{{end}}`
 
-const flagHelp = `  {{.Label}}: {{.Description}}{{if .HasDefault}} [default: {{.DefaultText}}]{{end}}
+const flagHelp = `  {{.Label}}:	{{.Description}}{{if .HasDefault}} [default: {{.DefaultText}}]{{end}}
 `
 
-const argumentHelp = `  {{.Label}}: {{.Description}}{{if .Required}} [required]{{end}}
+const argumentHelp = `  {{.Label}}:	{{.Description}}{{if .Required}} [required]{{end}}
 `
 
 type options struct {

@@ -15,7 +15,7 @@ for the input and lifecycle rules.
 | `default` | Flag / argument | `default:"8080"` | One codec input token; `default:""` is a declared default |
 | `required` | Flag / argument | `required:"true"` | Demand explicit input; default `false` |
 | `description` | Flag / argument | `description:"Listen port."` | Help description |
-| `placeholder` | Flag / argument | `placeholder:"PORT"` | Help value label; normally derived from the input name |
+| `placeholder` | Flag / argument | `placeholder:"PORT"` | Explicit help value text; preserves case, displayed as `<PORT>` |
 | `visible` | Flag | `visible:"false"` | Hide from default help; default `true` |
 | `type` | Flag / argument | `type:"date"` | Select a registered named codec |
 | `enum` | String flag / argument | `enum:"auto\|always\|never"` | Restrict literal string choices and advertise them in help |
