@@ -175,6 +175,20 @@
 // immediately, skips options creation, and runs only the help handler. Earlier
 // syntax errors and invalid displayed defaults still fail. Customize with
 // [ApplicationRequirement.WithHelpHandler] and [NewTemplatedHelpHandler].
+// Argument value labels preserve the declared name and case: <userName>. Flag
+// values use --flag=<value>; the generated value name is the final lowercased
+// word, splitting at '.', '-', '_' and case boundaries (log.colorMode -> <mode>).
+// Explicit placeholder tags or WithPlaceholder text keep their case and take
+// precedence; surrounding <...> are added once. Optional arguments use [<name>],
+// variadic values <name>..., and optional single flag values --flag[=<value>].
+// Template output is automatically aligned and word-wrapped. Tabs separate
+// columns; blank lines separate sections, and nested indentation gets its own
+// column widths. Terminal width is read from the selected output for each help
+// rendering; files, pipes and other unsuccessful queries fall back to 80.
+// [TemplatedHelpHandlerRequirement.WithWidth] selects a fixed width;
+// [TemplatedHelpHandlerRequirement.WithFormatting] disables layout for exact
+// template output. Width counts Unicode code points, not terminal cell widths;
+// unbreakable words/labels may exceed it. CRLF is normalized to LF by formatting.
 //
 // File tags fileMode:"read|write|readWrite" and allowSpecial:"true" configure
 // *os.File inputs. Invocations own codec-opened handles. Write modes create missing

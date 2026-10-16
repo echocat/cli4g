@@ -193,6 +193,9 @@ func (this *FlagRequirement[V, R]) SetVisible(v bool) {
 	this.Visible = v
 }
 
+// WithPlaceholder sets help value text, preserving its case. The default uses the
+// last word of the primary flag name, split at '.', '-', '_' and case boundaries,
+// and lowercased. Help displays --flag=<text>, enclosing text once in <...>.
 func (this *FlagRequirement[V, R]) WithPlaceholder(v string) *FlagRequirement[V, R] {
 	this.SetPlaceholder(v)
 	return this

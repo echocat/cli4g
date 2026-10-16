@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/echocat/cli4g/codec"
 )
@@ -168,9 +169,7 @@ func buildHelpTemplateData(ctx context.Context, invocation InvocationLike) (Help
 		}
 		label := helpValueLabel(definition.Placeholder(), definition.Name(), argument.MinValues, argument.MaxValues)
 		usageLabel := label
-		if definition.IsRequired() {
-			usageLabel = "<" + usageLabel + ">"
-		} else {
+		if !definition.IsRequired() {
 			usageLabel = "[" + usageLabel + "]"
 		}
 		if argument.MaxValues != 0 {
@@ -225,16 +224,47 @@ func helpFlagLabel(info HelpFlagInfo) string {
 	if info.MaxValues == 0 || flag.IsBoolFlag() {
 		return label
 	}
-	value := helpValueLabel(flag.Placeholder(), flag.Name(), info.MinValues, info.MaxValues)
+	name := flag.Name()
+	if flag.Placeholder() == "" {
+		name = helpFlagValueName(name)
+	}
+	value := helpValueLabel(flag.Placeholder(), name, info.MinValues, info.MaxValues)
 	if info.MinValues == 0 && info.MaxValues == 1 {
 		return label + "[=" + value + "]"
 	}
-	return label + " " + value
+	return label + "=" + value
+}
+
+// Use the last word of the primary flag name, including camel/PascalCase and
+// acronym boundaries. Explicit placeholders bypass normalization entirely.
+func helpFlagValueName(name string) string {
+	component := strings.TrimRight(name, ".-_")
+	if component == "" {
+		return strings.ToLower(name)
+	}
+	component = component[strings.LastIndexAny(component, ".-_")+1:]
+	letters := []rune(component)
+	start := 0
+	for i := 1; i < len(letters); i++ {
+		if !unicode.IsUpper(letters[i]) && !unicode.IsTitle(letters[i]) {
+			continue
+		}
+		// lowerCase -> Word, or an acronym followed by a capitalized word:
+		// serverURL -> URL; HTTPMode -> Mode.
+		if unicode.IsLower(letters[i-1]) || unicode.IsDigit(letters[i-1]) ||
+			(i+1 < len(letters) && unicode.IsLower(letters[i+1])) {
+			start = i
+		}
+	}
+	return strings.ToLower(string(letters[start:]))
 }
 
 func helpValueLabel(placeholder, name string, minValues, maxValues int) string {
 	if placeholder == "" {
-		placeholder = strings.ToUpper(name)
+		placeholder = name
+	}
+	if !strings.HasPrefix(placeholder, "<") || !strings.HasSuffix(placeholder, ">") {
+		placeholder = "<" + placeholder + ">"
 	}
 	if maxValues == -1 {
 		return placeholder + "..."

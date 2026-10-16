@@ -22,15 +22,15 @@ const DefaultUsageHelpTemplate = `Usage:
 `
 
 // DefaultCommandEntryHelpTemplate renders one available command.
-const DefaultCommandEntryHelpTemplate = `  {{.Label}}{{if .Description}}	{{.Description}}{{end}}
+const DefaultCommandEntryHelpTemplate = `  {{.Label}}	{{.Description}}
 `
 
 // DefaultFlagHelpTemplate renders one own or inherited flag.
-const DefaultFlagHelpTemplate = `  {{.Label}}{{if .Description}}	{{.Description}}{{end}}{{if .Required}} (required){{end}}{{if .EnvVars}} (env: {{join .EnvVars ", "}}){{end}}{{if .HasDefault}} (default: {{.DefaultText}}){{end}}{{if and .Choices (not .HasChoiceDescriptions)}} (choices: {{.ChoicesText}}){{end}}
-{{if .HasChoiceDescriptions}}{{range .Choices}}    {{.Text}}{{if .Description}}	{{.Description}}{{end}}
+const DefaultFlagHelpTemplate = `  {{.Label}}	{{.Description}}{{if .Required}} (required){{end}}{{if .EnvVars}} (env: {{join .EnvVars ", "}}){{end}}{{if .HasDefault}} (default: {{.DefaultText}}){{end}}{{if and .Choices (not .HasChoiceDescriptions)}} (choices: {{.ChoicesText}}){{end}}
+{{if .HasChoiceDescriptions}}{{range .Choices}}    {{.Text}}	{{.Description}}
 {{end}}{{end}}`
 
 // DefaultArgumentHelpTemplate renders one positional argument.
-const DefaultArgumentHelpTemplate = `  {{.Label}}{{if .Description}}	{{.Description}}{{end}}{{if .Required}} (required){{end}}{{if .HasDefault}} (default: {{.DefaultText}}){{end}}{{if and .Choices (not .HasChoiceDescriptions)}} (choices: {{.ChoicesText}}){{end}}
-{{if .HasChoiceDescriptions}}{{range .Choices}}    {{.Text}}{{if .Description}}	{{.Description}}{{end}}
+const DefaultArgumentHelpTemplate = `  {{.Label}}	{{.Description}}{{if .Required}} (required){{end}}{{if .HasDefault}} (default: {{.DefaultText}}){{end}}{{if and .Choices (not .HasChoiceDescriptions)}} (choices: {{.ChoicesText}}){{end}}
+{{if .HasChoiceDescriptions}}{{range .Choices}}    {{.Text}}	{{.Description}}
 {{end}}{{end}}`

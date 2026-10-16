@@ -3,6 +3,7 @@ package cli_test
 import (
 	"context"
 	"fmt"
+	"os"
 
 	cli "github.com/echocat/cli4g"
 	"github.com/echocat/cli4g/codec"
@@ -140,4 +141,30 @@ func ExampleNewArgument() {
 	_, value := invocation.Argument(0)
 	fmt.Println(value)
 	// Output: Ada
+}
+
+func ExampleTemplatedHelpHandlerRequirement_WithWidth() {
+	help := cli.NewTemplatedHelpHandler().
+		WithOutput(os.Stdout).
+		WithWidth(36).
+		WithApplicationTemplate("{{.FullName}}\n  run\tInspect configured flows and recordings.\n").
+		MustCreate()
+	cli.NewSimpleApplication("tool").WithHelpHandler(help).
+		MustCreateParseAndExecute(context.Background(), nil, "--help")
+	// Output:
+	// tool
+	//   run  Inspect configured flows and
+	//        recordings.
+}
+
+func ExampleTemplatedHelpHandlerRequirement_WithFormatting() {
+	help := cli.NewTemplatedHelpHandler().
+		WithOutput(os.Stdout).
+		WithWidth(12).
+		WithFormatting(false).
+		WithApplicationTemplate("Exact template spacing:    preserved.\n").
+		MustCreate()
+	cli.NewSimpleApplication("tool").WithHelpHandler(help).
+		MustCreateParseAndExecute(context.Background(), nil, "--help")
+	// Output: Exact template spacing:    preserved.
 }

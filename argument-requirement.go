@@ -144,6 +144,9 @@ func (this *ArgumentRequirement[V, R]) SetRequired(v bool) {
 	this.Required = v
 }
 
+// WithPlaceholder sets help value text, preserving its case. The default uses the
+// complete argument name. Help encloses the text in <...> unless already enclosed;
+// optionality and arity are shown outside those brackets.
 func (this *ArgumentRequirement[V, R]) WithPlaceholder(v string) *ArgumentRequirement[V, R] {
 	this.SetPlaceholder(v)
 	return this
