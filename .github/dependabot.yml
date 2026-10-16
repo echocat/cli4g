@@ -10,6 +10,20 @@ updates:
           - "github/codeql-action"
 
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - "/"
+      - "/_examples/*"
+      - "/_benchmarks"
     schedule:
       interval: "daily"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Nested modules resolve cli4g through a local replace to this repository.
+      - dependency-name: "github.com/echocat/cli4g"
+    groups:
+      go-modules:
+        applies-to: "version-updates"
+        group-by: "dependency-name"
+        patterns:
+          - "*"
