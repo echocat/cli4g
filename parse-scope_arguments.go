@@ -50,7 +50,7 @@ func (this *parseScope) parseArguments(ctx context.Context) error {
 		}
 		v, err := a.codec.ParseRequirement(ctx, codec.UsageArgument, this.positions[position:position+count]...)
 		if err != nil {
-			return fmt.Errorf("argument %s: %w", a.name, err)
+			return fmt.Errorf("argument %s: %w", a.name, codec.SanitizeError(err, "value could not be decoded"))
 		}
 		if err := codec.ValidateRequirement(v); err != nil {
 			return fmt.Errorf("argument %s: %w", a.name, err)

@@ -21,7 +21,9 @@ func TestFileTagsOpenAndCloseBoundValues(t *testing.T) {
 	dir := t.TempDir()
 	input, output := filepath.Join(dir, "input"), filepath.Join(dir, "output")
 	require.NoError(t, os.WriteFile(input, []byte("payload"), 0600))
-	app := NewApplication[options]().WithName("files").WithErrorHandlerEnabled(false).MustCreate()
+	app := NewApplication[options]("files").
+		WithErrorHandlerEnabled(false).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, err := os.Stat(output)
 	assert.ErrorIs(t, err, os.ErrNotExist, "compilation acquires no file resources")
@@ -53,7 +55,9 @@ func TestFileTagsSupportReadWriteAndSpecialOptIn(t *testing.T) {
 	}
 	path := filepath.Join(t.TempDir(), "data")
 	require.NoError(t, os.WriteFile(path, []byte("abc"), 0600))
-	app := NewApplication[options]().WithName("files").WithErrorHandlerEnabled(false).MustCreate()
+	app := NewApplication[options]("files").
+		WithErrorHandlerEnabled(false).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "--file", path, "--null", os.DevNull)
 	require.NoError(t, err)
@@ -84,7 +88,9 @@ func TestTaggedFileSlicesAndImplicitReadCodec(t *testing.T) {
 	first, second := filepath.Join(dir, "first"), filepath.Join(dir, "second")
 	require.NoError(t, os.WriteFile(first, []byte("one"), 0600))
 	require.NoError(t, os.WriteFile(second, []byte("two"), 0600))
-	app := NewApplication[options]().WithName("files").WithErrorHandlerEnabled(false).MustCreate()
+	app := NewApplication[options]("files").
+		WithErrorHandlerEnabled(false).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "-i", first, "-i", second, first)
 	require.NoError(t, err)
@@ -110,7 +116,9 @@ func TestFileTagsHelpDoesNotOpenOutput(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "not-created")
 	var output bytes.Buffer
 	help := NewTemplatedHelpHandler().WithOutput(&output).WithApplicationTemplate("{{.Usage}}").MustCreate()
-	app := NewApplication[options]().WithName("files").WithHelpHandler(help).MustCreate()
+	app := NewApplication[options]("files").
+		WithHelpHandler(help).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "--output", path, "--help")
 	require.NoError(t, err)
@@ -129,8 +137,10 @@ func TestFileTagsWorkInCommandPointerEmbeddings(t *testing.T) {
 	type options struct{ *TaggedFileMixin }
 	path := filepath.Join(t.TempDir(), "input")
 	require.NoError(t, os.WriteFile(path, []byte("command data"), 0600))
-	app := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-		WithCommand(NewCommand[*options]().WithName("cat")).MustCreate()
+	app := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
+		WithCommand(NewCommand[*options]("cat")).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "cat", path)
 	require.NoError(t, err)
@@ -153,55 +163,55 @@ func TestInvalidFileTagsAreConfigurationErrors(t *testing.T) {
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" fileMode:"invalid"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" fileMode:""`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" allowSpecial:"invalid"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" allowStdio:"invalid"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				Name string `flag:"name" allowStdio:"true"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" allowStdio:"true" type:"named"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				Name string `flag:"name" fileMode:"read"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				Name string `argument:"name" allowSpecial:"true"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				File *os.File `flag:"file" fileMode:"read" type:"named"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 	} {
@@ -216,9 +226,11 @@ func TestExplicitFileBindingOverridesTagConfiguration(t *testing.T) {
 	type options struct {
 		File *os.File `flag:"old" fileMode:"invalid"`
 	}
-	app, err := NewApplication[options]().WithName("app").WithFileFlag("input", func(f *FlagRequirement[*os.File, codec.FileRequirement]) {
-		f.WithField("File")
-	}).Create()
+	app, err := NewApplication[options]("app").
+		WithFileFlag("input", func(f *FlagRequirement[*os.File, codec.FileRequirement]) {
+			f.WithField("File")
+		}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, found := app.Flag("old")
@@ -232,8 +244,10 @@ func TestRegistryFileCodecStillPrecedesImplicitFallback(t *testing.T) {
 		File *os.File `flag:"file"`
 	}
 	path := filepath.Join(t.TempDir(), "created")
-	app := NewApplication[options]().WithName("app").WithErrorHandlerEnabled(false).
-		WithCodec(codec.NewFile(codec.FileWrite)).MustCreate()
+	app := NewApplication[options]("app").
+		WithErrorHandlerEnabled(false).
+		WithCodec(codec.NewFile(codec.FileWrite)).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "--file", path)
 	require.NoError(t, err)

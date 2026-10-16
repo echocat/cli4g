@@ -12,9 +12,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("repeatable-flags").
-		WithDescription("Collect repeated flag values in a slice.").
+	cli.NewApplication[options]("repeatable-flags", "Collect repeated flag values in a slice.").
 		WithHandler(showTags).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

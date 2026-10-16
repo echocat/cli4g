@@ -71,8 +71,8 @@ func argumentConvenienceCase[V, R any](
 		for _, scope := range []string{"application", "command"} {
 			for _, mode := range []string{"plain", "configured", "required-default"} {
 				t.Run(scope+"/"+mode, func(t *testing.T) {
-					root := NewSimpleApplication().WithName("app").WithHelp(false)
-					child := NewSimpleCommand().WithName("run")
+					root := NewSimpleApplication("app").WithHelp(false)
+					child := NewSimpleCommand("run")
 					var configure []func(*ArgumentRequirement[V, R])
 					var order []int
 					var configured *ArgumentRequirement[V, R]
@@ -159,9 +159,11 @@ type argumentConvenienceOptions struct {
 }
 
 func argumentConvenienceRequirements() (*ApplicationRequirement[argumentConvenienceOptions], *CommandRequirement[argumentConvenienceOptions]) {
-	root := NewApplication[argumentConvenienceOptions]().WithName("app").WithHelp(false).
+	root := NewApplication[argumentConvenienceOptions]("app").
+		WithHelp(false).
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err })
-	return root, NewCommand[argumentConvenienceOptions]().WithName("run", "r")
+	return root, NewCommand[argumentConvenienceOptions]("run").
+		WithAliases("r")
 }
 
 func argumentConvenienceArgs(scope string, inputs ...string) []string {
@@ -197,7 +199,7 @@ func TestArgumentConvenienceBindingAndDefaultsMatchExplicitBuilder(t *testing.T)
 						}
 					}
 					if form == "explicit" {
-						argument := NewArgument(codec.NewUint32()).WithName("port")
+						argument := NewArgument(codec.NewUint32(), "port")
 						configure(argument)
 						if scope == "command" {
 							child.WithArgument(argument)
@@ -317,8 +319,9 @@ func TestArgumentConvenienceVariadicDefaultsAndIndices(t *testing.T) {
 func TestArgumentConvenienceRetainsVariadicAndParentRequiredConstraints(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		t.Run(scope, func(t *testing.T) {
-			root := NewSimpleApplication().WithName("app").WithHelp(false)
-			child := NewSimpleCommand().WithName("run")
+			root := NewSimpleApplication("app").
+				WithHelp(false)
+			child := NewSimpleCommand("run")
 			if scope == "command" {
 				child.WithStringSliceArgument("items").WithStringArgument("last")
 				root.WithCommand(child)
@@ -327,11 +330,13 @@ func TestArgumentConvenienceRetainsVariadicAndParentRequiredConstraints(t *testi
 			}
 			_, err := root.Create()
 			require.ErrorContains(t, err, "only the final argument may be variadic")
-			root = NewSimpleApplication().WithName("app").WithHelp(false)
-			child = NewSimpleCommand().WithName("run")
+			root = NewSimpleApplication("app").
+				WithHelp(false)
+			child = NewSimpleCommand("run")
 			configure := func(a *ArgumentRequirement[uint32, uint32]) { a.WithRequired(true) }
 			if scope == "command" {
-				child.WithUint32Argument("value", configure).WithCommand(NewSimpleCommand().WithName("leaf"))
+				child.WithUint32Argument("value", configure).
+					WithCommand(NewSimpleCommand("leaf"))
 				root.WithCommand(child)
 			} else {
 				root.WithUint32Argument("value", configure).WithCommand(child)

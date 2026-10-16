@@ -18,7 +18,7 @@ mise example enums --color never --format yaml --extra-format json debug
 # color=never format=yaml level=debug extra=1
 
 mise example enums --format toml
-# Error: ... invalid enum value "toml"; expected one of: "json", "yaml"
+# Error: ... expected one of: "json", "yaml"
 # <help including the valid choices and their descriptions>
 # program exit code: 2
 

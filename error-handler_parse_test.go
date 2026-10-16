@@ -45,7 +45,7 @@ func TestErrorHandlerParseRunsAfterCleanupAndReplacesOrPreservesError(t *testing
 			var received error
 			var retained *Invocation[*parseErrorOwnedOptions]
 			calls := 0
-			app, err := NewApplication[*parseErrorOwnedOptions]().WithName("app").
+			app, err := NewApplication[*parseErrorOwnedOptions]("app").
 				WithCreateOptionsHandler(func(context.Context) (*parseErrorOwnedOptions, error) {
 					return &parseErrorOwnedOptions{closed: &closes, closeErr: cleanupError}, nil
 				}).WithErrorHandler(func(ctx context.Context, invocation InvocationLike, err error) error {
@@ -93,20 +93,17 @@ func TestValidationErrorMetadataRetainsFullSelectedPathOnScannerAndEarlyFactoryF
 		factories := 0
 		calls := 0
 		failure := errors.New("factory failed")
-		app := NewApplication[*parseErrorOwnedOptions]().WithName("app").
+		app := NewApplication[*parseErrorOwnedOptions]("app").
 			WithCreateOptionsHandler(func(context.Context) (*parseErrorOwnedOptions, error) {
 				factories++
 				return &parseErrorOwnedOptions{closed: &closes}, nil
 			}).
-			WithCommand(NewCommand[*parseErrorChildOptions]().
-				WithName("middle").
+			WithCommand(NewCommand[*parseErrorChildOptions]("middle").
 				WithCreateOptionsHandler(func(context.Context) (*parseErrorChildOptions, error) {
 					factories++
 					return &parseErrorChildOptions{closed: &closes}, failure
 				}).
-				WithCommand(NewSimpleCommand().
-					WithName("leaf"),
-				),
+				WithCommand(NewSimpleCommand("leaf")),
 			).
 			WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 				calls++
@@ -144,7 +141,7 @@ func TestValidationErrorMetadataRetainsFullSelectedPathOnScannerAndEarlyFactoryF
 
 func TestErrorHandlerParseCancellationAndSuccessBoundaries(t *testing.T) {
 	var calls int
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandler(func(ctx context.Context, invocation InvocationLike, err error) error {
+	app, err := NewSimpleApplication("app").WithErrorHandler(func(ctx context.Context, invocation InvocationLike, err error) error {
 		calls++
 		assert.ErrorIs(t, ctx.Err(), context.Canceled)
 		assert.ErrorIs(t, err, context.Canceled)
@@ -174,15 +171,15 @@ func TestDefaultErrorHandlerParseOverrideAndApplicationHandlerAreCaptured(t *tes
 		calls = append(calls, "first")
 		return nil
 	}
-	first, err := NewSimpleApplication().WithName("first").Create()
+	first, err := NewSimpleApplication("first").Create()
 	require.NoError(t, err)
 	DefaultErrorHandler = func(context.Context, InvocationLike, error) error {
 		calls = append(calls, "second")
 		return nil
 	}
-	second, err := NewSimpleApplication().WithName("second").Create()
+	second, err := NewSimpleApplication("second").Create()
 	require.NoError(t, err)
-	requirement := NewSimpleApplication().WithName("explicit")
+	requirement := NewSimpleApplication("explicit")
 	requirement.SetErrorHandler(func(context.Context, InvocationLike, error) error {
 		calls = append(calls, "explicit")
 		return nil
@@ -197,7 +194,7 @@ func TestDefaultErrorHandlerParseOverrideAndApplicationHandlerAreCaptured(t *tes
 		require.ErrorContains(t, err, "unknown flag --unknown")
 	}
 	assert.Equal(t, []string{"first", "second", "explicit"}, calls)
-	disabled, err := NewSimpleApplication().WithName("disabled").Create()
+	disabled, err := NewSimpleApplication("disabled").Create()
 	require.NoError(t, err)
 	_, err = disabled.Parse(nil, nil, "--unknown")
 	require.ErrorContains(t, err, "unknown flag --unknown")
@@ -210,7 +207,7 @@ func TestRespondWithHelpUsesApplicationOrExplicitHandlerAndContextFallback(t *te
 	handler, err := responseRequirement.Create()
 	require.NoError(t, err)
 	responseRequirement.SetOutput(io.Discard)
-	app, err := NewSimpleApplication().WithName("app").WithHelpHandler(func(_ context.Context, invocation InvocationLike) error {
+	app, err := NewSimpleApplication("app").WithHelpHandler(func(_ context.Context, invocation InvocationLike) error {
 		_, err := fmt.Fprintf(&output, "HELP %s\n", invocation.HelpInfo().Target.Name())
 		return err
 	}).WithErrorHandler(handler).Create()
@@ -224,7 +221,7 @@ func TestRespondWithHelpUsesApplicationOrExplicitHandlerAndContextFallback(t *te
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, helpInvocation.Close()) }()
 	ctx := withInvocationContext(context.Background(), helpInvocation)
-	validationError := NewValidationError(errors.New("bad input"))
+	validationError := NewValidationError("bad input")
 	var typedNil *Invocation[NoOptions]
 	assert.Same(t, validationError, handler(ctx, typedNil, validationError))
 	assert.Equal(t, "Error: bad input\n\nHELP app\n", output.String())
@@ -240,7 +237,7 @@ func TestRespondWithHelpUsesApplicationOrExplicitHandlerAndContextFallback(t *te
 }
 
 func TestRespondWithHelpReturnsOriginalAndResponseFailuresWithoutExiting(t *testing.T) {
-	validationError := NewValidationError(errors.New("bad input"))
+	validationError := NewValidationError("bad input")
 	responseError := errors.New("response failed")
 	var calls int
 	for _, writer := range []helpTestWriter{{err: responseError}, {short: true}} {
@@ -269,7 +266,7 @@ func TestRespondWithHelpReturnsOriginalAndResponseFailuresWithoutExiting(t *test
 	require.ErrorIs(t, err, validationError)
 	require.ErrorIs(t, err, responseError)
 	assert.NotErrorIs(t, err, context.Canceled, "reporting retains values but ignores context cancellation")
-	app, err := NewSimpleApplication().WithName("app").Create()
+	app, err := NewSimpleApplication("app").Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(nil, nil, "--help")
 	require.NoError(t, err)
@@ -291,7 +288,7 @@ func TestRespondWithHelpConcurrentResponsesRemainOrdered(t *testing.T) {
 			return err
 		}).Create()
 	require.NoError(t, err)
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandler(handler).Create()
+	app, err := NewSimpleApplication("app").WithErrorHandler(handler).Create()
 	require.NoError(t, err)
 	var workers sync.WaitGroup
 	for range 32 {
@@ -332,7 +329,7 @@ func TestRespondInputErrorExitProcess(t *testing.T) {
 			handler = nil // use the actual package DefaultErrorHandler
 		}
 		var closes atomic.Int64
-		app, err := NewApplication[*parseErrorOwnedOptions]().WithName("app").
+		app, err := NewApplication[*parseErrorOwnedOptions]("app").
 			WithCreateOptionsHandler(func(context.Context) (*parseErrorOwnedOptions, error) {
 				return &parseErrorOwnedOptions{closed: &closes}, nil
 			}).WithHelpHandler(func(ctx context.Context, invocation InvocationLike) error {

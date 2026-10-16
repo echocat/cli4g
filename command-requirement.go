@@ -10,18 +10,30 @@ import (
 
 // NewCommand starts a visible command builder with struct or pointer-to-struct options O.
 // Attach it using [ApplicationRequirement.WithCommand] or [CommandRequirement.WithCommand].
-func NewCommand[O any]() *CommandRequirement[O] {
+// The first optional string sets the name; further strings form the description,
+// joined with spaces. Add aliases with [CommandRequirement.WithAliases].
+// With no strings, configure the name later; Create validates the completed builder.
+func NewCommand[O any](nameAndDescription ...string) *CommandRequirement[O] {
 	// Unlike a zero-valued requirement, constructed commands are visible by default.
-	return &CommandRequirement[O]{Visible: true}
+	name, description := parseNameAndDescription(nameAndDescription)
+	result := &CommandRequirement[O]{Visible: true, Description: description}
+	if len(nameAndDescription) > 0 {
+		result.Names = []string{name}
+	}
+	return result
 }
 
 // NewSimpleCommand starts a command without an options struct.
-func NewSimpleCommand() *CommandRequirement[NoOptions] {
-	return NewCommand[NoOptions]()
+// Optional strings set the name and description as in [NewCommand].
+func NewSimpleCommand(nameAndDescription ...string) *CommandRequirement[NoOptions] {
+	return NewCommand[NoOptions](nameAndDescription...)
 }
 
 // CommandRequirement configures a command's names, options, inputs, and handlers.
 // Struct callbacks receive copies; use pointer options to retain assignments.
+// Without a Handler, active subcommands make this a command group: direct CLI
+// invocation requires a subcommand or --help. An ancestor's handler does not
+// satisfy this requirement.
 type CommandRequirement[O any] struct {
 	// Names contains the primary name followed by aliases.
 	Names []string

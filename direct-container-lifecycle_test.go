@@ -12,14 +12,12 @@ func TestDirectContainerOperationsRespectApplicationClose(t *testing.T) {
 	calls, closes := 0, 0
 	handler := func(context.Context, NoOptions) error { calls++; return nil }
 	cleanup := func(NoOptions) error { closes++; return nil }
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithValidateHandler(handler).
 		WithInitializeHandler(handler).
 		WithHandler(handler).
 		WithCloseHandler(cleanup).
-		WithCommand(NewSimpleCommand().
-			WithName("run").
+		WithCommand(NewSimpleCommand("run").
 			WithValidateHandler(handler).
 			WithInitializeHandler(handler).
 			WithHandler(handler).

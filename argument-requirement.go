@@ -15,10 +15,12 @@ type ArgumentRequirementLike interface {
 	createRaw() (*Argument[any, any], error)
 }
 
-// NewArgument starts a positional argument using codec.
-// Set its name with [ArgumentRequirement.WithName].
-func NewArgument[V, R any](codec codec.Codec[V, R]) *ArgumentRequirement[V, R] {
-	return &ArgumentRequirement[V, R]{Codec: codec}
+// NewArgument starts a positional argument using codec. The first optional string
+// sets the name; further strings form the description, joined with spaces. With
+// no strings, configure the name later; Create validates the completed builder.
+func NewArgument[V, R any](codec codec.Codec[V, R], nameAndDescription ...string) *ArgumentRequirement[V, R] {
+	name, description := parseNameAndDescription(nameAndDescription)
+	return &ArgumentRequirement[V, R]{Codec: codec, Name: name, Description: description}
 }
 
 // ArgumentRequirement configures a positional value V with input requirements R.

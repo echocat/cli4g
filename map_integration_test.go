@@ -19,8 +19,10 @@ func TestMapFlagSpellingsAndDuplicateKeys(t *testing.T) {
 	type options struct{ Labels map[string]string }
 	for _, scope := range []string{"application", "command", "inherited"} {
 		t.Run(scope, func(t *testing.T) {
-			root := NewApplication[options]().WithName("app").WithHelp(false)
-			child := NewCommand[options]().WithName("run")
+			root := NewApplication[options]("app").
+				WithHandler(func(context.Context, options) error { return nil }).
+				WithHelp(false)
+			child := NewCommand[options]("run")
 			configure := func(f *FlagRequirement[map[string]string, map[string]string]) {
 				f.WithField("Labels").WithAliases("alias").WithShort('L')
 			}
@@ -57,7 +59,8 @@ func TestMapFlagSpellingsAndDuplicateKeys(t *testing.T) {
 				}
 				invocation, err := app.Parse(nil, nil, append(args, duplicate)...)
 				require.ErrorIs(t, err, ErrValidation)
-				assert.ErrorContains(t, err, `duplicate map key "env"`)
+				assert.ErrorContains(t, err, "map keys must be unique")
+				assert.NotContains(t, err.Error(), "env")
 				assert.Nil(t, invocation)
 			}
 		})
@@ -69,7 +72,9 @@ func TestMapTaggedInputsAndPrecedence(t *testing.T) {
 		Labels map[string]string `flag:"labels" short:"L" env:"MAP_LABELS" default:"env=default"`
 		Ports  map[string]int32  `argument:"ports"`
 	}
-	app := NewApplication[options]().WithName("app").WithHelp(false).MustCreate()
+	app := NewApplication[options]("app").
+		WithHelp(false).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
 		name     string
@@ -95,8 +100,10 @@ func TestMapTaggedInputsAndPrecedence(t *testing.T) {
 		_, err := app.Parse(nil, nil, args...)
 		require.ErrorIs(t, err, ErrValidation)
 	}
-	_, err := NewSimpleApplication().WithName("app").
-		WithStringMapArgument("map").WithStringArgument("after").Create()
+	_, err := NewSimpleApplication("app").
+		WithStringMapArgument("map").
+		WithStringArgument("after").
+		Create()
 	require.Error(t, err, "variadic map arguments must be last")
 }
 
@@ -106,9 +113,9 @@ func TestMapNonStringKeys(t *testing.T) {
 		Names map[identifier]string
 		Bools map[bool]int32
 	}
-	app := NewApplication[options]().WithName("app").WithHelp(false).
-		WithFlag(NewFlag(codec.NewMap[identifier](codec.NewString())).WithName("names").WithField("Names")).
-		WithArgument(NewArgument(codec.NewMap[bool](codec.NewInt32())).WithName("bools").WithField("Bools")).
+	app := NewApplication[options]("app").WithHelp(false).
+		WithFlag(NewFlag(codec.NewMap[identifier](codec.NewString()), "names").WithField("Names")).
+		WithArgument(NewArgument(codec.NewMap[bool](codec.NewInt32()), "bools").WithField("Bools")).
 		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation := app.MustParse(nil, nil, "--names=42=answer", "--names=7=seven", "true=1", "false=2")
@@ -128,9 +135,13 @@ func TestMapNonStringKeys(t *testing.T) {
 func TestMapTypedDefaultsAreSnapshottedAndInvocationOwned(t *testing.T) {
 	type options struct{ Labels map[string][]string }
 	defaults := map[string][]string{"a=b": {"one", "two"}, "nil": nil, "empty": {}}
-	app := NewApplication[options]().WithName("app").WithHelp(false).
-		WithFlag(NewFlag(codec.NewMap[string](codec.NewStringSlice())).
-			WithName("labels").WithField("Labels").WithDefault(defaults)).MustCreate()
+	app := NewApplication[options]("app").
+		WithHelp(false).
+		WithFlag(NewFlag(codec.NewMap[string](codec.NewStringSlice()), "labels").
+			WithField("Labels").
+			WithDefault(defaults),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	defaults["a=b"][0] = "changed builder"
 	defaults["extra"] = []string{"extra"}
@@ -150,10 +161,11 @@ func TestMapTypedDefaultsAreSnapshottedAndInvocationOwned(t *testing.T) {
 	}
 	workers.Wait()
 	for _, value := range []map[string]string{nil, {}} {
-		app := NewSimpleApplication().WithName("app").WithHelp(false).
+		app := NewSimpleApplication("app").WithHelp(false).
 			WithStringMapFlag("labels", func(f *FlagRequirement[map[string]string, map[string]string]) {
 				f.WithDefault(value)
-			}).MustCreate()
+			}).
+			MustCreate()
 		invocation := app.MustParse(nil, nil)
 		_, actual := invocation.Flag("labels")
 		assert.Equal(t, value, actual)
@@ -164,7 +176,7 @@ func TestMapTypedDefaultsAreSnapshottedAndInvocationOwned(t *testing.T) {
 
 func TestMapHelpDisplaysSortedDefaults(t *testing.T) {
 	var output bytes.Buffer
-	app := NewSimpleApplication().WithName("app").
+	app := NewSimpleApplication("app").
 		WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).
 		WithStringMapFlag("labels", func(f *FlagRequirement[map[string]string, map[string]string]) {
 			f.WithDefault(map[string]string{"z": "last", "a": "first"})
@@ -183,8 +195,9 @@ func TestMapFileHelpersOwnResources(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		for _, kind := range []string{"flag", "argument"} {
 			t.Run(scope+"/"+kind, func(t *testing.T) {
-				root := NewSimpleApplication().WithName("app").WithHelp(false)
-				child := NewSimpleCommand().WithName("run")
+				root := NewSimpleApplication("app").
+					WithHelp(false)
+				child := NewSimpleCommand("run")
 				var args []string
 				if scope == "command" {
 					args = append(args, "run")
@@ -272,8 +285,9 @@ func TestMapPointerFactoriesAndCleanup(t *testing.T) {
 					created++
 					return &mapFactoryValue{closes: &closed}
 				}
-				root := NewSimpleApplication().WithName("app").WithHelp(false)
-				child := NewSimpleCommand().WithName("run")
+				root := NewSimpleApplication("app").
+					WithHelp(false)
+				child := NewSimpleCommand("run")
 				var prefix []string
 				if scope == "command" {
 					switch kind {

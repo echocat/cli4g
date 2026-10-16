@@ -23,9 +23,14 @@ func TestProfilesMetadataAndTypedVariants(t *testing.T) {
 		Shared string `flag:"shared" profile:"A|B" default:"shared"`
 		Global bool   `flag:"global" short:"g"`
 	}
-	app := NewApplication[options]().WithName("app").
-		WithCommand(NewSimpleCommand().WithName("group").WithProfiles("C").
-			WithCommand(NewSimpleCommand().WithName("nested").WithProfiles("D"))).MustCreate()
+	app := NewApplication[options]("app").
+		WithCommand(NewSimpleCommand("group").
+			WithProfiles("C").
+			WithCommand(NewSimpleCommand("nested").
+				WithProfiles("D"),
+			),
+		).
+		MustCreate()
 	t.Cleanup(func() { assert.NoError(t, app.Close()) })
 	assert.Equal(t, []string{"A", "B", "C", "D"}, slices.Collect(app.Profiles()))
 	assert.True(t, app.ContainsProfile("A"))
@@ -100,9 +105,11 @@ func TestProfilesCreateRejectsStaticallyOverlappingDefinitions(t *testing.T) {
 		for _, kind := range []string{"name", "alias", "short", "argument", "command", "command alias", "inherited", "binding"} {
 			t.Run(test.name+"/"+kind, func(t *testing.T) {
 				type options struct{ Value string }
-				r := NewApplication[options]().WithName("app")
-				a := NewFlag(codec.NewString()).WithName("foo").WithProfiles(test.a...)
-				b := NewFlag(codec.NewString()).WithName("foo").WithProfiles(test.b...)
+				r := NewApplication[options]("app")
+				a := NewFlag(codec.NewString(), "foo").
+					WithProfiles(test.a...)
+				b := NewFlag(codec.NewString(), "foo").
+					WithProfiles(test.b...)
 				switch kind {
 				case "name":
 					r.WithFlag(a, b)
@@ -111,19 +118,30 @@ func TestProfilesCreateRejectsStaticallyOverlappingDefinitions(t *testing.T) {
 				case "short":
 					r.WithFlag(a.WithName("one").WithShort('x'), b.WithName("two").WithShort('x'))
 				case "argument":
-					r.WithArgument(NewArgument(codec.NewString()).WithName("foo").WithProfiles(test.a...), NewArgument(codec.NewString()).WithName("foo").WithProfiles(test.b...))
+					r.WithArgument(NewArgument(codec.NewString(), "foo").WithProfiles(test.a...), NewArgument(codec.NewString(), "foo").WithProfiles(test.b...))
 				case "command", "command alias":
-					one := NewSimpleCommand().WithName("foo").WithProfiles(test.a...)
-					two := NewSimpleCommand().WithName("foo").WithProfiles(test.b...)
+					one := NewSimpleCommand("foo").
+						WithProfiles(test.a...)
+					two := NewSimpleCommand("foo").
+						WithProfiles(test.b...)
 					if kind == "command alias" {
 						one.WithName("one", "alias")
 						two.WithName("two", "alias")
 					}
 					r.WithCommand(one, two)
 				case "inherited":
-					r.WithFlag(a).WithCommand(NewSimpleCommand().WithName("child").WithFlag(b))
+					r.
+						WithFlag(a).
+						WithCommand(NewSimpleCommand("child").
+							WithFlag(b),
+						)
 				case "binding":
-					r.WithFlag(a.WithName("one").WithField("Value"), b.WithName("two").WithField("Value"))
+					r.WithFlag(
+						a.WithName("one").
+							WithField("Value"),
+						b.WithName("two").
+							WithField("Value"),
+					)
 				}
 				_, err := r.Create()
 				require.Error(t, err)
@@ -131,7 +149,11 @@ func TestProfilesCreateRejectsStaticallyOverlappingDefinitions(t *testing.T) {
 		}
 	}
 	for _, profiles := range [][]string{{""}, {"A", ""}, {"A|B"}} {
-		_, err := NewSimpleApplication().WithName("app").WithCommand(NewSimpleCommand().WithName("child").WithProfiles(profiles...)).Create()
+		_, err := NewSimpleApplication("app").
+			WithCommand(NewSimpleCommand("child").
+				WithProfiles(profiles...),
+			).
+			Create()
 		assert.ErrorContains(t, err, "invalid profile")
 	}
 	type invalid struct {
@@ -139,7 +161,12 @@ func TestProfilesCreateRejectsStaticallyOverlappingDefinitions(t *testing.T) {
 	}
 	// Default syntax is validated during parsing/help in the existing lifecycle;
 	// structural errors must nevertheless be caught even for inactive definitions.
-	_, err := NewApplication[invalid]().WithName("app").WithFlag(NewFlag(codec.NewString()).WithName("other").WithProfiles("unused").WithField("Value")).Create()
+	_, err := NewApplication[invalid]("app").
+		WithFlag(NewFlag(codec.NewString(), "other").
+			WithProfiles("unused").
+			WithField("Value"),
+		).
+		Create()
 	assert.ErrorContains(t, err, "codec returns string")
 }
 
@@ -148,12 +175,15 @@ func TestProfilesCombinationConflictsBeforeOptionsCreation(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			type options struct{ Value string }
 			created := 0
-			r := NewApplication[options]().WithName("app").WithCreateOptionsHandler(func(context.Context) (options, error) {
-				created++
-				return options{}, nil
-			})
-			a := NewFlag(codec.NewString()).WithName("one").WithProfiles("A")
-			b := NewFlag(codec.NewString()).WithName("two").WithProfiles("B")
+			r := NewApplication[options]("app").
+				WithCreateOptionsHandler(func(context.Context) (options, error) {
+					created++
+					return options{}, nil
+				})
+			a := NewFlag(codec.NewString(), "one").
+				WithProfiles("A")
+			b := NewFlag(codec.NewString(), "two").
+				WithProfiles("B")
 			var args []string
 			switch kind {
 			case "alias":
@@ -161,18 +191,43 @@ func TestProfilesCombinationConflictsBeforeOptionsCreation(t *testing.T) {
 			case "short":
 				r.WithFlag(a.WithShort('x'), b.WithShort('x'))
 			case "argument":
-				r.WithArgument(NewArgument(codec.NewString()).WithName("value").WithProfiles("A"), NewArgument(codec.NewString()).WithName("value").WithProfiles("B"))
+				r.WithArgument(
+					NewArgument(codec.NewString(), "value").
+						WithProfiles("A"),
+					NewArgument(codec.NewString(), "value").
+						WithProfiles("B"),
+				)
 			case "command":
-				r.WithCommand(NewSimpleCommand().WithName("child").WithProfiles("A"), NewSimpleCommand().WithName("child").WithProfiles("B"))
+				r.WithCommand(
+					NewSimpleCommand("child").
+						WithProfiles("A"),
+					NewSimpleCommand("child").
+						WithProfiles("B"),
+				)
 			case "inherited":
-				r.WithFlag(a.WithName("foo")).WithCommand(NewSimpleCommand().WithName("child").WithFlag(b.WithName("foo")))
+				r.WithFlag(a.WithName("foo")).
+					WithCommand(NewSimpleCommand("child").
+						WithFlag(b.WithName("foo")),
+					)
 				args = []string{"child"}
 			case "binding":
 				r.WithFlag(a.WithField("Value"), b.WithField("Value"))
 			case "variadic":
-				r.WithArgument(NewArgument(codec.NewStrings()).WithName("many").WithProfiles("A"), NewArgument(codec.NewString()).WithName("last").WithProfiles("B"))
+				r.WithArgument(
+					NewArgument(codec.NewStrings(), "many").
+						WithProfiles("A"),
+					NewArgument(codec.NewString(), "last").
+						WithProfiles("B"),
+				)
 			case "required parent":
-				r.WithArgument(NewArgument(codec.NewString()).WithName("value").WithProfiles("A").WithRequired(true)).WithCommand(NewSimpleCommand().WithName("child").WithProfiles("B"))
+				r.
+					WithArgument(NewArgument(codec.NewString(), "value").
+						WithProfiles("A").
+						WithRequired(true),
+					).
+					WithCommand(NewSimpleCommand("child").
+						WithProfiles("B"),
+					)
 			}
 			app, err := r.Create()
 			require.NoError(t, err)
@@ -193,7 +248,8 @@ func TestProfilesArgumentFilteringAndStableIndices(t *testing.T) {
 		B    int32  `argument:"value" profile:"B"`
 		Tail string `argument:"tail"`
 	}
-	app := NewApplication[options]().WithName("app").MustCreate()
+	app := NewApplication[options]("app").
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"B"}}, "42", "last")
 	require.NoError(t, err)
@@ -223,13 +279,23 @@ func TestProfilesCommandsAndAncestorGates(t *testing.T) {
 	type numberOptions struct {
 		Value int32 `flag:"value"`
 	}
-	app := NewSimpleApplication().WithName("app").WithCommand(
-		NewCommand[textOptions]().WithName("convert", "c").WithProfiles("A"),
-		NewCommand[numberOptions]().WithName("convert", "c").WithProfiles("B"),
-		NewSimpleCommand().WithName("admin").WithProfiles("A").WithCommand(
-			NewSimpleCommand().WithName("cleanup").WithProfiles("B"),
-			NewSimpleCommand().WithName("status")),
-	).MustCreate()
+	app := NewSimpleApplication("app").
+		WithCommand(
+			NewCommand[textOptions]("convert").
+				WithAliases("c").
+				WithProfiles("A"),
+			NewCommand[numberOptions]("convert").
+				WithAliases("c").
+				WithProfiles("B"),
+			NewSimpleCommand("admin").
+				WithProfiles("A").
+				WithCommand(
+					NewSimpleCommand("cleanup").
+						WithProfiles("B"),
+					NewSimpleCommand("status"),
+				),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	a, found := FindCommandOfProfile[textOptions](app, "A", "c")
 	require.True(t, found)
@@ -258,7 +324,16 @@ func TestProfilesCommandsAndAncestorGates(t *testing.T) {
 	}
 	// A separate tree avoids the intentionally conflicting convert siblings when
 	// testing the additive ancestor/child profile gates.
-	tree := NewSimpleApplication().WithName("tree").WithCommand(NewSimpleCommand().WithName("admin").WithProfiles("A").WithCommand(NewSimpleCommand().WithName("cleanup").WithProfiles("B"), NewSimpleCommand().WithName("status"))).MustCreate()
+	tree := NewSimpleApplication("tree").
+		WithCommand(NewSimpleCommand("admin").
+			WithProfiles("A").
+			WithCommand(
+				NewSimpleCommand("cleanup").
+					WithProfiles("B"),
+				NewSimpleCommand("status"),
+			),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, tree.Close()) }()
 	for _, test := range []struct {
 		profiles    []string
@@ -274,7 +349,7 @@ func TestProfilesCommandsAndAncestorGates(t *testing.T) {
 		assert.NoError(t, invocation.Close())
 	}
 	_, err := tree.Parse(nil, &ParseOpts{Profiles: []string{"A"}}, "admin", "cleanup")
-	assert.ErrorContains(t, err, "unexpected values")
+	assert.EqualError(t, err, `a subcommand is required for "tree admin"`)
 }
 
 func TestProfilesInactiveInputsHaveNoRuntimeEffects(t *testing.T) {
@@ -283,10 +358,21 @@ func TestProfilesInactiveInputsHaveNoRuntimeEffects(t *testing.T) {
 		Required string
 	}
 	name := filepath.Join(t.TempDir(), "must-not-exist")
-	app := NewApplication[options]().WithName("app").
-		WithFlag(NewFlag(codec.NewFile(codec.FileWrite)).WithName("output").WithProfiles("B").WithField("Output").WithDefaultStr(name),
-			NewFlag(codec.NewString()).WithName("required").WithProfiles("B").WithField("Required").WithEnvVar("REQUIRED").WithRequired(true),
-			NewFlag(codec.NewBool()).WithName("active").WithProfiles("A")).MustCreate()
+	app := NewApplication[options]("app").
+		WithFlag(
+			NewFlag(codec.NewFile(codec.FileWrite), "output").
+				WithProfiles("B").
+				WithField("Output").
+				WithDefaultStr(name),
+			NewFlag(codec.NewString(), "required").
+				WithProfiles("B").
+				WithField("Required").
+				WithEnvVar("REQUIRED").
+				WithRequired(true),
+			NewFlag(codec.NewBool(), "active").
+				WithProfiles("A"),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	lookups := 0
 	invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A"}, LookupEnv: func(context.Context, string) (string, bool) { lookups++; return "", false }})
@@ -306,14 +392,27 @@ func TestProfilesHelpAndErrorViews(t *testing.T) {
 	help := testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()
 	created := 0
 	var failureInfo HelpInfo
-	app := NewSimpleApplication().WithName("app").WithHelpHandler(help).
+	app := NewSimpleApplication("app").
+		WithHelpHandler(help).
 		WithCreateOptionsHandler(func(context.Context) (NoOptions, error) { created++; return NoOptions{}, nil }).
 		WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 			failureInfo = invocation.HelpInfo()
 			return err
 		}).
-		WithFlag(NewFlag(codec.NewString()).WithName("text-only").WithProfiles("A").WithDefault("hello"), NewFlag(codec.NewInt32()).WithName("number-only").WithProfiles("B")).
-		WithCommand(NewSimpleCommand().WithName("a-only").WithProfiles("A"), NewSimpleCommand().WithName("b-only").WithProfiles("B")).MustCreate()
+		WithFlag(
+			NewFlag(codec.NewString(), "text-only").
+				WithProfiles("A").
+				WithDefault("hello"),
+			NewFlag(codec.NewInt32(), "number-only").
+				WithProfiles("B"),
+		).
+		WithCommand(
+			NewSimpleCommand("a-only").
+				WithProfiles("A"),
+			NewSimpleCommand("b-only").
+				WithProfiles("B"),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A"}}, "--help", "--ignored")
 	require.NoError(t, err)
@@ -340,7 +439,8 @@ func TestProfilesConcurrentParses(t *testing.T) {
 		Text   string `flag:"foo" profile:"A" default:"hello"`
 		Number int32  `flag:"foo" profile:"B"`
 	}
-	app := NewApplication[options]().WithName("app").MustCreate()
+	app := NewApplication[options]("app").
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	var workers sync.WaitGroup
 	for index := range 32 {
@@ -367,9 +467,15 @@ func TestProfilesConcurrentParses(t *testing.T) {
 
 func TestProfilesSharedAssignmentsAndSnapshot(t *testing.T) {
 	assignments := []string{"A", "B"}
-	flag := NewFlag(codec.NewString()).WithName("shared").WithProfiles(assignments...).WithDefault("hello")
-	command := NewSimpleCommand().WithName("shared-command").WithProfiles("A", "B")
-	app := NewSimpleApplication().WithName("app").WithFlag(flag).WithCommand(command).MustCreate()
+	flag := NewFlag(codec.NewString(), "shared").
+		WithProfiles(assignments...).
+		WithDefault("hello")
+	command := NewSimpleCommand("shared-command").
+		WithProfiles("A", "B")
+	app := NewSimpleApplication("app").
+		WithFlag(flag).
+		WithCommand(command).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	assignments[0] = "changed"
 	flag.Profiles[0] = "changed-again"
@@ -394,7 +500,7 @@ func TestProfilesSharedAssignmentsAndSnapshot(t *testing.T) {
 	for range app.Commands() {
 		break
 	}
-	empty := NewSimpleApplication().WithName("empty").MustCreate()
+	empty := NewSimpleApplication("empty").MustCreate()
 	defer func() { assert.NoError(t, empty.Close()) }()
 	assert.Empty(t, slices.Collect(empty.Profiles()))
 	_, err = empty.Parse(nil, &ParseOpts{Profiles: []string{"A"}})
@@ -402,11 +508,20 @@ func TestProfilesSharedAssignmentsAndSnapshot(t *testing.T) {
 }
 
 func TestProfilesSelectedCommandBoundariesAndArity(t *testing.T) {
-	app := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(grammarString{min: 1, max: -1}).WithName("many"),
-		NewFlag(codec.NewBool()).WithName("foo").WithShort('f').WithProfiles("A"),
-		NewFlag(codec.NewString()).WithName("foo").WithShort('f').WithProfiles("B"),
-	).WithCommand(NewSimpleCommand().WithName("child").WithProfiles("B")).MustCreate()
+	app := NewSimpleApplication("app").
+		WithFlag(
+			NewFlag(grammarString{min: 1, max: -1}, "many"),
+			NewFlag(codec.NewBool(), "foo").
+				WithShort('f').
+				WithProfiles("A"),
+			NewFlag(codec.NewString(), "foo").
+				WithShort('f').
+				WithProfiles("B"),
+		).
+		WithCommand(NewSimpleCommand("child").
+			WithProfiles("B"),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
 		profile string
@@ -430,12 +545,18 @@ func TestProfilesSelectedCommandBoundariesAndArity(t *testing.T) {
 }
 
 func TestProfilesUnvisitedSubtreeDoesNotConflict(t *testing.T) {
-	app := NewSimpleApplication().WithName("app").WithCommand(
-		NewSimpleCommand().WithName("safe"),
-		NewSimpleCommand().WithName("conflicting").WithFlag(
-			NewFlag(codec.NewString()).WithName("foo").WithProfiles("A"),
-			NewFlag(codec.NewInt32()).WithName("foo").WithProfiles("B")),
-	).MustCreate()
+	app := NewSimpleApplication("app").
+		WithCommand(
+			NewSimpleCommand("safe"),
+			NewSimpleCommand("conflicting").
+				WithFlag(
+					NewFlag(codec.NewString(), "foo").
+						WithProfiles("A"),
+					NewFlag(codec.NewInt32(), "foo").
+						WithProfiles("B"),
+				),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A", "B"}}, "safe", "--help")
 	require.NoError(t, err)
@@ -456,12 +577,17 @@ func TestProfilesInheritedCodecOverridesSurviveHelpAndErrors(t *testing.T) {
 	var output bytes.Buffer
 	help := testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()
 	var failureInfo HelpInfo
-	app := NewApplication[options]().WithName("app").WithCodec(rootCodec).WithHelpHandler(help).
+	app := NewApplication[options]("app").
+		WithCodec(rootCodec).
+		WithHelpHandler(help).
 		WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 			failureInfo = invocation.HelpInfo()
 			return err
 		}).
-		WithCommand(NewSimpleCommand().WithName("child").WithCodec(childCodec)).MustCreate()
+		WithCommand(NewSimpleCommand("child").
+			WithCodec(childCodec),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A"}}, "--value", "child", "child")
 	require.NoError(t, err)

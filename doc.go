@@ -6,6 +6,22 @@
 // For caller-managed errors, use [ApplicationRequirement.WithErrorHandlerEnabled]
 // and [ApplicationRequirement.CreateParseAndExecute].
 //
+// # Builder constructors
+//
+// [NewApplication], [NewSimpleApplication], [NewCommand], and [NewSimpleCommand]
+// accept optional name and description strings:
+//
+//	app := NewSimpleApplication("app", "Example application.")
+//	command := NewSimpleCommand("run", "Run", "the application.")
+//	app.WithCommand(command)
+//
+// [NewFlag] and [NewArgument] accept the same optional strings after their codec.
+// The first string is the primary name; all subsequent strings form the
+// description, joined with one space between each part. Additional strings are
+// never aliases: add flag/command aliases with WithAliases. WithName and
+// WithDescription can still override constructor metadata. With no strings,
+// configure the name later; Create validates the completed definition.
+//
 // # Options and bindings
 //
 // Use exported fields in a struct or pointer-to-struct options type:
@@ -65,6 +81,11 @@
 // # Commands and parent options
 //
 // Add typed commands with [NewCommand] and [ApplicationRequirement.WithCommand].
+// An application or command without its own handler requires a subcommand when
+// it has active children. An incomplete path is a validation error before options
+// creation; the default error handler shows the target's help and exits with 2.
+// Explicit --help exits successfully. A node with its own handler can be invoked
+// directly, and a node without active children can be used for parsing alone.
 // A child can borrow an exported struct pointer using parent:"application" or
 // parent:"matchingType". MatchingType picks the nearest selected ancestor of the
 // exact Go type. Borrowed options remain parent-owned; never close them in the child.
@@ -115,6 +136,14 @@
 // Other errors remain operational. [DefaultErrorHandler] writes to context stderr and
 // exits with 2 for invalid input, 130 for cancellation, or 1 for other errors.
 // Disable responses when embedding the library: os.Exit does not run caller defers.
+// Built-in codec failures describe the required value without echoing the input.
+// Use NewValidationError("an integer expected", cause) to retain a diagnostic
+// cause without appending its text. Error displays only the message; errors.Is
+// and errors.As still traverse the causes. Unmarked codec/validation failures
+// receive neutral messages and retain their original classification.
+// Warning: author-supplied ValidationError messages are displayed verbatim and
+// must not contain input or confidential data. NewValidationErrorf with %w does
+// include the cause text; prefer separate messages and causes for sensitive input.
 //
 // # Context streams
 //

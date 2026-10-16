@@ -12,9 +12,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-codec").
-		WithDescription("Decode a color using a custom codec.").
+	cli.NewApplication[options]("custom-codec", "Decode a color using a custom codec.").
 		WithCodec(colorCodec{}).
 		WithHandler(showColor).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)

@@ -13,9 +13,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("files").
-		WithDescription("Read a file configured through struct tags.").
+	cli.NewApplication[options]("files", "Read a file configured through struct tags.").
 		WithHandler(printFile).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

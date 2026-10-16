@@ -24,11 +24,8 @@ func TestPreparedFlagsPreserveAliasesScopesAndEnvironmentFallback(t *testing.T) 
 	type childOptions struct {
 		Count int `flag:"count"`
 	}
-	app := NewApplication[rootOptions]().
-		WithName("app").
-		WithCommand(NewCommand[*childOptions]().
-			WithName("child"),
-		).
+	app := NewApplication[rootOptions]("app").
+		WithCommand(NewCommand[*childOptions]("child")).
 		MustCreate()
 	var lookups []string
 	opts := &ParseOpts{LookupEnv: func(_ context.Context, name string) (string, bool) {
@@ -62,7 +59,7 @@ func TestRepeatedSliceFlagsKeepPerOccurrenceCodecIsolation(t *testing.T) {
 		Values []int `flag:"value"`
 	}
 	var clones atomic.Int64
-	app, err := NewApplication[*options]().WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCodec(callbackCodec[[]int, []int]{
 			Codec: codec.NewSlice(&constantOneCodec{}),
 			onClone: func(context.Context) {
@@ -166,8 +163,11 @@ func TestRepeatedCustomSliceChunksPreserveAppendSemantics(t *testing.T) {
 				}
 				return test.last
 			}}
-			app, err := NewApplication[options]().WithName("app").
-				WithFlag(NewFlag(decoder).WithName("value").WithField("Values")).Create()
+			app, err := NewApplication[options]("app").
+				WithFlag(NewFlag(decoder, "value").
+					WithField("Values"),
+				).
+				Create()
 			require.NoError(t, err)
 			invocation, err := app.Parse(context.Background(), nil, "--value=first", "--value=last")
 			require.NoError(t, err)
@@ -186,8 +186,11 @@ func TestRepeatedCustomSliceChunksPreserveAppendSemantics(t *testing.T) {
 			}
 			return backing[:3]
 		}}
-		app, err := NewApplication[*options]().WithName("app").
-			WithFlag(NewFlag(decoder).WithName("value").WithField("Values")).Create()
+		app, err := NewApplication[*options]("app").
+			WithFlag(NewFlag(decoder, "value").
+				WithField("Values"),
+			).
+			Create()
 		require.NoError(t, err)
 		invocation, err := app.Parse(context.Background(), nil, "--value=first", "--value=last")
 		require.NoError(t, err)
@@ -213,7 +216,7 @@ func TestRepeatedSliceFlagsUseDecodedHeaderAfterCallbackReplacesNestedField(t *t
 	}
 	var nested *nestedSliceFlagOptions
 	parses := 0
-	app, err := NewApplication[*options]().WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCreateOptionsHandler(func(context.Context) (*options, error) {
 			nested = &nestedSliceFlagOptions{}
 			return &options{Nested: nested}, nil
@@ -226,7 +229,10 @@ func TestRepeatedSliceFlagsUseDecodedHeaderAfterCallbackReplacesNestedField(t *t
 					nested.Values = []string{"replacement"}
 				}
 			},
-		}).WithName("value").WithField("Nested", "Values")).Create()
+		}, "value").
+			WithField("Nested", "Values"),
+		).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "--value=first", "--value=last")
 	require.NoError(t, err)
@@ -263,7 +269,7 @@ func TestRepeatedSliceFlagsRetainResourcesOnCancellationAndDecodeFailure(t *test
 				resources = append(resources, resource)
 				return resource
 			}))
-			app, err := NewApplication[*sliceResourceOptions]().WithName("app").
+			app, err := NewApplication[*sliceResourceOptions]("app").
 				WithCodec(callbackCodec[[]*ownedTestResource, []string]{
 					Codec: decoder,
 					onParse: func(context.Context) {
@@ -272,7 +278,8 @@ func TestRepeatedSliceFlagsRetainResourcesOnCancellationAndDecodeFailure(t *test
 							cancel()
 						}
 					},
-				}).WithFlag(NewFlag(codec.NewInt()).WithName("number")).Create()
+				}).WithFlag(NewFlag(codec.NewInt(), "number")).
+				Create()
 			require.NoError(t, err)
 			invocation, err := app.Parse(ctx, nil, "--resource=first", "--resource=last", "--number=invalid")
 			assert.Nil(t, invocation)

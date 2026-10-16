@@ -19,8 +19,9 @@ func BenchmarkApplicationFileLifecycle(b *testing.B) {
 			name = "TypedDefault"
 		}
 		b.Run(name, func(b *testing.B) {
-			builder := NewSimpleApplication().WithName("file").WithErrorHandlerEnabled(false)
-			flag := NewFlag(codec.NewFile().WithAllowSpecial(true)).WithName("input")
+			builder := NewSimpleApplication("file").
+				WithErrorHandlerEnabled(false)
+			flag := NewFlag(codec.NewFile().WithAllowSpecial(true), "input")
 			if typed {
 				flag.WithDefault(codec.FileRequirement{Path: os.DevNull, Mode: codec.FileRead, AllowSpecial: true})
 			} else {

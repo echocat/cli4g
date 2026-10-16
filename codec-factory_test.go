@@ -14,19 +14,22 @@ func TestRequirementCodecFactoryIsDeferredAndLastSetterWins(t *testing.T) {
 	for _, kind := range []string{"flag", "argument"} {
 		for _, selected := range []string{"factory", "codec"} {
 			t.Run(kind+"/"+selected, func(t *testing.T) {
-				root := NewSimpleApplication().WithName("app").WithHelp(false)
+				root := NewSimpleApplication("app").
+					WithHelp(false)
 				calls := 0
 				factory := func() (codec.Codec[string, string], error) { calls++; return codec.NewString(), nil }
 				var args []string
 				if kind == "flag" {
-					flag := NewFlag(codec.NewString()).WithName("value").WithCodecFactory(factory)
+					flag := NewFlag(codec.NewString(), "value").
+						WithCodecFactory(factory)
 					if selected == "codec" {
 						flag.WithCodec(codec.NewString())
 					}
 					root.WithFlag(flag)
 					args = []string{"--value=input"}
 				} else {
-					argument := NewArgument(codec.NewString()).WithName("value").WithCodecFactory(factory)
+					argument := NewArgument(codec.NewString(), "value").
+						WithCodecFactory(factory)
 					if selected == "codec" {
 						argument.WithCodec(codec.NewString())
 					}
@@ -58,7 +61,8 @@ func TestRequirementCodecFactoryErrorsAndNilResults(t *testing.T) {
 	for _, kind := range []string{"flag", "argument"} {
 		for _, failure := range []string{"error", "nil"} {
 			t.Run(kind+"/"+failure, func(t *testing.T) {
-				root := NewSimpleApplication().WithName("app").WithHelp(false)
+				root := NewSimpleApplication("app").
+					WithHelp(false)
 				factory := func() (codec.Codec[string, string], error) {
 					if failure == "error" {
 						return nil, primary
@@ -66,9 +70,11 @@ func TestRequirementCodecFactoryErrorsAndNilResults(t *testing.T) {
 					return nil, nil
 				}
 				if kind == "flag" {
-					root.WithFlag(NewFlag[string, string](nil).WithName("value").WithCodecFactory(factory))
+					root.WithFlag(NewFlag[string, string](nil, "value").
+						WithCodecFactory(factory))
 				} else {
-					root.WithArgument(NewArgument[string, string](nil).WithName("value").WithCodecFactory(factory))
+					root.WithArgument(NewArgument[string, string](nil, "value").
+						WithCodecFactory(factory))
 				}
 				var app *Application[NoOptions]
 				var err error
@@ -89,8 +95,9 @@ func TestValueFactoryCallbacksCanConfigureTraitsBeforeCodecCreation(t *testing.T
 	for _, scope := range []string{"application", "command"} {
 		for _, kind := range []string{"flag", "argument", "slice-flag", "slice-argument"} {
 			t.Run(scope+"/"+kind, func(t *testing.T) {
-				root := NewSimpleApplication().WithName("app").WithHelp(false)
-				child := NewSimpleCommand().WithName("run")
+				root := NewSimpleApplication("app").
+					WithHelp(false)
+				child := NewSimpleCommand("run")
 				var events []string
 				factories := 0
 				factory := func() *configuredBoolFlag {
@@ -200,7 +207,8 @@ func TestValueFactoryCallbacksCanConfigureTraitsBeforeCodecCreation(t *testing.T
 func TestValueFactoryTraitErrorsAreReturnedByCreate(t *testing.T) {
 	for _, kind := range []string{"flag", "argument"} {
 		t.Run(kind, func(t *testing.T) {
-			root := NewSimpleApplication().WithName("app").WithHelp(false)
+			root := NewSimpleApplication("app").
+				WithHelp(false)
 			factory := func() *configuredBoolFlag { return &configuredBoolFlag{Value: new(bool)} }
 			require.NotPanics(t, func() {
 				if kind == "flag" {
@@ -220,7 +228,8 @@ func TestValueFactoryTraitErrorsAreReturnedByCreate(t *testing.T) {
 
 func TestValueCodecFactorySnapshotsTokenRequirements(t *testing.T) {
 	inputs := []string{"configured"}
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
+	app, err := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
 		WithValueFlag("value", func(f *FlagRequirement[flagReceiverValue, []string]) { f.WithDefault(inputs) }).Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()

@@ -44,16 +44,10 @@ func (this *frameChildOptions) Close() error {
 }
 
 func TestInvocationFramesKeepScopedValuesAndCurrentOptions(t *testing.T) {
-	app := NewApplication[frameRootOptions]().
-		WithName("app").
-		WithCommand(NewSimpleCommand().
-			WithName("middle").
-			WithFlag(NewFlag(codec.NewString()).
-				WithName("middle"),
-			).
-			WithCommand(NewCommand[*frameChildOptions]().
-				WithName("leaf"),
-			),
+	app := NewApplication[frameRootOptions]("app").
+		WithCommand(NewSimpleCommand("middle").
+			WithFlag(NewFlag(codec.NewString(), "middle")).
+			WithCommand(NewCommand[*frameChildOptions]("leaf")),
 		).
 		MustCreate()
 	invocation, err := app.Parse(context.Background(), nil,
@@ -117,7 +111,8 @@ func TestInvocationFramesKeepScopedValuesAndCurrentOptions(t *testing.T) {
 }
 
 func TestInvocationRootFrameWithoutCommands(t *testing.T) {
-	app, err := NewApplication[*frameChildOptions]().WithName("app").Create()
+	app, err := NewApplication[*frameChildOptions]("app").
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "--child=value", "name")
 	require.NoError(t, err)
@@ -153,21 +148,22 @@ func TestDeepFrameLifecycleStateAndRetainedContexts(t *testing.T) {
 			var initialized []string
 			var closed []string
 			var contexts []context.Context
-			root := NewSimpleApplication().WithName("app").
+			root := NewSimpleApplication("app").
 				WithInitializeHandler(func(ctx context.Context, _ NoOptions) error {
 					initialized = append(initialized, "app")
 					contexts = append(contexts, ctx)
 					return nil
-				}).WithCloseHandler(func(NoOptions) error {
-				closed = append(closed, "app")
-				return nil
-			})
+				}).
+				WithCloseHandler(func(NoOptions) error {
+					closed = append(closed, "app")
+					return nil
+				})
 			var previous *CommandRequirement[NoOptions]
 			args := make([]string, depth)
 			for i := range depth {
 				commandName := "command" + strconv.Itoa(i)
 				args[i] = commandName
-				command := NewSimpleCommand().WithName(commandName).
+				command := NewSimpleCommand(commandName).
 					WithInitializeHandler(func(ctx context.Context, _ NoOptions) error {
 						initialized = append(initialized, commandName)
 						contexts = append(contexts, ctx)
@@ -175,10 +171,11 @@ func TestDeepFrameLifecycleStateAndRetainedContexts(t *testing.T) {
 							return failure
 						}
 						return nil
-					}).WithCloseHandler(func(NoOptions) error {
-					closed = append(closed, commandName)
-					return nil
-				})
+					}).
+					WithCloseHandler(func(NoOptions) error {
+						closed = append(closed, commandName)
+						return nil
+					})
 				if previous == nil {
 					root.WithCommand(command)
 				} else {

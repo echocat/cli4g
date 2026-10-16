@@ -39,7 +39,7 @@ type FileRequirement struct {
 	AllowStdio   bool        `json:"allowStdio"`
 }
 
-var ErrSpecialFile = NewValidationError(errors.New("special files require explicit opt-in"))
+var ErrSpecialFile = NewValidationError("special files require explicit opt-in")
 
 // ErrStdioUnavailable marks a stdio alias without a usable *os.File in its context.
 var ErrStdioUnavailable = errors.New("stdio file stream unavailable")
@@ -103,11 +103,11 @@ func (this FileCodec) ParseRequirement(ctx context.Context, usage Usage, args ..
 		decoder := json.NewDecoder(strings.NewReader(strings.TrimPrefix(args[0], "file+json:")))
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&wire); err != nil {
-			return FileRequirement{}, fmt.Errorf("%w: file requirement: %w", ErrIllegalArgument, err)
+			return FileRequirement{}, NewValidationError("a valid file configuration expected", ErrIllegalArgument, err)
 		}
 		var trailing any
 		if err := decoder.Decode(&trailing); err != io.EOF {
-			return FileRequirement{}, fmt.Errorf("%w: trailing file requirement data", ErrIllegalArgument)
+			return FileRequirement{}, NewValidationError("file configuration must contain exactly one value", ErrIllegalArgument, err)
 		}
 		requirement = wire.requirement()
 	}
@@ -171,15 +171,15 @@ func (FileCodec) Resolve(ctx context.Context, scope Scope, requirement FileRequi
 	}
 	if requirement.AllowStdio && isStdioPath(requirement.Path) {
 		var stream any
-		name := "stdout"
+		name := "output"
 		if requirement.Mode == FileRead {
-			name, stream = "stdin", StdinOfContext(ctx)
+			name, stream = "input", StdinOfContext(ctx)
 		} else {
 			stream = StdoutOfContext(ctx)
 		}
 		file, ok := stream.(*os.File)
 		if !ok || file == nil {
-			return nil, fmt.Errorf("%w: %s alias %q requires a non-nil *os.File in context (got %T)", ErrStdioUnavailable, name, requirement.Path, stream)
+			return nil, NewMessageError("a file-backed standard "+name+" stream is required", ErrStdioUnavailable)
 		}
 		return file, nil
 	}
@@ -214,10 +214,10 @@ func (FileCodec) Resolve(ctx context.Context, scope Scope, requirement FileRequi
 		file, err = openRegularCodecFile(requirement.Path, flags&^os.O_TRUNC, permission)
 	}
 	if file != nil {
-		scope.OnClose(file.Close)
+		scope.OnClose(func() error { return fileOperationError("file could not be closed", file.Close()) })
 	}
 	if err != nil {
-		return nil, err
+		return nil, fileOperationError("file could not be opened", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -225,17 +225,17 @@ func (FileCodec) Resolve(ctx context.Context, scope Scope, requirement FileRequi
 	if !requirement.AllowSpecial {
 		info, err := file.Stat()
 		if err != nil {
-			return nil, err
+			return nil, fileOperationError("file information could not be read", err)
 		}
 		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("%w: %s (%s)", ErrSpecialFile, requirement.Path, info.Mode().Type())
+			return nil, NewValidationError("a regular file expected; special files require explicit opt-in", ErrSpecialFile)
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		if requirement.Truncate {
 			if err := file.Truncate(0); err != nil {
-				return nil, err
+				return nil, fileOperationError("file could not be truncated", err)
 			}
 		}
 	}
@@ -247,32 +247,48 @@ func (FileCodec) Resolve(ctx context.Context, scope Scope, requirement FileRequi
 
 func validateFileRequirement(requirement FileRequirement) error {
 	if requirement.Path == "" {
-		return fmt.Errorf("%w: file path is empty", ErrIllegalArgument)
+		return NewValidationError("a nonempty file path expected", ErrIllegalArgument)
 	}
 	if requirement.Mode > FileReadWrite {
-		return fmt.Errorf("%w: invalid file mode", ErrIllegalArgument)
+		return NewValidationError("file mode must be read, write or read/write", ErrIllegalArgument)
 	}
 	if requirement.Mode == FileRead && (requirement.Create || requirement.Append || requirement.Truncate) {
-		return fmt.Errorf("%w: read-only file cannot create, append or truncate", ErrIllegalArgument)
+		return NewValidationError("read-only file cannot create, append or truncate", ErrIllegalArgument)
 	}
 	if requirement.Append && requirement.Truncate {
-		return fmt.Errorf("%w: append and truncate are mutually exclusive", ErrIllegalArgument)
+		return NewValidationError("append and truncate are mutually exclusive", ErrIllegalArgument)
 	}
 	if requirement.Permission&^fs.ModePerm != 0 {
-		return fmt.Errorf("%w: file permission must contain only permission bits", ErrIllegalArgument)
+		return NewValidationError("file permission must contain only permission bits", ErrIllegalArgument)
 	}
 	if requirement.AllowStdio && isStdioPath(requirement.Path) {
 		if requirement.Mode == FileReadWrite {
-			return fmt.Errorf("%w: stdio alias %q does not support read/write access", ErrIllegalArgument, requirement.Path)
+			return NewValidationError("standard streams do not support read/write access", ErrIllegalArgument)
 		}
 		if requirement.Mode == FileRead && requirement.Path == "stdout" || requirement.Mode == FileWrite && requirement.Path == "stdin" {
-			return fmt.Errorf("%w: stdio alias %q does not match file mode", ErrIllegalArgument, requirement.Path)
+			return NewValidationError("standard stream must match file mode (input for reading, output for writing)", ErrIllegalArgument)
 		}
 		if requirement.Append || requirement.Truncate {
-			return fmt.Errorf("%w: stdio alias %q cannot append or truncate", ErrIllegalArgument, requirement.Path)
+			return NewValidationError("standard streams cannot append or truncate", ErrIllegalArgument)
 		}
 	}
 	return nil
+}
+
+func fileOperationError(fallback string, err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return NewMessageError("file or parent directory must exist", err)
+	case errors.Is(err, fs.ErrPermission):
+		return NewMessageError("permission to access the file is required", err)
+	case errors.Is(err, fs.ErrExist):
+		return NewMessageError("file must not already exist", err)
+	default:
+		return SanitizeError(err, fallback)
+	}
 }
 
 func isStdioPath(path string) bool {

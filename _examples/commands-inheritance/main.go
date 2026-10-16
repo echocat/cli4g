@@ -27,15 +27,9 @@ type greetOptions struct {
 }
 
 func main() {
-	cli.NewApplication[*applicationOptions]().
-		WithName("commands-inheritance").
-		WithDescription("Read application and parent command options from a child.").
-		WithCommand(cli.NewCommand[*messageOptions]().
-			WithName("message").
-			WithDescription("Commands using shared message options.").
-			WithCommand(cli.NewCommand[greetOptions]().
-				WithName("greet").
-				WithDescription("Greet someone using parent options.").
+	cli.NewApplication[*applicationOptions]("commands-inheritance", "Read application and parent command options from a child.").
+		WithCommand(cli.NewCommand[*messageOptions]("message", "Commands using shared message options.").
+			WithCommand(cli.NewCommand[greetOptions]("greet", "Greet someone using parent options.").
 				WithHandler(greet),
 			),
 		).

@@ -9,7 +9,9 @@ import (
 
 // NewMarshaller adapts text methods on T/*T using string inputs and defaults.
 // UnmarshalText runs during Resolve on a fresh value. It must mark user mistakes
-// with [NewValidationError]; technical errors are returned unchanged.
+// with [NewValidationError]; unmarked errors receive a neutral message with their
+// original cause retained. Warning: marked messages are displayed verbatim and
+// must not contain input values, passwords, or other confidential data.
 func NewMarshaller[T encoding.TextMarshaler, TP interface {
 	*T
 	encoding.TextUnmarshaler
@@ -30,6 +32,8 @@ func NewMarshaller[T encoding.TextMarshaler, TP interface {
 
 // NewMarshallerP adapts fresh pointer targets from a concurrent-safe factory.
 // A nil factory panics; a nil result fails with [ErrInvalid]. See [NewMarshaller].
+// Warning: custom ValidationError messages are displayed verbatim; their authors
+// must exclude supplied inputs and confidential data.
 func NewMarshallerP[T interface {
 	encoding.TextMarshaler
 	encoding.TextUnmarshaler
@@ -93,5 +97,6 @@ func (this textCodec[T]) Resolve(ctx context.Context, scope Scope, input string)
 		var zero T
 		return zero, err
 	}
-	return this.resolve(ctx, scope, input)
+	value, err := this.resolve(ctx, scope, input)
+	return value, SanitizeError(err, "value could not be decoded as text")
 }

@@ -60,8 +60,7 @@ func TestFileCodecTypedAndStringDefaultsHelpAndLifecycle(t *testing.T) {
 		WithApplicationTemplate("{{range .Flags}}{{.Default}}{{end}}").Create()
 	require.NoError(t, err)
 	defaultInput := codec.FileRequirement{Path: input, Mode: codec.FileRead}
-	app := cli.NewApplication[*rootOptions]().
-		WithName("copy").
+	app := cli.NewApplication[*rootOptions]("copy").
 		WithErrorHandlerEnabled(false).
 		WithHelpHandler(help).
 		WithFileFlag("input", func(f *cli.FlagRequirement[*os.File, codec.FileRequirement]) {
@@ -69,7 +68,7 @@ func TestFileCodecTypedAndStringDefaultsHelpAndLifecycle(t *testing.T) {
 				WithCodec(tracking(codec.FileRead)).
 				WithDefault(defaultInput)
 		}).
-		WithCommand(cli.NewCommand[*childOptions]().WithName("run").
+		WithCommand(cli.NewCommand[*childOptions]("run").
 			WithFileArgument("output", func(a *cli.ArgumentRequirement[*os.File, codec.FileRequirement]) {
 				a.WithField("Output").
 					WithCodec(tracking(codec.FileReadWrite)).
@@ -138,8 +137,11 @@ func TestFileCodecCleanupOnResolveValidationInitializationAndCancellation(t *tes
 				decoder.cancel = cancel
 			}
 			primary := errors.New("lifecycle failed")
-			root := cli.NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-				WithFlag(cli.NewFlag(decoder).WithName("input").WithDefaultStr(path)) // unbound still owned
+			root := cli.NewSimpleApplication("app").
+				WithErrorHandlerEnabled(false).
+				WithFlag(cli.NewFlag(decoder, "input").
+					WithDefaultStr(path),
+				) // unbound still owned
 			if failure == "resolve" {
 				root.WithFileFlag("second", func(f *cli.FlagRequirement[*os.File, codec.FileRequirement]) { f.WithDefaultStr(path + "-missing") })
 			}
@@ -170,11 +172,13 @@ func TestFileCodecCleanupOnResolveValidationInitializationAndCancellation(t *tes
 func TestFileCodecChecksRequiredInputsBeforeOpeningAndSupportsParallelInvocations(t *testing.T) {
 	dir := t.TempDir()
 	created := filepath.Join(dir, "must-not-be-created")
-	app, err := cli.NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
+	app, err := cli.NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
 		WithFileFlag("output", func(f *cli.FlagRequirement[*os.File, codec.FileRequirement]) {
 			f.WithCodec(codec.NewFile(codec.FileWrite)).WithDefaultStr(created)
 		}).
-		WithStringArgument("required", func(a *cli.ArgumentRequirement[string, string]) { a.WithRequired(true) }).Create()
+		WithStringArgument("required", func(a *cli.ArgumentRequirement[string, string]) { a.WithRequired(true) }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, err = app.Parse(nil, nil)
@@ -183,7 +187,10 @@ func TestFileCodecChecksRequiredInputsBeforeOpeningAndSupportsParallelInvocation
 	assert.ErrorIs(t, err, os.ErrNotExist)
 	input := filepath.Join(dir, "input")
 	require.NoError(t, os.WriteFile(input, []byte("content"), 0600))
-	reader, err := cli.NewSimpleApplication().WithName("read").WithErrorHandlerEnabled(false).WithFileFlag("input").Create()
+	reader, err := cli.NewSimpleApplication("read").
+		WithErrorHandlerEnabled(false).
+		WithFileFlag("input").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, reader.Close()) }()
 	results := make(chan error, 16)

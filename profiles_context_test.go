@@ -59,9 +59,13 @@ func TestProfilesContextThroughoutLifecycle(t *testing.T) {
 		}
 		events = append(events, phase)
 	}
-	app := NewApplication[*options]().WithName("app").WithFlag(
-		NewFlag(profileContextCodec{Codec: codec.NewString(), check: check}).WithName("value").WithProfiles("A", "B").WithField("Value"),
-		NewFlag(codec.NewString()).WithName("environment").WithProfiles("A", "B").WithEnvVar("VALUE"),
+	app := NewApplication[*options]("app").WithFlag(
+		NewFlag(profileContextCodec{Codec: codec.NewString(), check: check}, "value").
+			WithProfiles("A", "B").
+			WithField("Value"),
+		NewFlag(codec.NewString(), "environment").
+			WithProfiles("A", "B").
+			WithEnvVar("VALUE"),
 	).WithCreateOptionsHandler(func(ctx context.Context) (*options, error) {
 		check(ctx, "factory")
 		factoryContext = ctx
@@ -81,13 +85,14 @@ func TestProfilesContextThroughoutLifecycle(t *testing.T) {
 	}).WithCloseHandler(func(opts *options) error {
 		check(opts.ctx, "close")
 		return nil
-	}).WithCommand(NewSimpleCommand().WithName("child").WithCreateOptionsHandler(func(ctx context.Context) (NoOptions, error) {
+	}).WithCommand(NewSimpleCommand("child").WithCreateOptionsHandler(func(ctx context.Context) (NoOptions, error) {
 		check(ctx, "command factory")
 		return NoOptions{}, nil
 	}).WithHandler(func(ctx context.Context, _ NoOptions) error {
 		check(ctx, "command execute")
 		return nil
-	})).MustCreate()
+	})).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	parseOptions := &ParseOpts{Profiles: []string{"B", "A", "B"}, LookupEnv: func(ctx context.Context, _ string) (string, bool) {
 		check(ctx, "environment")
@@ -147,9 +152,11 @@ func TestProfilesContextHelpAndErrors(t *testing.T) {
 					assert.True(t, ContextContainsProfile(ctx, profile))
 				}
 			}
-			app := NewSimpleApplication().WithName("app").WithFlag(
-				NewFlag(codec.NewString()).WithName("foo").WithProfiles("A"),
-				NewFlag(codec.NewInt32()).WithName("foo").WithProfiles("B"),
+			app := NewSimpleApplication("app").WithFlag(
+				NewFlag(codec.NewString(), "foo").
+					WithProfiles("A"),
+				NewFlag(codec.NewInt32(), "foo").
+					WithProfiles("B"),
 			).WithCreateOptionsHandler(func(context.Context) (NoOptions, error) {
 				if test.factoryError {
 					return NoOptions{}, sentinel
@@ -166,7 +173,8 @@ func TestProfilesContextHelpAndErrors(t *testing.T) {
 			}).WithErrorHandler(func(ctx context.Context, invocation InvocationLike, _ error) error {
 				check(ctx, invocation)
 				return nil
-			}).MustCreate()
+			}).
+				MustCreate()
 			defer func() { assert.NoError(t, app.Close()) }()
 			err := app.ParseAndExecute(nil, &ParseOpts{Profiles: test.profiles}, test.args...)
 			assert.Equal(t, test.wantError, err != nil)
@@ -178,7 +186,10 @@ func TestProfilesContextHelpAndErrors(t *testing.T) {
 func TestProfilesContextNestedParsesOverrideOuterSelection(t *testing.T) {
 	innerCalls := 0
 	innerExecutions := 0
-	inner := NewSimpleApplication().WithName("inner").WithFlag(NewFlag(codec.NewBool()).WithName("enabled").WithProfiles("B")).
+	inner := NewSimpleApplication("inner").
+		WithFlag(NewFlag(codec.NewBool(), "enabled").
+			WithProfiles("B"),
+		).
 		WithCreateOptionsHandler(func(ctx context.Context) (NoOptions, error) {
 			profiles, found := ProfilesFromContext(ctx)
 			require.True(t, found)
@@ -201,10 +212,14 @@ func TestProfilesContextNestedParsesOverrideOuterSelection(t *testing.T) {
 		assert.False(t, ContextContainsProfile(ctx, "A"))
 		innerExecutions++
 		return nil
-	}).MustCreate()
+	}).
+		MustCreate()
 	defer func() { assert.NoError(t, inner.Close()) }()
 	var outerContext context.Context
-	outer := NewSimpleApplication().WithName("outer").WithFlag(NewFlag(codec.NewBool()).WithName("enabled").WithProfiles("A")).
+	outer := NewSimpleApplication("outer").
+		WithFlag(NewFlag(codec.NewBool(), "enabled").
+			WithProfiles("A"),
+		).
 		WithHandler(func(ctx context.Context, _ NoOptions) error {
 			outerContext = ctx
 			first, err := inner.Parse(ctx, nil)
@@ -223,7 +238,8 @@ func TestProfilesContextNestedParsesOverrideOuterSelection(t *testing.T) {
 			assert.True(t, ContextContainsProfile(ctx, "A"))
 			assert.False(t, ContextContainsProfile(ctx, "B"))
 			return nil
-		}).MustCreate()
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, outer.Close()) }()
 	assert.NoError(t, outer.ParseAndExecute(nil, &ParseOpts{Profiles: []string{"A"}}))
 	assert.True(t, ContextContainsProfile(outerContext, "A"))
@@ -242,21 +258,26 @@ func TestProfilesContextMissingAndConcurrentSelections(t *testing.T) {
 	assert.Empty(t, slices.Collect(empty.Profiles()))
 	assert.False(t, empty.ContainsProfile("A"))
 	type markerKey struct{}
-	app := NewSimpleApplication().WithName("app").WithFlag(NewFlag(codec.NewBool()).WithName("enabled").WithProfiles("A", "B")).
+	app := NewSimpleApplication("app").
+		WithFlag(NewFlag(codec.NewBool(), "enabled").
+			WithProfiles("A", "B"),
+		).
 		WithCreateOptionsHandler(func(ctx context.Context) (NoOptions, error) {
 			profile := ctx.Value(markerKey{}).(string)
 			profiles, found := ProfilesFromContext(ctx)
 			assert.True(t, found)
 			assert.Equal(t, []string{profile}, slices.Collect(profiles))
 			return NoOptions{}, nil
-		}).WithHandler(func(ctx context.Context, _ NoOptions) error {
-		invocation, found := InvocationFromContext(ctx)
-		require.True(t, found)
-		profiles, found := ProfilesFromContext(ctx)
-		assert.True(t, found)
-		assert.Equal(t, slices.Collect(invocation.Profiles()), slices.Collect(profiles))
-		return nil
-	}).MustCreate()
+		}).
+		WithHandler(func(ctx context.Context, _ NoOptions) error {
+			invocation, found := InvocationFromContext(ctx)
+			require.True(t, found)
+			profiles, found := ProfilesFromContext(ctx)
+			assert.True(t, found)
+			assert.Equal(t, slices.Collect(invocation.Profiles()), slices.Collect(profiles))
+			return nil
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	var workers sync.WaitGroup
 	for index := range 16 {

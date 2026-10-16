@@ -22,15 +22,18 @@ func TestErrorHandlerExecutionRunsAfterCleanupAndIdentifiesFailingContainer(t *t
 	var reported error
 	var retained *Invocation[NoOptions]
 	calls := 0
-	app, err := NewSimpleApplication().WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithCloseHandler(func(NoOptions) error { events = append(events, "close app"); return cleanup }).
-		WithCommand(NewSimpleCommand().WithName("group").
+		WithCommand(NewSimpleCommand("group").
 			WithHandler(func(context.Context, NoOptions) error { events = append(events, "execute group"); return primary }).
 			WithCloseHandler(func(NoOptions) error { events = append(events, "close group"); return nil }).
-			WithCommand(NewSimpleCommand().WithName("leaf").WithHandler(func(context.Context, NoOptions) error {
-				assert.Fail(t, "later handlers must not run")
-				return nil
-			}))).
+			WithCommand(NewSimpleCommand("leaf").
+				WithHandler(func(context.Context, NoOptions) error {
+					assert.Fail(t, "later handlers must not run")
+					return nil
+				}),
+			),
+		).
 		WithErrorHandler(func(ctx context.Context, invocation InvocationLike, err error) error {
 			calls++
 			reported = err
@@ -46,7 +49,8 @@ func TestErrorHandlerExecutionRunsAfterCleanupAndIdentifiesFailingContainer(t *t
 			retained = invocation.(*Invocation[NoOptions])
 			assert.True(t, retained.lifecycle.closed.Load())
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "group", "leaf")
@@ -66,13 +70,14 @@ func TestManagedExecutionReportsHandlerAndCompletionCleanupErrorsOnce(t *testing
 			calls, closes := 0, 0
 			var reported error
 			var reportedApp *Application[NoOptions]
-			root := NewSimpleApplication().WithName("app").
+			root := NewSimpleApplication("app").
 				WithHandler(func(context.Context, NoOptions) error {
 					if failExecution {
 						return primary
 					}
 					return nil
-				}).WithCloseHandler(func(NoOptions) error { closes++; return cleanup }).
+				}).
+				WithCloseHandler(func(NoOptions) error { closes++; return cleanup }).
 				WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 					calls++
 					reported = err
@@ -92,7 +97,8 @@ func TestManagedExecutionReportsHandlerAndCompletionCleanupErrorsOnce(t *testing
 			assert.Equal(t, 1, calls)
 			assert.Equal(t, 1, closes)
 			assert.True(t, reportedApp.definition.closed.Load(), "managed application closes when the returning response completes")
-			assert.Equal(t, 1, strings.Count(err.Error(), cleanup.Error()), "cleanup error must not be joined repeatedly")
+			assert.Equal(t, 1, strings.Count(err.Error(), "options could not be closed"), "cleanup error must not be joined repeatedly")
+			assert.NotContains(t, err.Error(), cleanup.Error())
 		})
 	}
 }
@@ -104,7 +110,7 @@ func TestExecutionErrorHandlingCoversCancellationAndHelp(t *testing.T) {
 			defer cancel()
 			failure := errors.New("help failed")
 			calls := 0
-			app, err := NewSimpleApplication().WithName("app").
+			app, err := NewSimpleApplication("app").
 				WithHelpHandler(func(context.Context, InvocationLike) error { return failure }).
 				WithErrorHandler(func(received context.Context, invocation InvocationLike, err error) error {
 					calls++
@@ -141,7 +147,8 @@ func TestExecutionHandlersAreCapturedOverriddenAndDisabledLocally(t *testing.T) 
 	primary, replacement := errors.New("execute failed"), errors.New("replacement")
 	var events []string
 	build := func(name string) *ApplicationRequirement[NoOptions] {
-		return NewSimpleApplication().WithName(name).WithHandler(func(context.Context, NoOptions) error { return primary })
+		return NewSimpleApplication(name).
+			WithHandler(func(context.Context, NoOptions) error { return primary })
 	}
 	DefaultErrorHandler = func(context.Context, InvocationLike, error) error { events = append(events, "first"); return nil }
 	first, err := build("first").Create()
@@ -191,14 +198,17 @@ func TestExecutionHandlersAreCapturedOverriddenAndDisabledLocally(t *testing.T) 
 func TestDirectExecutionErrorsAreReportedButNestedCallsAreNotDuplicated(t *testing.T) {
 	primary := errors.New("direct execution failed")
 	var events []string
-	app, err := NewSimpleApplication().WithName("app").
-		WithCommand(NewSimpleCommand().WithName("child").WithHandler(func(context.Context, NoOptions) error { return primary })).
+	app, err := NewSimpleApplication("app").
+		WithCommand(NewSimpleCommand("child").
+			WithHandler(func(context.Context, NoOptions) error { return primary }),
+		).
 		WithErrorHandler(func(ctx context.Context, _ InvocationLike, err error) error {
 			current, found := ContainerFromContext(ctx)
 			assert.True(t, found)
 			events = append(events, current.Name())
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	command, found := FindCommand[NoOptions](app, "child")
@@ -208,10 +218,13 @@ func TestDirectExecutionErrorsAreReportedButNestedCallsAreNotDuplicated(t *testi
 
 	nestedCalls := 0
 	var nestedCommand *Command[NoOptions]
-	nested, err := NewSimpleApplication().WithName("nested").
-		WithCommand(NewSimpleCommand().WithName("child").WithHandler(func(context.Context, NoOptions) error { return primary })).
+	nested, err := NewSimpleApplication("nested").
+		WithCommand(NewSimpleCommand("child").
+			WithHandler(func(context.Context, NoOptions) error { return primary }),
+		).
 		WithHandler(func(ctx context.Context, _ NoOptions) error { return nestedCommand.Execute(ctx, NoOptions{}) }).
-		WithErrorHandler(func(context.Context, InvocationLike, error) error { nestedCalls++; return nil }).Create()
+		WithErrorHandler(func(context.Context, InvocationLike, error) error { nestedCalls++; return nil }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, nested.Close()) }()
 	nestedCommand, found = FindCommand[NoOptions](nested, "child")
@@ -260,8 +273,10 @@ func TestExecutionErrorOutputIsSafeForConcurrentInvocations(t *testing.T) {
 	handler, err := NewRespondErrorHandler().WithOutput(&output).Create()
 	require.NoError(t, err)
 	primary := errors.New("failed")
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandler(handler).
-		WithHandler(func(context.Context, NoOptions) error { return primary }).Create()
+	app, err := NewSimpleApplication("app").
+		WithErrorHandler(handler).
+		WithHandler(func(context.Context, NoOptions) error { return primary }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	var workers sync.WaitGroup
@@ -294,12 +309,13 @@ func TestExecutionErrorExitProcess(t *testing.T) {
 		if mode == "input-cancel-cleanup" {
 			primary = NewValidationErrorf("bad input")
 		}
-		root := NewSimpleApplication().WithName("app").WithHandler(func(context.Context, NoOptions) error {
-			if mode == "cleanup" {
-				return nil
-			}
-			return primary
-		}).WithCloseHandler(func(NoOptions) error {
+		root := NewSimpleApplication("app").
+			WithHandler(func(context.Context, NoOptions) error {
+				if mode == "cleanup" {
+					return nil
+				}
+				return primary
+			}).WithCloseHandler(func(NoOptions) error {
 			_, err := io.WriteString(os.Stderr, "CLEANUP\n")
 			if mode == "input-cancel-cleanup" {
 				return errors.Join(err, context.Canceled)

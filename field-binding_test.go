@@ -26,16 +26,14 @@ type bindingOptions struct {
 }
 
 func TestCompiledBindingsForNestedAndPointerFields(t *testing.T) {
-	a, err := NewApplication[*bindingOptions]().WithName("nested").
+	a, err := NewApplication[*bindingOptions]("nested").
 		WithCodec(codec.NewMarshallerP(func() *bindingLeaf { return &bindingLeaf{} })).
 		WithFlag(
-			NewFlag(codec.NewString()).
-				WithName("name").
+			NewFlag(codec.NewString(), "name").
 				WithField("Nested", "Name"),
 		).
 		WithArgument(
-			NewArgument(codec.NewString()).
-				WithName("value").
+			NewArgument(codec.NewString(), "value").
 				WithField("Nested", "Value"),
 		).
 		Create()
@@ -69,11 +67,9 @@ func TestCompiledBindingsForNestedAndPointerFields(t *testing.T) {
 
 func TestInvalidExplicitBindingFailsAtCreate(t *testing.T) {
 	type options struct{ hidden string } //nolint:unused // Deliberately unexported field inspected through reflection.
-	_, err := NewApplication[*options]().
-		WithName("invalid").
+	_, err := NewApplication[*options]("invalid").
 		WithFlag(
-			NewFlag(codec.NewString()).
-				WithName("hidden").
+			NewFlag(codec.NewString(), "hidden").
 				WithField("hidden"),
 		).
 		Create()

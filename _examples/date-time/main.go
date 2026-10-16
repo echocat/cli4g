@@ -18,9 +18,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("date-time").
-		WithDescription("Parse dates, timestamps, and custom date/time layouts.").
+	cli.NewApplication[options]("date-time", "Parse dates, timestamps, and custom date/time layouts.").
 		WithCodec(codec.NewDate(), "date").
 		WithCodec(codec.NewDateSlice(), "date").
 		WithCodec(codec.NewDateTime().WithFormats("02.01.2006 15:04", time.RFC3339Nano), "custom").

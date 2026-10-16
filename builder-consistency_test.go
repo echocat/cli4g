@@ -11,9 +11,16 @@ import (
 )
 
 func TestWithNameReplacesAndWithAliasesAppends(t *testing.T) {
-	root := NewSimpleApplication().WithName("old").WithName("app")
-	command := NewSimpleCommand().WithName("old", "old-alias").WithName("run").WithAliases("r")
-	flag := NewFlag(codec.NewString()).WithName("old", "old-alias").WithName("value").WithAliases("v")
+	root := NewSimpleApplication("old").
+		WithName("app")
+	command := NewSimpleCommand("old").
+		WithAliases("old-alias").
+		WithName("run").
+		WithAliases("r")
+	flag := NewFlag(codec.NewString(), "old").
+		WithAliases("old-alias").
+		WithName("value").
+		WithAliases("v")
 	app := root.WithCommand(command.WithFlag(flag)).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, found := app.Command("old")
@@ -43,16 +50,18 @@ func TestSetCodecsReplacesCompleteRegistrationList(t *testing.T) {
 		codec.NewRegistration(codec.NewDuration(), "duration"),
 	}
 	for _, command := range []bool{false, true} {
-		root := NewSimpleApplication().WithName("app")
+		root := NewSimpleApplication("app")
 		var args []string
 		if command {
-			child := NewCommand[options]().WithName("run").WithCodec(codec.NewInt(), "removed")
+			child := NewCommand[options]("run").
+				WithCodec(codec.NewInt(), "removed")
 			child.SetCodecs(registrations)
 			assert.Len(t, child.Codecs, 2)
 			root.WithCommand(child)
 			args = []string{"run"}
 		} else {
-			typed := NewApplication[options]().WithName("app").WithCodec(codec.NewInt(), "removed")
+			typed := NewApplication[options]("app").
+				WithCodec(codec.NewInt(), "removed")
 			typed.SetCodecs(registrations)
 			assert.Len(t, typed.Codecs, 2)
 			app := typed.MustCreate()

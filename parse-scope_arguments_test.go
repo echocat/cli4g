@@ -56,12 +56,11 @@ func TestArgumentRequirementChecksDoNotCloneCodecs(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			clones := &atomic.Int64{}
-			app, err := NewSimpleApplication().
-				WithName("app").
+			app, err := NewSimpleApplication("app").
 				WithArgument(
 					NewArgument(grammarString{
 						min: test.min, max: test.max, clones: clones, cloneErr: test.cloneErr,
-					}).WithName("value").WithRequired(test.required),
+					}, "value").WithRequired(test.required),
 				).
 				Create()
 			require.NoError(t, err)
@@ -115,7 +114,7 @@ func TestBoolCodecUsageForFlagAndArgument(t *testing.T) {
 		Ready   bool `flag:"ready" type:"boolean"`
 		Enabled bool `argument:"enabled" required:"true" type:"boolean"`
 	}
-	app, err := NewApplication[*options]().WithName("bool").
+	app, err := NewApplication[*options]("bool").
 		WithCodec(decoder, "boolean").Create()
 	require.NoError(t, err)
 	for _, test := range []struct {
@@ -138,13 +137,10 @@ func TestBoolCodecUsageForFlagAndArgument(t *testing.T) {
 func TestVariadicAndCodecArity(t *testing.T) {
 	require.NoError(t, codec.EnsureArgumentsMatching(context.Background(), codec.UsageFlag, codec.NewString(), "ok"))
 	require.NoError(t, codec.EnsureArgumentsMatching(context.Background(), codec.UsageFlag, customVariadic1Codec{}, "a", "b"))
-	a, err := NewSimpleApplication().
-		WithName("var").
+	a, err := NewSimpleApplication("var").
 		WithArgument(
-			NewArgument(codec.NewString()).
-				WithName("first"),
-			NewArgument(customVariadic1Codec{}).
-				WithName("rest"),
+			NewArgument(codec.NewString(), "first"),
+			NewArgument(customVariadic1Codec{}, "rest"),
 		).
 		Create()
 	require.NoError(t, err)
@@ -160,8 +156,9 @@ func TestSliceCodecCreatesIndependentRuntimeSlices(t *testing.T) {
 	type options struct {
 		Values []int `argument:"values"`
 	}
-	a, err := NewApplication[*options]().WithName("slices").
-		WithCodec(codec.NewIntSlice()).Create()
+	a, err := NewApplication[*options]("slices").
+		WithCodec(codec.NewIntSlice()).
+		Create()
 	require.NoError(t, err)
 	var wg sync.WaitGroup
 	for range 30 {
@@ -180,11 +177,11 @@ func TestSliceCodecCreatesIndependentRuntimeSlices(t *testing.T) {
 }
 
 func TestManyFixedArgumentsRetainDefinitionOrder(t *testing.T) {
-	requirement := NewSimpleApplication().WithName("app")
+	requirement := NewSimpleApplication("app")
 	args := make([]string, 160)
 	for i := range args {
 		name := "value" + strconv.Itoa(i)
-		requirement.WithArgument(NewArgument(codec.NewString()).WithName(name))
+		requirement.WithArgument(NewArgument(codec.NewString(), name))
 		args[i] = strconv.Itoa(i)
 	}
 	app, err := requirement.Create()
@@ -206,7 +203,8 @@ func TestArgumentLookupUsesDefinitionIndexWhenEarlierOptionalArgumentIsOmitted(t
 		First  string `argument:"first"`
 		Second string `argument:"second" default:"fallback"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
@@ -270,20 +268,15 @@ func TestArgumentDefinitionIndicesAreLocalToSelectedLeafAndVariadicDefaults(t *t
 		First string
 		Rest  []string
 	}
-	app := NewSimpleApplication().
-		WithName("app").
-		WithArgument(NewArgument(codec.NewString()).
-			WithName("root").
+	app := NewSimpleApplication("app").
+		WithArgument(NewArgument(codec.NewString(), "root").
 			WithDefault("root default"),
 		).
-		WithCommand(NewCommand[childOptions]().
-			WithName("child").
+		WithCommand(NewCommand[childOptions]("child").
 			WithArgument(
-				NewArgument(codec.NewString()).
-					WithName("first").
+				NewArgument(codec.NewString(), "first").
 					WithField("First"),
-				NewArgument(codec.NewStrings()).
-					WithName("rest").
+				NewArgument(codec.NewStrings(), "rest").
 					WithField("Rest").
 					WithDefaultStr("one", "two"),
 			),

@@ -27,7 +27,7 @@ func (value *automaticTextResource) UnmarshalText(input []byte) error {
 	}
 	switch string(input) {
 	case "invalid":
-		return codec.NewValidationError(io.ErrUnexpectedEOF)
+		return codec.NewValidationError("invalid text", io.ErrUnexpectedEOF)
 	case "failure":
 		return io.ErrUnexpectedEOF
 	}

@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestTaggedWholeEmbeddedBindingsAreOpaque(t *testing.T) {
@@ -11,7 +12,8 @@ func TestTaggedWholeEmbeddedBindingsAreOpaque(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			root := NewApplication[*struct {
 				*ExplicitEmbeddedValue `flag:"whole"`
-			}]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false)
+			}]("app").WithHelp(false).
+				WithErrorHandlerEnabled(false)
 			if kind == "flag" {
 				app, err := root.Create()
 				require.NoError(t, err)
@@ -28,7 +30,9 @@ func TestTaggedWholeEmbeddedBindingsAreOpaque(t *testing.T) {
 			if kind == "recursive" {
 				app, err := NewApplication[*struct {
 					*RecursiveBoundValue `flag:"whole"`
-				}]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).Create()
+				}]("app").WithHelp(false).
+					WithErrorHandlerEnabled(false).
+					Create()
 				require.NoError(t, err)
 				defer func() { require.NoError(t, app.Close()) }()
 				invocation, err := app.Parse(nil, nil, "--whole=cli")
@@ -41,7 +45,10 @@ func TestTaggedWholeEmbeddedBindingsAreOpaque(t *testing.T) {
 			if kind == "arg" {
 				app, err := NewApplication[*struct {
 					*ExplicitEmbeddedValue `arg:"whole"`
-				}]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).Create()
+				}]("app").
+					WithHelp(false).
+					WithErrorHandlerEnabled(false).
+					Create()
 				require.NoError(t, err)
 				defer func() { require.NoError(t, app.Close()) }()
 				_, found := app.Flag("internal")
@@ -55,7 +62,10 @@ func TestTaggedWholeEmbeddedBindingsAreOpaque(t *testing.T) {
 			}
 			app, err := NewApplication[*struct {
 				*ExplicitEmbeddedValue `argument:"whole"`
-			}]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).Create()
+			}]("app").
+				WithHelp(false).
+				WithErrorHandlerEnabled(false).
+				Create()
 			require.NoError(t, err)
 			defer func() { require.NoError(t, app.Close()) }()
 			_, found := app.Flag("internal")

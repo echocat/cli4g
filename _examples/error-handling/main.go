@@ -20,9 +20,7 @@ func main() {
 func run(args []string) int {
 	// All exit codes default to zero: the responder prints but returns errors.
 	response := cli.NewRespondErrorHandler().WithOutput(os.Stderr).MustCreate()
-	err := cli.NewApplication[options]().
-		WithName("error-handling").
-		WithDescription("Return errors to the caller and choose application exit codes.").
+	err := cli.NewApplication[options]("error-handling", "Return errors to the caller and choose application exit codes.").
 		WithErrorHandler(response).
 		WithHandler(printMessage).
 		CreateParseAndExecute(context.Background(), nil, args...)

@@ -29,8 +29,7 @@ func TestHelpInvocationSkipsOptionsDecodingAndLifecycleAndDispatchesToApplicatio
 	var events []string
 	var codecCalls atomic.Int64
 	failure := errors.New("help handler failed")
-	app := NewApplication[*helpUnsafeOptions]().
-		WithName("app").
+	app := NewApplication[*helpUnsafeOptions]("app").
 		WithCodec(callbackCodec[int, int]{
 			Codec:   codec.NewInt(),
 			onClone: func(context.Context) { codecCalls.Add(1) },
@@ -56,8 +55,7 @@ func TestHelpInvocationSkipsOptionsDecodingAndLifecycleAndDispatchesToApplicatio
 			events = append(events, "close")
 			return nil
 		}).
-		WithCommand(NewCommand[childOptions]().
-			WithName("run", "r").
+		WithCommand(NewCommand[childOptions]("run").WithAliases("r").
 			WithCreateOptionsHandler(func(context.Context) (childOptions, error) {
 				events = append(events, "child factory")
 				return childOptions{}, nil
@@ -114,10 +112,10 @@ func TestHelpScannerStopsAtCurrentContainerAndRespectsValueAndTerminatorGrammar(
 		Verbose bool     `flag:"verbose" short:"v"`
 		Values  []string `argument:"values"`
 	}
-	app := NewApplication[options]().
-		WithName("app").
-		WithCommand(NewSimpleCommand().
-			WithName("run", "r"),
+	app := NewApplication[options]("app").
+		WithHandler(func(context.Context, options) error { return nil }).
+		WithCommand(NewSimpleCommand("run").
+			WithAliases("r"),
 		).
 		MustCreate()
 	for _, test := range []struct {
@@ -172,14 +170,14 @@ func TestHelpScannerStopsAtCurrentContainerAndRespectsValueAndTerminatorGrammar(
 }
 
 func TestHelpCanBeDisabledAndHelpNamesBecomeOrdinaryFlags(t *testing.T) {
-	requirement := NewSimpleApplication().WithName("app")
+	requirement := NewSimpleApplication("app")
 	requirement.SetHelp(false)
-	app := requirement.WithFlag(NewFlag(codec.NewString()).
-		WithName("help").
-		WithShort('h')).
-		WithCommand(NewSimpleCommand().
-			WithName("run"),
+	app := requirement.
+		WithHandler(func(context.Context, NoOptions) error { return nil }).
+		WithFlag(NewFlag(codec.NewString(), "help").
+			WithShort('h'),
 		).
+		WithCommand(NewSimpleCommand("run")).
 		MustCreate()
 	for _, args := range [][]string{{"--help=value"}, {"run", "-hvalue"}} {
 		invocation := app.MustParse(context.Background(), nil, args...)
@@ -188,8 +186,7 @@ func TestHelpCanBeDisabledAndHelpNamesBecomeOrdinaryFlags(t *testing.T) {
 		_, value := invocation.Flag("help")
 		assert.Equal(t, "value", value)
 	}
-	app = NewSimpleApplication().
-		WithName("app").
+	app = NewSimpleApplication("app").
 		WithHelp(false).
 		MustCreate()
 	_, err := app.Parse(context.Background(), nil, "--help")
@@ -198,40 +195,33 @@ func TestHelpCanBeDisabledAndHelpNamesBecomeOrdinaryFlags(t *testing.T) {
 
 func TestAutomaticHelpRejectsNamesShortsAliasesAndTagsAcrossTheTree(t *testing.T) {
 	for _, flag := range []*FlagRequirement[string, string]{
-		NewFlag(codec.NewString()).
-			WithName("help"),
-		NewFlag(codec.NewString()).
-			WithName("value", "help"),
-		NewFlag(codec.NewString()).
-			WithName("value").
+		NewFlag(codec.NewString(), "help"),
+		NewFlag(codec.NewString(), "value").
+			WithAliases("help"),
+		NewFlag(codec.NewString(), "value").
 			WithShort('h'),
 	} {
-		_, err := NewSimpleApplication().
-			WithName("app").
+		_, err := NewSimpleApplication("app").
 			WithFlag(flag).
 			Create()
 		require.Error(t, err)
-		_, err = NewSimpleApplication().
-			WithName("app").
-			WithCommand(NewSimpleCommand().
-				WithName("child").
+		_, err = NewSimpleApplication("app").
+			WithCommand(NewSimpleCommand("child").
 				WithFlag(flag),
-			).Create()
+			).
+			Create()
 		require.Error(t, err)
 	}
 	type options struct {
 		Value string `flag:"value|help"`
 	}
-	_, err := NewApplication[options]().WithName("app").Create()
+	_, err := NewApplication[options]("app").Create()
 	require.ErrorContains(t, err, "help")
 	type shortOptions struct {
 		Value string `flag:"value" short:"h"`
 	}
-	_, err = NewSimpleApplication().
-		WithName("app").
-		WithCommand(NewCommand[shortOptions]().
-			WithName("child"),
-		).Create()
+	_, err = NewSimpleApplication("app").
+		WithCommand(NewCommand[shortOptions]("child")).Create()
 	require.ErrorContains(t, err, "h")
 }
 
@@ -239,10 +229,9 @@ func TestHelpMetadataUsesSelectedCodecOverridesAndReturnsIndependentLists(t *tes
 	type options struct {
 		Value string `flag:"value" default:"configured"`
 	}
-	app := NewApplication[options]().WithName("app").
+	app := NewApplication[options]("app").
 		WithCodec(grammarString{min: 1, max: 1, prefix: "root:"}).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
+		WithCommand(NewSimpleCommand("child").
 			WithCodec(grammarString{min: 1, max: 1, prefix: "child:"}),
 		).
 		MustCreate()
@@ -270,10 +259,12 @@ func TestHelpMetadataUsesSelectedCodecOverridesAndReturnsIndependentLists(t *tes
 
 func TestHelpExecuteCancellationAndConcurrentLiveInvocations(t *testing.T) {
 	var calls atomic.Int64
-	app, err := NewSimpleApplication().WithName("app").WithHelpHandler(func(context.Context, InvocationLike) error {
-		calls.Add(1)
-		return nil
-	}).Create()
+	app, err := NewSimpleApplication("app").
+		WithHelpHandler(func(context.Context, InvocationLike) error {
+			calls.Add(1)
+			return nil
+		}).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "--help")
 	require.NoError(t, err)

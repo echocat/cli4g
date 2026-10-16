@@ -10,6 +10,8 @@ type Value interface {
 // NewValue adapts *T's Set/String methods. The zero value must be ready for Set.
 // Requirements and defaults are input tokens ([]string), not T. Set runs during
 // Resolve; mark user errors with [NewValidationError]. See [ValueConfig] for traits.
+// Warning: marked error messages are displayed verbatim; never include input
+// values or confidential data. Unmarked errors are masked, retaining their causes.
 func NewValue[T any, TP interface {
 	*T
 	Value
@@ -20,6 +22,8 @@ func NewValue[T any, TP interface {
 // NewValueP adapts fresh targets from a concurrent-safe factory, called during Resolve.
 // Nil factories fail configuration; nil targets fail with [ErrInvalid].
 // Requirements are []string; see [NewValue] and [ValueConfig].
+// Warning: authors are responsible for keeping ValidationError messages free
+// of input values and confidential data, as described by NewValue.
 func NewValueP[T Value](factory func() T, configs ...ValueConfig[T]) (Codec[T, []string], error) {
 	if factory == nil {
 		return NewPointerFlagValue[T](nil, configs...)

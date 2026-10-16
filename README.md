@@ -34,8 +34,7 @@ type options struct {
 }
 
 func main() {
-    cli.NewApplication[options]().
-		WithName("greet").
+    cli.NewApplication[options]("greet", "Greet someone.").
 		WithHandler(greet).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

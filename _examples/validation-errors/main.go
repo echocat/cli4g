@@ -24,24 +24,22 @@ func (opts options) Validate(ctx context.Context) error {
 		return fmt.Errorf("reading configuration: %w", io.ErrUnexpectedEOF)
 	}
 	if _, err := strconv.Atoi(opts.Value); err != nil {
-		return cli.NewValidationErrorf("value must be an integer: %w", err)
+		return cli.NewValidationError("value must be an integer", err)
 	}
 	return nil
 }
 
 func main() {
 	response := cli.DefaultErrorHandler
-	cli.NewApplication[options]().
-		WithName("validation-errors").
-		WithDescription("Distinguish invalid input from technical failures in Validate.").
+	cli.NewApplication[options]("validation-errors", "Distinguish invalid input from technical failures in Validate.").
 		WithErrorHandler(func(ctx context.Context, invocation cli.InvocationLike, err error) error {
 			var number *strconv.NumError
 			var detail string
 			switch {
 			case cli.IsValidationError(err) && errors.As(err, &number):
-				detail = "Cause: strconv.NumError"
+				detail = "Expected: an integer"
 			case errors.Is(err, io.ErrUnexpectedEOF):
-				detail = "Cause: io.ErrUnexpectedEOF"
+				detail = "Configuration could not be read completely"
 			}
 			if detail != "" {
 				_, printErr := fmt.Fprintln(os.Stderr, detail)

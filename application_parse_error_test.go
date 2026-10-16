@@ -23,7 +23,7 @@ func BenchmarkApplicationParseError(b *testing.B) {
 			handler, err = NewRespondErrorHandler().WithOutput(io.Discard).Create()
 			require.NoError(b, err)
 		}
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
 			WithHelpHandler(help).WithErrorHandler(handler).Create()
 		require.NoError(b, err)
 		for _, stage := range []string{"Scanner", "Decode"} {

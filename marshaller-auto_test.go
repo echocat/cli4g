@@ -33,8 +33,13 @@ func TestAutomaticMarshallerTagsSupportValuePointerFlagsArgumentsAndDefaults(t *
 		PointerArgument *automaticText `argument:"pointer-argument" default:"default-pointer-argument"`
 	}
 	var output bytes.Buffer
-	app := NewApplication[options]().WithName("text").WithErrorHandlerEnabled(false).
-		WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).MustCreate()
+	app := NewApplication[options]("text").
+		WithErrorHandlerEnabled(false).
+		WithHelpHandler(testDefaultTemplatedHelpRequirement().
+			WithOutput(&output).
+			MustCreate(),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	require.NoError(t, app.ParseAndExecute(nil, nil, "--help"))
 	assert.Contains(t, output.String(), "default-flag")
@@ -100,9 +105,14 @@ func TestAutomaticMarshallerRetainsCodecAndValuePriorities(t *testing.T) {
 	source := func(prefix string) overridingTextCodec {
 		return overridingTextCodec{Codec: codec.NewMarshaller[automaticText](), prefix: prefix}
 	}
-	app := NewApplication[options]().WithName("text").WithErrorHandlerEnabled(false).
-		WithCodec(source("registered:")).WithCodec(source("named:"), "named").
-		WithFlag(NewFlag(source("explicit:")).WithName("explicit").WithField("Explicit")).MustCreate()
+	app := NewApplication[options]("text").
+		WithErrorHandlerEnabled(false).
+		WithCodec(source("registered:")).
+		WithCodec(source("named:"), "named").
+		WithFlag(NewFlag(source("explicit:"), "explicit").
+			WithField("Explicit"),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--registered", "a", "--named", "b", "--explicit", "c", "--hybrid", "d")
 	require.NoError(t, err)
@@ -114,6 +124,6 @@ func TestAutomaticMarshallerRetainsCodecAndValuePriorities(t *testing.T) {
 	assert.Equal(t, "value:d", parsed.Hybrid.Text)
 	_, err = NewApplication[struct {
 		Text automaticText `flag:"text" type:"missing"`
-	}]().WithName("text").Create()
+	}]("text").Create()
 	assert.ErrorContains(t, err, "with name \"missing\"")
 }

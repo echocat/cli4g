@@ -19,7 +19,9 @@ type taggedCalendarOptions struct {
 
 func TestTaggedCalendarDefaultsEnvironmentAndCLI(t *testing.T) {
 	t.Run("application", func(t *testing.T) {
-		app := NewApplication[taggedCalendarOptions]().WithName("app").WithErrorHandlerEnabled(false).MustCreate()
+		app := NewApplication[taggedCalendarOptions]("app").
+			WithErrorHandlerEnabled(false).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		testTaggedCalendarSources(t, app, nil, func(invocation *Invocation[taggedCalendarOptions]) taggedCalendarOptions {
 			_, values := invocation.Application()
@@ -27,8 +29,10 @@ func TestTaggedCalendarDefaultsEnvironmentAndCLI(t *testing.T) {
 		})
 	})
 	t.Run("command", func(t *testing.T) {
-		app := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-			WithCommand(NewCommand[taggedCalendarOptions]().WithName("run")).MustCreate()
+		app := NewSimpleApplication("app").
+			WithErrorHandlerEnabled(false).
+			WithCommand(NewCommand[taggedCalendarOptions]("run")).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		command, found := FindCommand[taggedCalendarOptions](app, "run")
 		require.True(t, found)
@@ -78,7 +82,8 @@ func TestCalendarBuildersTypedDefaultsCustomLayoutsAndHelp(t *testing.T) {
 	}
 	day := time.Date(2026, time.October, 14, 0, 0, 0, 0, time.UTC)
 	precise := time.Date(2026, time.October, 14, 12, 30, 45, 987654321, time.FixedZone("custom", 1234))
-	app := NewApplication[options]().WithName("app").WithErrorHandlerEnabled(false).
+	app := NewApplication[options]("app").
+		WithErrorHandlerEnabled(false).
 		WithDateFlag("day", func(f *FlagRequirement[time.Time, time.Time]) {
 			f.WithField("Day").WithCodec(codec.NewDate().WithFormats("02/01/2006")).WithDefault(day.Add(12 * time.Hour))
 		}).
@@ -90,7 +95,8 @@ func TestCalendarBuildersTypedDefaultsCustomLayoutsAndHelp(t *testing.T) {
 		}).
 		WithDateTimeSliceArgument("times", func(a *ArgumentRequirement[[]time.Time, []time.Time]) {
 			a.WithField("Times").WithDefault([]time.Time{precise})
-		}).MustCreate()
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
 		args []string
@@ -123,16 +129,20 @@ func TestNamedDateCodecAndInvalidConfiguration(t *testing.T) {
 	type options struct {
 		Birthday time.Time `flag:"birthday" type:"birthday" default:"Oct 14, 2026"`
 	}
-	app := NewApplication[options]().WithName("app").WithErrorHandlerEnabled(false).
-		WithCodec(codec.NewDate().WithFormats("Jan 2, 2006"), "birthday").MustCreate()
+	app := NewApplication[options]("app").
+		WithErrorHandlerEnabled(false).
+		WithCodec(codec.NewDate().WithFormats("Jan 2, 2006"), "birthday").
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(t.Context(), nil, "--birthday=Oct 15, 2026")
 	require.NoError(t, err)
 	_, values := invocation.Application()
 	assert.Equal(t, time.Date(2026, time.October, 15, 0, 0, 0, 0, time.UTC), values.Birthday)
 	require.NoError(t, invocation.Close())
-	_, err = NewSimpleApplication().WithName("app").WithDateFlag("day", func(f *FlagRequirement[time.Time, time.Time]) {
-		f.WithCodec(codec.NewDate().WithFormats(""))
-	}).Create()
+	_, err = NewSimpleApplication("app").
+		WithDateFlag("day", func(f *FlagRequirement[time.Time, time.Time]) {
+			f.WithCodec(codec.NewDate().WithFormats(""))
+		}).
+		Create()
 	assert.ErrorIs(t, err, codec.ErrInvalid)
 }

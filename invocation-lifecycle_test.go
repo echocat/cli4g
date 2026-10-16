@@ -16,8 +16,7 @@ import (
 func TestInvocationAliasesCloseOnlyOnce(t *testing.T) {
 	closeErr := errors.New("cleanup failed")
 	var calls atomic.Int64
-	app, err := NewSimpleApplication().
-		WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithCloseHandler(func(NoOptions) error {
 			calls.Add(1)
 			return closeErr
@@ -63,8 +62,7 @@ func TestInvocationRetainsResourcesUntilClose(t *testing.T) {
 			var events []string
 			resource := &ownedTestResource{events: &events, closeErr: resourceCloseErr}
 			resourceCodec := codec.NewMarshallerP(func() *ownedTestResource { return resource })
-			app, err := NewApplication[resourceOptions]().
-				WithName("app").
+			app, err := NewApplication[resourceOptions]("app").
 				WithCodec(resourceCodec).
 				WithHandler(func(context.Context, resourceOptions) error {
 					return executeErr

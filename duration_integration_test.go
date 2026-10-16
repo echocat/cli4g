@@ -17,7 +17,9 @@ type taggedDurationOptions struct {
 
 func TestTaggedDurationsUseStandardCodecsAcrossInputSources(t *testing.T) {
 	t.Run("application", func(t *testing.T) {
-		app := NewApplication[taggedDurationOptions]().WithName("app").WithErrorHandlerEnabled(false).MustCreate()
+		app := NewApplication[taggedDurationOptions]("app").
+			WithErrorHandlerEnabled(false).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		testTaggedDurationSources(t, app, app, nil, func(invocation *Invocation[taggedDurationOptions]) taggedDurationOptions {
 			_, parsed := invocation.Application()
@@ -25,8 +27,10 @@ func TestTaggedDurationsUseStandardCodecsAcrossInputSources(t *testing.T) {
 		})
 	})
 	t.Run("command", func(t *testing.T) {
-		app := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-			WithCommand(NewCommand[taggedDurationOptions]().WithName("run")).MustCreate()
+		app := NewSimpleApplication("app").
+			WithErrorHandlerEnabled(false).
+			WithCommand(NewCommand[taggedDurationOptions]("run")).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		command, found := FindCommand[taggedDurationOptions](app, "run")
 		require.True(t, found)
@@ -78,13 +82,15 @@ func TestDurationBuilderTypedDefaultsAndFieldBindings(t *testing.T) {
 		Sleep  time.Duration
 		Delays []time.Duration
 	}
-	app := NewApplication[options]().WithName("app").WithErrorHandlerEnabled(false).
+	app := NewApplication[options]("app").
+		WithErrorHandlerEnabled(false).
 		WithDurationFlag("sleep", func(f *FlagRequirement[time.Duration, time.Duration]) {
 			f.WithField("Sleep").WithDefault(1500 * time.Millisecond)
 		}).
 		WithDurationSliceArgument("delays", func(a *ArgumentRequirement[[]time.Duration, []time.Duration]) {
 			a.WithField("Delays").WithDefault([]time.Duration{time.Second, 2 * time.Second})
-		}).MustCreate()
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
 		args []string

@@ -19,9 +19,13 @@ import (
 func TestBuiltInHandlersSelectOutputForEachContext(t *testing.T) {
 	for _, fallback := range []bool{false, true} {
 		failure := errors.New("execution failed")
-		app := NewSimpleApplication().WithName("context-output").WithFallbackToStdio(fallback).
-			WithErrorHandler(NewRespondErrorHandler().MustCreate()).
-			WithHandler(func(context.Context, NoOptions) error { return failure }).MustCreate()
+		app := NewSimpleApplication("context-output").
+			WithFallbackToStdio(fallback).
+			WithErrorHandler(NewRespondErrorHandler().
+				MustCreate(),
+			).
+			WithHandler(func(context.Context, NoOptions) error { return failure }).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		for range 2 {
 			var output, stdout bytes.Buffer
@@ -51,8 +55,13 @@ func TestBuiltInHandlersExplicitOutputOverridesContext(t *testing.T) {
 	var configured, contextual bytes.Buffer
 	helpRequirement := NewTemplatedHelpHandler().WithApplicationTemplate("HELP\n").WithOutput(&configured)
 	responseRequirement := NewRespondErrorHandler().WithOutput(&configured)
-	app := NewSimpleApplication().WithName("context-output").WithFallbackToStdio(false).
-		WithHelpHandler(helpRequirement.MustCreate()).WithErrorHandler(responseRequirement.MustCreate()).MustCreate()
+	app := NewSimpleApplication("context-output").
+		WithFallbackToStdio(false).
+		WithHelpHandler(helpRequirement.MustCreate()).
+		WithErrorHandler(responseRequirement.
+			MustCreate(),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	helpRequirement.SetOutput(nil)
 	responseRequirement.SetOutput(nil)
@@ -76,9 +85,16 @@ func TestBuiltInHandlersSerializeSharedContextOutput(t *testing.T) {
 	ctx := codec.ContextWithStdio(nil, nil, &output, nil)
 	var apps []*Application[NoOptions]
 	for range 2 {
-		app := NewSimpleApplication().WithName("app").WithFallbackToStdio(false).
-			WithHelpHandler(NewTemplatedHelpHandler().WithApplicationTemplate("HELP\n").MustCreate()).
-			WithErrorHandler(NewRespondErrorHandler().MustCreate()).MustCreate()
+		app := NewSimpleApplication("app").
+			WithFallbackToStdio(false).
+			WithHelpHandler(NewTemplatedHelpHandler().
+				WithApplicationTemplate("HELP\n").
+				MustCreate(),
+			).
+			WithErrorHandler(NewRespondErrorHandler().
+				MustCreate(),
+			).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		apps = append(apps, app)
 	}
@@ -101,7 +117,8 @@ func TestBuiltInHandlersWithoutOutputProcess(t *testing.T) {
 	if mode != "" {
 		DefaultErrorHandler = subprocessDefaultErrorHandler
 		ctx := context.Background()
-		root := NewSimpleApplication().WithName("silent").WithFallbackToStdio(false)
+		root := NewSimpleApplication("silent").
+			WithFallbackToStdio(false)
 		if strings.HasPrefix(mode, "explicit-nil-") {
 			root.WithFallbackToStdio(true)
 			ctx = codec.ContextWithStdio(ctx, nil, nil, nil)

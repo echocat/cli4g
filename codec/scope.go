@@ -20,9 +20,9 @@ func ownValue[T any](scope Scope, value T) {
 		return
 	}
 	if closer, ok := any(value).(io.Closer); ok {
-		scope.OnClose(closer.Close)
+		scope.OnClose(func() error { return SanitizeError(closer.Close(), "resource could not be closed") })
 	} else if closer, ok := any(&value).(io.Closer); ok {
-		scope.OnClose(closer.Close)
+		scope.OnClose(func() error { return SanitizeError(closer.Close(), "resource could not be closed") })
 	}
 }
 
@@ -52,7 +52,7 @@ func (scope *ResourceScope) Close() error {
 		var errs []error
 		for _, release := range slices.Backward(releases) {
 			if err := release(); err != nil {
-				errs = append(errs, err)
+				errs = append(errs, SanitizeError(err, "resource could not be closed"))
 			}
 		}
 		scope.err = errors.Join(errs...)
@@ -68,16 +68,18 @@ func CloneRequirement[V, R any](ctx context.Context, source Codec[V, R], require
 		return zero, err
 	}
 	if clone, ok := source.(RequirementCloner[R]); ok {
-		return clone.CloneRequirement(ctx, requirement)
+		result, err := clone.CloneRequirement(ctx, requirement)
+		return result, SanitizeError(err, "value could not be copied")
 	}
 	plain, err := source.FormatRequirement(ctx, requirement)
 	if err != nil {
-		return zero, err
+		return zero, SanitizeError(err, "value could not be formatted")
 	}
 	if err := ctx.Err(); err != nil {
 		return zero, err
 	}
-	return source.ParseRequirement(ctx, UsageDefault, plain...)
+	result, err := source.ParseRequirement(ctx, UsageDefault, plain...)
+	return result, SanitizeError(err, "value could not be decoded")
 }
 
 // DisplayRequirement returns help-safe configuration text without acquiring resources.
@@ -85,5 +87,6 @@ func DisplayRequirement[V, R any](ctx context.Context, source Codec[V, R], requi
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return source.DisplayRequirement(ctx, requirement)
+	result, err := source.DisplayRequirement(ctx, requirement)
+	return result, SanitizeError(err, "value could not be displayed")
 }

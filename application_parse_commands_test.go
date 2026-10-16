@@ -69,11 +69,9 @@ func TestCommandNamesAfterPositionalValues(t *testing.T) {
 		Verbose bool     `flag:"verbose"`
 		Values  []string `argument:"values"`
 	}
-	app, err := NewApplication[*options]().
-		WithName("app").
-		WithCommand(NewSimpleCommand().
-			WithName("run"),
-		).
+	app, err := NewApplication[*options]("app").
+		WithHandler(func(context.Context, *options) error { return nil }).
+		WithCommand(NewSimpleCommand("run")).
 		Create()
 	require.NoError(t, err)
 	for _, test := range []struct {
@@ -102,12 +100,10 @@ func TestMultiValueFlagsAndCommandNames(t *testing.T) {
 	type options struct {
 		Pair string `flag:"pair" short:"p"`
 	}
-	app := NewApplication[*options]().
-		WithName("app").
+	app := NewApplication[*options]("app").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithCodec(grammarString{min: 2, max: 2}).
-		WithCommand(NewSimpleCommand().
-			WithName("run"),
-		).
+		WithCommand(NewSimpleCommand("run")).
 		MustCreate()
 	for _, test := range []struct {
 		args    []string
@@ -133,12 +129,9 @@ func TestVariadicFlagBeforeCommand(t *testing.T) {
 	type options struct {
 		Items string `flag:"items"`
 	}
-	app := NewApplication[*options]().
-		WithName("app").
+	app := NewApplication[*options]("app").
 		WithCodec(grammarString{min: 0, max: -1}).
-		WithCommand(NewSimpleCommand().
-			WithName("run"),
-		).
+		WithCommand(NewSimpleCommand("run")).
 		MustCreate()
 	invocation := app.MustParse(context.Background(), nil, "--items", "one", "two", "run")
 	defer func() { assert.NoError(t, invocation.Close()) }()
@@ -153,11 +146,9 @@ func TestCommandSelectionDoesNotCloneCodecs(t *testing.T) {
 	}
 	rootClones := &atomic.Int64{}
 	leafClones := &atomic.Int64{}
-	app := NewApplication[*options]().
-		WithName("app").
+	app := NewApplication[*options]("app").
 		WithCodec(grammarString{min: 1, max: 1, prefix: "root:", clones: rootClones}).
-		WithCommand(NewSimpleCommand().
-			WithName("run").
+		WithCommand(NewSimpleCommand("run").
 			WithCodec(grammarString{min: 1, max: 1, prefix: "leaf:", clones: leafClones}),
 		).
 		MustCreate()
@@ -174,8 +165,7 @@ func TestParseDoesNotInvokeLegacyCodecCloning(t *testing.T) {
 		Name string `flag:"name"`
 	}
 	cloneErr := errors.New("clone failed")
-	app, err := NewApplication[*options]().
-		WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCodec(grammarString{min: 1, max: 1, cloneErr: cloneErr}).
 		Create()
 	require.NoError(t, err)
@@ -190,7 +180,7 @@ func TestLongFlagPrefixKeepsAllValuesAndTerminatorSemantics(t *testing.T) {
 		Values []uint16 `flag:"value"`
 		Tail   []string `argument:"tail"`
 	}
-	app, err := NewApplication[*options]().WithName("app").Create()
+	app, err := NewApplication[*options]("app").Create()
 	require.NoError(t, err)
 	args := []string{"--name=server"}
 	want := make([]uint16, 160)

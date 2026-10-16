@@ -28,9 +28,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-help").
-		WithDescription("A greeting with a custom help layout.").
+	cli.NewApplication[options]("custom-help", "A greeting with a custom help layout.").
 		WithHelpHandler(cli.NewTemplatedHelpHandler().
 			WithOutput(os.Stdout).
 			WithApplicationTemplate(applicationHelp).

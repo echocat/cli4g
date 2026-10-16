@@ -2,7 +2,6 @@ package codec
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -29,7 +28,8 @@ func (this duration) ParseRequirement(ctx context.Context, usage Usage, args ...
 	}
 	value, err := time.ParseDuration(args[0])
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrIllegalArgument, err)
+		return 0, NewValidationError("a duration with units ns, us, µs, ms, s, m or h expected (for example 1h30m); supported range: "+
+			time.Duration(-1<<63).String()+" to "+time.Duration(1<<63-1).String(), ErrIllegalArgument, err)
 	}
 	return value, nil
 }

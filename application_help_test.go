@@ -19,12 +19,16 @@ func BenchmarkApplicationHelp(b *testing.B) {
 			name = "Enabled"
 		}
 		b.Run("Empty/"+name, func(b *testing.B) {
-			app, err := NewSimpleApplication().WithName("app").WithHelp(enabled).Create()
+			app, err := NewSimpleApplication("app").
+				WithHelp(enabled).
+				Create()
 			require.NoError(b, err)
 			benchmarkParse(b, app, context.Background(), nil)
 		})
 		b.Run("Scalar/"+name, func(b *testing.B) {
-			app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").WithHelp(enabled).Create()
+			app, err := NewApplication[*benchmarkScalarOptions]("app").
+				WithHelp(enabled).
+				Create()
 			require.NoError(b, err)
 			benchmarkParse(b, app, context.Background(), nil, benchmarkScalarArgs()...)
 		})
@@ -52,10 +56,8 @@ func BenchmarkApplicationHelp(b *testing.B) {
 				MustCreate()
 			app := benchmarkDefaultRequirement(true).
 				WithHelpHandler(handler).
-				WithCommand(NewSimpleCommand().
-					WithName("run").
-					WithDescription("Run a command."),
-				).MustCreate()
+				WithCommand(NewSimpleCommand("run", "Run a command.")).
+				MustCreate()
 			args := []string{"--help"}
 			if child {
 				args = []string{"run", "--help"}

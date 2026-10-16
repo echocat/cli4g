@@ -28,11 +28,9 @@ func TestCreateRejectsInheritedArityChanges(t *testing.T) {
 
 func assertInheritedArityRejected[O any](t *testing.T, message string) {
 	t.Helper()
-	_, err := NewApplication[O]().
-		WithName("app").
+	_, err := NewApplication[O]("app").
 		WithCommand(
-			NewCommand[NoOptions]().
-				WithName("child").
+			NewCommand[NoOptions]("child").
 				WithCodec(grammarString{min: 2, max: 2}),
 		).
 		Create()
@@ -46,10 +44,9 @@ func TestCreateRejectsInvalidArity(t *testing.T) {
 		{min: 0, max: -2},
 		{min: 2, max: 1},
 	} {
-		_, err := NewSimpleApplication().
-			WithName("app").
+		_, err := NewSimpleApplication("app").
 			WithFlag(
-				NewFlag(grammarString{min: arity.min, max: arity.max}).WithName("value"),
+				NewFlag(grammarString{min: arity.min, max: arity.max}, "value"),
 			).
 			Create()
 		require.ErrorContains(t, err, "invalid codec arity", "arity %v", arity)
@@ -57,11 +54,10 @@ func TestCreateRejectsInvalidArity(t *testing.T) {
 }
 
 func TestCreateRejectsNonFinalVariadicArgument(t *testing.T) {
-	_, err := NewSimpleApplication().
-		WithName("app").
+	_, err := NewSimpleApplication("app").
 		WithArgument(
-			NewArgument(codec.NewStrings()).WithName("values"),
-			NewArgument(codec.NewString()).WithName("last"),
+			NewArgument(codec.NewStrings(), "values"),
+			NewArgument(codec.NewString(), "last"),
 		).
 		Create()
 	require.ErrorContains(t, err, "only the final argument may be variadic")
@@ -71,15 +67,13 @@ func TestOptionsTypeIsDerivedFromGenericType(t *testing.T) {
 	type options struct {
 		Value string `flag:"value"`
 	}
-	valueRequirement := NewApplication[options]().
-		WithName("value")
+	valueRequirement := NewApplication[options]("value")
 	assert.Equal(t, reflect.TypeFor[options](), valueRequirement.OptionsType())
 	valueApp, err := valueRequirement.Create()
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeFor[options](), valueApp.OptionsType())
 
-	pointerRequirement := NewApplication[*options]().
-		WithName("pointer")
+	pointerRequirement := NewApplication[*options]("pointer")
 	assert.Equal(t, reflect.TypeFor[*options](), pointerRequirement.OptionsType())
 	pointerApp, err := pointerRequirement.Create()
 	require.NoError(t, err)
@@ -87,26 +81,21 @@ func TestOptionsTypeIsDerivedFromGenericType(t *testing.T) {
 }
 
 func TestCreateRejectsNonConcreteOptions(t *testing.T) {
-	_, err := NewApplication[any]().
-		WithName("interface").
+	_, err := NewApplication[any]("interface").
 		Create()
 	require.ErrorContains(t, err, "must be a struct or pointer to struct")
-	_, err = NewApplication[int]().
-		WithName("scalar").
+	_, err = NewApplication[int]("scalar").
 		Create()
 	require.ErrorContains(t, err, "must be a struct or pointer to struct")
-	_, err = NewSimpleApplication().
-		WithName("app").
-		WithCommand(NewCommand[any]().
-			WithName("interface")).
+	_, err = NewSimpleApplication("app").
+		WithCommand(NewCommand[any]("interface")).
 		Create()
 	require.ErrorContains(t, err, "must be a struct or pointer to struct")
 }
 
 func TestCreateRejectsNilCommandBuilder(t *testing.T) {
 	var command *CommandRequirement[NoOptions]
-	_, err := NewSimpleApplication().
-		WithName("app").
+	_, err := NewSimpleApplication("app").
 		WithCommand(command).
 		Create()
 	require.ErrorContains(t, err, "nil command requirement")
@@ -116,12 +105,9 @@ func TestCommandsWithValueAndPointerBuilders(t *testing.T) {
 	type childOptions struct {
 		Value string `flag:"value"`
 	}
-	valueBuilder := *NewCommand[childOptions]().
-		WithName("value")
-	pointerBuilder := NewCommand[*childOptions]().
-		WithName("pointer")
-	app, err := NewSimpleApplication().
-		WithName("app").
+	valueBuilder := *NewCommand[childOptions]("value")
+	pointerBuilder := NewCommand[*childOptions]("pointer")
+	app, err := NewSimpleApplication("app").
 		WithCommand(valueBuilder, pointerBuilder).
 		Create()
 	require.NoError(t, err)
@@ -134,11 +120,9 @@ func TestCommandsWithValueAndPointerBuilders(t *testing.T) {
 }
 
 func TestCreateRejectsCyclicCommandBuilders(t *testing.T) {
-	pointer := NewSimpleCommand().
-		WithName("pointer")
+	pointer := NewSimpleCommand("pointer")
 	pointer.WithCommand(pointer)
-	_, err := NewSimpleApplication().
-		WithName("app").
+	_, err := NewSimpleApplication("app").
 		WithCommand(pointer).
 		Create()
 	require.ErrorContains(t, err, "cyclic command requirement")
@@ -146,8 +130,7 @@ func TestCreateRejectsCyclicCommandBuilders(t *testing.T) {
 	children := make([]CommandRequirementLike, 1)
 	value := CommandRequirement[NoOptions]{Names: []string{"value"}, Commands: children}
 	children[0] = value
-	_, err = NewSimpleApplication().
-		WithName("app").
+	_, err = NewSimpleApplication("app").
 		WithCommand(value).
 		Create()
 	require.ErrorContains(t, err, "cyclic command requirement")

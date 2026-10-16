@@ -18,7 +18,7 @@ func (v date) MarshalText() ([]byte, error) {
 func (v *date) UnmarshalText(input []byte) error {
 	parsed, err := time.Parse(time.DateOnly, string(input))
 	if err != nil {
-		return codec.NewValidationErrorf("date must be YYYY-MM-DD: %w", err)
+		return codec.NewValidationError("a valid date in YYYY-MM-DD format expected", err)
 	}
 	*v = date(parsed)
 	return nil
@@ -29,9 +29,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-text-marshaller").
-		WithDescription("Use a type implementing text marshaling.").
+	cli.NewApplication[options]("custom-text-marshaller", "Use a type implementing text marshaling.").
 		WithHandler(showDate).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

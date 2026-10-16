@@ -31,9 +31,7 @@ type options struct {
 
 func main() {
 	config := configuration{Greeting: "Welcome"}
-	cli.NewApplication[*options]().
-		WithName("options-factory").
-		WithDescription("Create options from configuration and inject a service.").
+	cli.NewApplication[*options]("options-factory", "Create options from configuration and inject a service.").
 		WithCreateOptionsHandler(func(ctx context.Context) (*options, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err

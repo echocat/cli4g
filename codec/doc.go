@@ -33,10 +33,30 @@
 //
 // For explicit adapters, use [NewValue] or [NewValueP] for Set/String types and
 // [NewMarshaller] or [NewMarshallerP] for text-marshaled types. Factories must create fresh
-// targets and support concurrent calls. These adapters preserve returned errors:
-// mark user mistakes with [NewValidationError], and return technical errors normally.
+// targets and support concurrent calls. Mark user mistakes with [NewValidationError]
+// and return technical errors normally. Unmarked errors receive neutral messages
+// without losing their causes or operational classification.
 //
 //	return NewValidationErrorf("port must be between 1 and 65535")
+//
+// # Error messages and causes
+//
+// Built-in codecs describe requirements and bounds without echoing the supplied
+// value. [NewValidationError] separates the displayed message from diagnostic causes:
+//
+//	return NewValidationError("an integer expected", parseError)
+//
+// Error returns only the message; Unwrap returns the causes as []error. errors.Is
+// and errors.As can still identify original strconv.NumError, time.ParseError,
+// filesystem failures, and other diagnostic causes. [NewMessageError] provides
+// the same separation for errors without a validation classification.
+//
+// Warning: explicitly marked ValidationError messages are displayed verbatim.
+// Authors must never include supplied values, passwords, or other confidential
+// data. [NewValidationErrorf] with %w formats cause text into its message; use
+// NewValidationError(message, causes...) to retain causes without printing them.
+// [SanitizeError] trusts marked messages and masks unmarked error text. A caller
+// deliberately traversing the cause tree can still access the original input.
 //
 // # Enums
 //

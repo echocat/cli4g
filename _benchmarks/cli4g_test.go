@@ -13,8 +13,7 @@ type cli4gOptions struct {
 }
 
 func newCLI4GRootDirect(result *recorder) (runner, error) {
-	app, err := cli.NewSimpleApplication().
-		WithName("bench").
+	app, err := cli.NewSimpleApplication("bench").
 		WithInt32Flag("count", func(flag *cli.FlagRequirement[int32, int32]) {
 			flag.WithDefault(5)
 		}).
@@ -42,8 +41,7 @@ func newCLI4GRootDirect(result *recorder) (runner, error) {
 }
 
 func newCLI4GRootStructTags(result *recorder) (runner, error) {
-	app, err := cli.NewApplication[cli4gOptions]().
-		WithName("bench").
+	app, err := cli.NewApplication[cli4gOptions]("bench").
 		WithHandler(func(_ context.Context, options cli4gOptions) error {
 			return result.accept(values(options))
 		}).
@@ -60,8 +58,7 @@ func newCLI4GRootStructTags(result *recorder) (runner, error) {
 }
 
 func newCLI4GSubcommandDirect(result *recorder) (runner, error) {
-	leaf := cli.NewSimpleCommand().
-		WithName("b").
+	leaf := cli.NewSimpleCommand("b").
 		WithInt32Flag("count", func(flag *cli.FlagRequirement[int32, int32]) {
 			flag.WithDefault(5)
 		}).
@@ -76,10 +73,8 @@ func newCLI4GSubcommandDirect(result *recorder) (runner, error) {
 			_, verbose := inv.Flag("verbose")
 			return result.accept(values{count.(int32), name.(string), verbose == true})
 		})
-	app, err := cli.NewSimpleApplication().
-		WithName("bench").
-		WithCommand(cli.NewSimpleCommand().
-			WithName("a").
+	app, err := cli.NewSimpleApplication("bench").
+		WithCommand(cli.NewSimpleCommand("a").
 			WithCommand(leaf)).
 		Create()
 	if err != nil {
@@ -94,15 +89,12 @@ func newCLI4GSubcommandDirect(result *recorder) (runner, error) {
 }
 
 func newCLI4GSubcommandStructTags(result *recorder) (runner, error) {
-	leaf := cli.NewCommand[cli4gOptions]().
-		WithName("b").
+	leaf := cli.NewCommand[cli4gOptions]("b").
 		WithHandler(func(_ context.Context, options cli4gOptions) error {
 			return result.accept(values(options))
 		})
-	app, err := cli.NewSimpleApplication().
-		WithName("bench").
-		WithCommand(cli.NewSimpleCommand().
-			WithName("a").
+	app, err := cli.NewSimpleApplication("bench").
+		WithCommand(cli.NewSimpleCommand("a").
 			WithCommand(leaf)).
 		Create()
 	if err != nil {

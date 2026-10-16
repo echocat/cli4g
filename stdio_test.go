@@ -69,13 +69,21 @@ func TestApplicationStdioThroughoutOperations(t *testing.T) {
 			initialize := func(ctx context.Context, _ NoOptions) error { inspect(ctx, "initialize"); return nil }
 			execute := func(ctx context.Context, _ NoOptions) error { inspect(ctx, "execute"); return nil }
 			observed := stdioObservingCodec{Codec: codec.NewString(), inspect: inspect}
-			builder := NewSimpleApplication().WithName("stdio").WithFallbackToStdio(test.fallback).
-				WithCreateOptionsHandler(create).WithValidateHandler(validate).WithInitializeHandler(initialize).WithHandler(execute).
+			builder := NewSimpleApplication("stdio").
+				WithFallbackToStdio(test.fallback).
+				WithCreateOptionsHandler(create).
+				WithValidateHandler(validate).
+				WithInitializeHandler(initialize).
+				WithHandler(execute).
 				WithHelpHandler(func(ctx context.Context, _ InvocationLike) error { inspect(ctx, "help"); return nil }).
 				WithErrorHandler(func(ctx context.Context, _ InvocationLike, _ error) error { inspect(ctx, "error"); return nil }).
-				WithFlag(NewFlag(observed).WithName("value")).
-				WithCommand(NewCommand[NoOptions]().WithName("child").WithCreateOptionsHandler(create).
-					WithValidateHandler(validate).WithInitializeHandler(initialize).WithHandler(execute))
+				WithFlag(NewFlag(observed, "value")).
+				WithCommand(NewCommand[NoOptions]("child").
+					WithCreateOptionsHandler(create).
+					WithValidateHandler(validate).
+					WithInitializeHandler(initialize).
+					WithHandler(execute),
+				)
 			app := builder.MustCreate()
 			defer func() { assert.NoError(t, app.Close()) }()
 			// Mutating the builder must not change the compiled fallback policy.
@@ -116,7 +124,8 @@ func TestApplicationStdioExecutionErrorsKeepContextStreams(t *testing.T) {
 	ctx := codec.ContextWithStdio(nil, input, output, nil)
 	failure := errors.New("handler failed")
 	responses := 0
-	app := NewSimpleApplication().WithName("stdio").WithFallbackToStdio(false).
+	app := NewSimpleApplication("stdio").
+		WithFallbackToStdio(false).
 		WithHandler(func(context.Context, NoOptions) error { return failure }).
 		WithErrorHandler(func(ctx context.Context, _ InvocationLike, err error) error {
 			responses++
@@ -124,7 +133,8 @@ func TestApplicationStdioExecutionErrorsKeepContextStreams(t *testing.T) {
 			assert.Same(t, output, codec.StdoutOfContext(ctx))
 			assert.ErrorIs(t, err, failure)
 			return nil
-		}).MustCreate()
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	assert.ErrorIs(t, app.ParseAndExecute(ctx, nil), failure)
 	invocation, err := app.Parse(ctx, nil)
@@ -136,12 +146,15 @@ func TestApplicationStdioExecutionErrorsKeepContextStreams(t *testing.T) {
 }
 
 func TestApplicationStdioConcurrentInvocationsAreIsolated(t *testing.T) {
-	app := NewSimpleApplication().WithName("stdio").WithFallbackToStdio(false).WithErrorHandlerEnabled(false).
+	app := NewSimpleApplication("stdio").
+		WithFallbackToStdio(false).
+		WithErrorHandlerEnabled(false).
 		WithHandler(func(ctx context.Context, _ NoOptions) error {
 			stdin, stdout, _ := codec.StdioOfContext(ctx)
 			_, err := io.Copy(stdout, stdin)
 			return err
-		}).MustCreate()
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	var workers sync.WaitGroup
 	for _, content := range []string{"first", "second", "third", "fourth"} {

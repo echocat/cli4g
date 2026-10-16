@@ -24,18 +24,13 @@ func TestCreateRejectsRequiredParentArguments(t *testing.T) {
 			name: "explicit application argument",
 			path: "app",
 			create: func() (Container, error) {
-				return NewSimpleApplication().
-					WithName("app").
+				return NewSimpleApplication("app").
 					WithArgument(
-						NewArgument(codec.NewString()).
-							WithName("optional"),
-						NewArgument(codec.NewString()).
-							WithName("value").
+						NewArgument(codec.NewString(), "optional"),
+						NewArgument(codec.NewString(), "value").
 							WithRequired(true),
 					).
-					WithCommand(NewSimpleCommand().
-						WithName("child"),
-					).
+					WithCommand(NewSimpleCommand("child")).
 					Create()
 			},
 		},
@@ -43,11 +38,8 @@ func TestCreateRejectsRequiredParentArguments(t *testing.T) {
 			name: "tagged application argument",
 			path: "app",
 			create: func() (Container, error) {
-				return NewApplication[*options]().
-					WithName("app").
-					WithCommand(NewSimpleCommand().
-						WithName("child"),
-					).
+				return NewApplication[*options]("app").
+					WithCommand(NewSimpleCommand("child")).
 					Create()
 			},
 		},
@@ -55,19 +47,13 @@ func TestCreateRejectsRequiredParentArguments(t *testing.T) {
 			name: "explicit nested command argument",
 			path: "app group parent",
 			create: func() (Container, error) {
-				return NewSimpleApplication().
-					WithName("app").
-					WithCommand(NewSimpleCommand().
-						WithName("group").
-						WithCommand(NewSimpleCommand().
-							WithName("parent").
-							WithArgument(NewArgument(codec.NewString()).
-								WithName("value").
+				return NewSimpleApplication("app").
+					WithCommand(NewSimpleCommand("group").
+						WithCommand(NewSimpleCommand("parent").
+							WithArgument(NewArgument(codec.NewString(), "value").
 								WithRequired(true),
 							).
-							WithCommand(NewSimpleCommand().
-								WithName("leaf"),
-							),
+							WithCommand(NewSimpleCommand("leaf")),
 						),
 					).
 					Create()
@@ -77,15 +63,10 @@ func TestCreateRejectsRequiredParentArguments(t *testing.T) {
 			name: "tagged nested command argument",
 			path: "app group parent",
 			create: func() (Container, error) {
-				return NewSimpleApplication().
-					WithName("app").
-					WithCommand(NewSimpleCommand().
-						WithName("group").
-						WithCommand(NewCommand[options]().
-							WithName("parent").
-							WithCommand(NewSimpleCommand().
-								WithName("leaf"),
-							),
+				return NewSimpleApplication("app").
+					WithCommand(NewSimpleCommand("group").
+						WithCommand(NewCommand[options]("parent").
+							WithCommand(NewSimpleCommand("leaf")),
 						),
 					).
 					Create()
@@ -95,15 +76,11 @@ func TestCreateRejectsRequiredParentArguments(t *testing.T) {
 			name: "required variadic argument with zero minimum arity",
 			path: "app",
 			create: func() (Container, error) {
-				return NewSimpleApplication().
-					WithName("app").
-					WithArgument(NewArgument(codec.NewStrings()).
-						WithName("value").
+				return NewSimpleApplication("app").
+					WithArgument(NewArgument(codec.NewStrings(), "value").
 						WithRequired(true),
 					).
-					WithCommand(NewSimpleCommand().
-						WithName("child"),
-					).
+					WithCommand(NewSimpleCommand("child")).
 					Create()
 			},
 		},
@@ -127,13 +104,11 @@ func TestCreateAllowsOptionalParentArgumentsAndRequiredFlags(t *testing.T) {
 	type leafOptions struct {
 		Value string `argument:"leaf-value" required:"true"`
 	}
-	app := NewApplication[rootOptions]().
-		WithName("app").
-		WithCommand(NewCommand[*parentOptions]().
-			WithName("parent").
-			WithCommand(NewCommand[leafOptions]().
-				WithName("leaf"),
-			),
+	app := NewApplication[rootOptions]("app").
+		WithHandler(func(context.Context, rootOptions) error { return nil }).
+		WithCommand(NewCommand[*parentOptions]("parent").
+			WithHandler(func(context.Context, *parentOptions) error { return nil }).
+			WithCommand(NewCommand[leafOptions]("leaf")),
 		).
 		MustCreate()
 	parent, found := FindCommand[*parentOptions](app, "parent")
@@ -190,9 +165,10 @@ func TestCreateAllowsOptionalParentArgumentsAndRequiredFlags(t *testing.T) {
 }
 
 func TestCreateAllowsRequiredApplicationArgumentsWithoutSubcommands(t *testing.T) {
-	app, err := NewSimpleApplication().
-		WithName("app").
-		WithArgument(NewArgument(codec.NewString()).WithName("value").WithRequired(true)).
+	app, err := NewSimpleApplication("app").
+		WithArgument(NewArgument(codec.NewString(), "value").
+			WithRequired(true),
+		).
 		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "data")

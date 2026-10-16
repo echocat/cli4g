@@ -15,10 +15,18 @@ type FlagRequirementLike interface {
 	createRaw() (*Flag[any, any], error)
 }
 
-// NewFlag starts a visible flag using codec. Set its name with [FlagRequirement.WithName].
-func NewFlag[V, R any](codec codec.Codec[V, R]) *FlagRequirement[V, R] {
+// NewFlag starts a visible flag using codec. The first optional string sets the
+// name; further strings form the description, joined with spaces. Add aliases
+// with [FlagRequirement.WithAliases]. With no strings, configure the name later;
+// Create validates the completed builder.
+func NewFlag[V, R any](codec codec.Codec[V, R], nameAndDescription ...string) *FlagRequirement[V, R] {
 	// Unlike a zero-valued requirement, constructed flags are visible by default.
-	return &FlagRequirement[V, R]{Codec: codec, Visible: true}
+	name, description := parseNameAndDescription(nameAndDescription)
+	result := &FlagRequirement[V, R]{Codec: codec, Visible: true, Description: description}
+	if len(nameAndDescription) > 0 {
+		result.Names = []string{name}
+	}
+	return result
 }
 
 // FlagRequirement configures a flag producing V from input requirements R.

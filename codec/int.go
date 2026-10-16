@@ -2,7 +2,6 @@ package codec
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -35,7 +34,7 @@ func (this signed[T]) ParseRequirement(ctx context.Context, usage Usage, args ..
 	}
 	n, err := strconv.ParseInt(args[0], 0, int(this.bits))
 	if err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrIllegalArgument, err)
+		return 0, signedParseError(args[0], int(this.bits), err)
 	}
 	return T(n), nil
 }

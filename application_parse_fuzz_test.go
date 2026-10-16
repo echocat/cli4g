@@ -20,10 +20,15 @@ func FuzzShortFlagInlineStringPreservesBytes(f *testing.F) {
 			f.Add(value, prefix)
 		}
 	}
-	app, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(codec.NewString()).WithName("value").WithShort('s', '界'),
-		NewFlag(codec.NewBool()).WithName("bool").WithShort('b'),
-	).WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(
+			NewFlag(codec.NewString(), "value").
+				WithShort('s', '界'),
+			NewFlag(codec.NewBool(), "bool").
+				WithShort('b'),
+		).
+		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
+		Create()
 	require.NoError(f, err)
 	f.Cleanup(func() { assert.NoError(f, app.Close()) })
 	f.Fuzz(func(t *testing.T, value string, variant uint8) {
@@ -57,8 +62,12 @@ func FuzzStructuredInvocationValues(f *testing.F) {
 	type commandOptions struct {
 		Name string `argument:"name" required:"true"`
 	}
-	app := NewApplication[rootOptions]().WithName("app").WithErrorHandlerEnabled(false).
-		WithCommand(NewCommand[commandOptions]().WithName("run", "r")).MustCreate()
+	app := NewApplication[rootOptions]("app").
+		WithErrorHandlerEnabled(false).
+		WithCommand(NewCommand[commandOptions]("run").
+			WithAliases("r"),
+		).
+		MustCreate()
 	f.Cleanup(func() { assert.NoError(f, app.Close()) })
 	command, found := FindCommand[commandOptions](app, "run")
 	require.True(f, found)
@@ -101,10 +110,8 @@ func FuzzApplicationParseTokens(f *testing.F) {
 		Map       flagReceiverMap     `flag:"map"`
 		Arguments []string            `argument:"arguments"`
 	}
-	app := NewApplication[*options]().WithName("app").
-		WithCommand(NewSimpleCommand().
-			WithName("child"),
-		).
+	app := NewApplication[*options]("app").
+		WithCommand(NewSimpleCommand("child")).
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
 		MustCreate()
 	f.Cleanup(func() { assert.NoError(f, app.Close()) })

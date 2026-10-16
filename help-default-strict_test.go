@@ -16,8 +16,11 @@ func TestHelpKeepsStrictInvalidDefaultBehavior(t *testing.T) {
 	var output bytes.Buffer
 	handler, err := testDefaultTemplatedHelpRequirement().WithOutput(&output).Create()
 	require.NoError(t, err)
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).WithHelpHandler(handler).
-		WithIntFlag("number", func(f *FlagRequirement[int, int]) { f.WithDefaultStr("invalid") }).Create()
+	app, err := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
+		WithHelpHandler(handler).
+		WithIntFlag("number", func(f *FlagRequirement[int, int]) { f.WithDefaultStr("invalid") }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	normal, err := app.Parse(nil, nil, "--number=7")
@@ -57,12 +60,18 @@ func TestStrictHelpFormatFailureDoesNotResolveRuntimeValues(t *testing.T) {
 			resolved := 0
 			failure := errors.New("display failed")
 			original := "original"
-			root := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).WithHelpHandler(handler)
+			root := NewSimpleApplication("app").
+				WithErrorHandlerEnabled(false).
+				WithHelpHandler(handler)
 			decoder := failingRequirementDisplay{Codec: codec.NewString(), failure: failure, resolved: &resolved}
 			if kind == "flag" {
-				root.WithFlag(NewFlag(decoder).WithName("value").WithDefault(original))
+				root.WithFlag(NewFlag(decoder, "value").
+					WithDefault(original),
+				)
 			} else {
-				root.WithArgument(NewArgument(decoder).WithName("value").WithDefault(original))
+				root.WithArgument(NewArgument(decoder, "value").
+					WithDefault(original),
+				)
 			}
 			app, err := root.Create()
 			require.NoError(t, err)

@@ -24,9 +24,9 @@ func TestValidationErrorFormattingWrappingAndIdentity(t *testing.T) {
 	require.NotNil(t, typed.Unwrap())
 	for _, marked := range []error{err, fmt.Errorf("outer: %w", err), errors.Join(io.ErrUnexpectedEOF, err)} {
 		assert.True(t, IsValidationError(marked))
-		assert.Same(t, marked, NewValidationError(marked), "do not replace existing wrappers or joined causes")
+		assert.Same(t, marked, SanitizeError(marked, "fallback"), "authors control explicitly marked messages")
 	}
-	assert.Nil(t, NewValidationError(nil))
+	assert.Nil(t, SanitizeError(nil, "fallback"))
 	assert.False(t, IsValidationError(nil))
 	assert.False(t, IsValidationError(io.ErrUnexpectedEOF))
 	var nilError *ValidationError
@@ -80,7 +80,8 @@ func TestValueAndTextAdaptersPreserveUnmarkedReadFailures(t *testing.T) {
 			scope := new(ResourceScope)
 			defer func() { assert.NoError(t, scope.Close()) }()
 			_, err = test.source.Resolve(ctx, scope, requirement)
-			assert.Same(t, io.ErrUnexpectedEOF, err)
+			assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
+			assert.NotContains(t, err.Error(), io.ErrUnexpectedEOF.Error())
 			assert.False(t, IsValidationError(err))
 			assert.NotErrorIs(t, err, ErrIllegalArgument)
 		})

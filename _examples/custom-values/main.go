@@ -58,9 +58,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-values").
-		WithDescription("Use Set/String types without explicit codec registration.").
+	cli.NewApplication[options]("custom-values", "Use Set/String types without explicit codec registration.").
 		WithHandler(showOptions).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

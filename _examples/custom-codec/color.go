@@ -37,7 +37,7 @@ func (c colorCodec) ParseRequirement(ctx context.Context, usage codec.Usage, arg
 	}
 	value, err := strconv.ParseUint(input[1:], 16, 24)
 	if err != nil {
-		return 0, codec.NewValidationErrorf("color must be #RRGGBB")
+		return 0, codec.NewValidationError("color must be #RRGGBB", err)
 	}
 	return uint32(value), nil
 }

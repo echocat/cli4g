@@ -13,9 +13,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("environment").
-		WithDescription("CLI values override environment variables and defaults.").
+	cli.NewApplication[options]("environment", "CLI values override environment variables and defaults.").
 		WithHandler(showOptions).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

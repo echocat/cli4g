@@ -44,17 +44,12 @@ func TestTemplatedHelpRendersRootAndCommandMetadataAndCodecDefaults(t *testing.T
 	handler := testDefaultTemplatedHelpRequirement().
 		WithOutput(&output).
 		MustCreate()
-	app := NewApplication[rootOptions]().
-		WithName("app").
-		WithDescription("Application description.").
+	app := NewApplication[rootOptions]("app", "Application description.").
 		WithHelpHandler(handler).
-		WithCommand(NewCommand[options]().
-			WithName("run", "r").
-			WithDescription("Run description.").
-			WithArgument(NewArgument(codec.NewStrings()).
-				WithName("items").
+		WithCommand(NewCommand[options]("run", "Run description.").
+			WithAliases("r").
+			WithArgument(NewArgument(codec.NewStrings(), "items", "Input items.").
 				WithField("Items").
-				WithDescription("Input items.").
 				WithDefaultStr("one two", "three"),
 			),
 		).
@@ -92,9 +87,8 @@ func TestTemplatedHelpOmitsHiddenCommands(t *testing.T) {
 			t.Run(fmt.Sprintf("nested=%t/visibleSibling=%t", nested, visibleSibling), func(t *testing.T) {
 				var output bytes.Buffer
 				var calls int
-				hidden := NewSimpleCommand().
-					WithName("secret", "secret-alias").
-					WithDescription("Hidden command description.").
+				hidden := NewSimpleCommand("secret", "Hidden command description.").
+					WithAliases("secret-alias").
 					WithVisible(false).
 					WithHandler(func(context.Context, NoOptions) error {
 						calls++
@@ -102,16 +96,22 @@ func TestTemplatedHelpOmitsHiddenCommands(t *testing.T) {
 					})
 				commands := []CommandRequirementLike{hidden}
 				if visibleSibling {
-					commands = append(commands, NewSimpleCommand().WithName("public").WithDescription("Public command."))
+					commands = append(commands, NewSimpleCommand("public", "Public command."))
 				}
 				var path []string
 				if nested {
-					commands = []CommandRequirementLike{NewSimpleCommand().WithName("parent").WithCommand(commands...)}
+					commands = []CommandRequirementLike{NewSimpleCommand("parent").
+						WithCommand(commands...),
+					}
 					path = []string{"parent"}
 				}
-				app := NewSimpleApplication().WithName("app").
-					WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).
-					WithCommand(commands...).MustCreate()
+				app := NewSimpleApplication("app").
+					WithHelpHandler(testDefaultTemplatedHelpRequirement().
+						WithOutput(&output).
+						MustCreate(),
+					).
+					WithCommand(commands...).
+					MustCreate()
 				defer func() { assert.NoError(t, app.Close()) }()
 				hidden.SetVisible(true) // Compiled commands retain their own visibility snapshot.
 				invocation := app.MustParse(context.Background(), nil, append(slices.Clone(path), "--help")...)
@@ -153,14 +153,10 @@ func TestTemplatedHelpRequirementSnapshotsOverridesFunctionsAndEmptyTemplates(t 
 	requirement.ApplicationTemplate = "replacement"
 	funcs["title"] = strings.ToLower
 	requirement.SetOutput(io.Discard)
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithHelpHandler(handler).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
-			WithArgument(NewArgument(codec.NewString()).
-				WithName("value"),
-			),
+		WithCommand(NewSimpleCommand("child").
+			WithArgument(NewArgument(codec.NewString(), "value")),
 		).
 		MustCreate()
 	invocation := app.MustParse(context.Background(), nil, "--help")
@@ -176,7 +172,9 @@ func TestTemplatedHelpRequirementSnapshotsOverridesFunctionsAndEmptyTemplates(t 
 	output.Reset()
 	empty, err := testDefaultTemplatedHelpRequirement().WithOutput(&output).WithApplicationTemplate("").Create()
 	require.NoError(t, err)
-	app, err = NewSimpleApplication().WithName("app").WithHelpHandler(empty).Create()
+	app, err = NewSimpleApplication("app").
+		WithHelpHandler(empty).
+		Create()
 	require.NoError(t, err)
 	invocation, err = app.Parse(context.Background(), nil, "--help")
 	require.NoError(t, err)
@@ -205,15 +203,23 @@ func (this helpTestWriter) Write(value []byte) (int, error) {
 }
 
 func TestTemplatedHelpReportsConfigurationRenderWriterAndCancellationErrors(t *testing.T) {
-	_, err := NewTemplatedHelpHandler().WithFlagTemplate("{{").Create()
+	_, err := NewTemplatedHelpHandler().
+		WithFlagTemplate("{{").
+		Create()
 	require.ErrorContains(t, err, "help template flag")
-	_, err = NewTemplatedHelpHandler().WithFuncs(template.FuncMap{"bad": 42}).Create()
+	_, err = NewTemplatedHelpHandler().
+		WithFuncs(template.FuncMap{"bad": 42}).
+		Create()
 	require.ErrorContains(t, err, "help template functions")
 	var output bytes.Buffer
-	handler, err := NewTemplatedHelpHandler().WithOutput(&output).
-		WithApplicationTemplate("partial{{.MissingField}}").Create()
+	handler, err := NewTemplatedHelpHandler().
+		WithOutput(&output).
+		WithApplicationTemplate("partial{{.MissingField}}").
+		Create()
 	require.NoError(t, err)
-	app, err := NewSimpleApplication().WithName("app").WithHelpHandler(handler).Create()
+	app, err := NewSimpleApplication("app").
+		WithHelpHandler(handler).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "--help")
 	require.NoError(t, err)
@@ -244,7 +250,9 @@ func TestTemplatedHelpSerializesConcurrentWritesToItsConfiguredWriter(t *testing
 	var output bytes.Buffer
 	handler, err := NewTemplatedHelpHandler().WithOutput(&output).WithApplicationTemplate("{{.FullName}}\n").Create()
 	require.NoError(t, err)
-	app, err := NewSimpleApplication().WithName("app").WithHelpHandler(handler).Create()
+	app, err := NewSimpleApplication("app").
+		WithHelpHandler(handler).
+		Create()
 	require.NoError(t, err)
 	var workers sync.WaitGroup
 	for range 32 {
@@ -270,12 +278,9 @@ func TestTemplatedHelpWithoutConfiguredTemplatesIsIntentionallyEmpty(t *testing.
 		requirement.SetOutput(&output)
 		handler, err := requirement.Create()
 		require.NoError(t, err)
-		app := NewSimpleApplication().
-			WithName("app").
+		app := NewSimpleApplication("app").
 			WithHelpHandler(handler).
-			WithCommand(NewSimpleCommand().
-				WithName("child"),
-			).
+			WithCommand(NewSimpleCommand("child")).
 			MustCreate()
 		for _, args := range [][]string{{"--help"}, {"child", "--help"}} {
 			invocation := app.MustParse(context.Background(), nil, args...)
@@ -296,8 +301,7 @@ func TestHelpHandlersAreCapturedAndHelpDisabledIsCapturedAtCreate(t *testing.T) 
 		WithOutput(&output).
 		WithApplicationTemplate("replacement").
 		MustCreate()
-	requirement := NewSimpleApplication().
-		WithName("app").
+	requirement := NewSimpleApplication("app").
 		WithHelpHandler(first)
 	app, err := requirement.Create()
 	require.NoError(t, err)
@@ -318,18 +322,22 @@ func TestDefaultHelpHandlerOverrideIsCapturedAndExplicitHandlerTakesPrecedence(t
 		calls = append(calls, "first default")
 		return nil
 	}
-	first, err := NewSimpleApplication().WithName("first").Create()
+	first, err := NewSimpleApplication("first").
+		Create()
 	require.NoError(t, err)
 	DefaultHelpHandler = func(context.Context, InvocationLike) error {
 		calls = append(calls, "second default")
 		return nil
 	}
-	second, err := NewSimpleApplication().WithName("second").Create()
+	second, err := NewSimpleApplication("second").
+		Create()
 	require.NoError(t, err)
-	explicit, err := NewSimpleApplication().WithName("explicit").WithHelpHandler(func(context.Context, InvocationLike) error {
-		calls = append(calls, "explicit")
-		return nil
-	}).Create()
+	explicit, err := NewSimpleApplication("explicit").
+		WithHelpHandler(func(context.Context, InvocationLike) error {
+			calls = append(calls, "explicit")
+			return nil
+		}).
+		Create()
 	require.NoError(t, err)
 	for _, app := range []*Application[NoOptions]{first, second, explicit} {
 		invocation, err := app.Parse(context.Background(), nil, "--help")
@@ -339,13 +347,18 @@ func TestDefaultHelpHandlerOverrideIsCapturedAndExplicitHandlerTakesPrecedence(t
 	}
 	assert.Equal(t, []string{"first default", "second default", "explicit"}, calls)
 	DefaultHelpHandler = nil
-	_, err = NewSimpleApplication().WithName("app").Create()
+	_, err = NewSimpleApplication("app").
+		Create()
 	require.ErrorContains(t, err, "DefaultHelpHandler is nil")
-	_, err = NewSimpleApplication().WithName("app").WithHelp(false).Create()
+	_, err = NewSimpleApplication("app").
+		WithHelp(false).
+		Create()
 	require.NoError(t, err)
-	_, err = NewSimpleApplication().WithName("app").WithHelpHandler(func(context.Context, InvocationLike) error {
-		return nil
-	}).Create()
+	_, err = NewSimpleApplication("app").
+		WithHelpHandler(func(context.Context, InvocationLike) error {
+			return nil
+		}).
+		Create()
 	require.NoError(t, err)
 }
 
@@ -375,7 +388,9 @@ func TestTemplatedHelpExitCodeProcess(t *testing.T) {
 		if mode == "default" {
 			handler = nil // Application must select the package DefaultHelpHandler
 		}
-		app, err := NewSimpleApplication().WithName("app").WithHelpHandler(handler).Create()
+		app, err := NewSimpleApplication("app").
+			WithHelpHandler(handler).
+			Create()
 		require.NoError(t, err)
 		invocation, err := app.Parse(context.Background(), nil, "--help")
 		require.NoError(t, err)

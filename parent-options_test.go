@@ -26,18 +26,16 @@ func BenchmarkApplicationParentInjection(b *testing.B) {
 			var leaf CommandRequirementLike
 			switch mode {
 			case "Unlinked":
-				leaf = NewCommand[*benchmarkUnlinkedParentOptions]().WithName("leaf")
+				leaf = NewCommand[*benchmarkUnlinkedParentOptions]("leaf")
 			case "Application":
-				leaf = NewCommand[*benchmarkRootParentOptions]().WithName("leaf")
+				leaf = NewCommand[*benchmarkRootParentOptions]("leaf")
 			case "MatchingType":
-				leaf = NewCommand[*benchmarkMatchingParentOptions]().WithName("leaf")
+				leaf = NewCommand[*benchmarkMatchingParentOptions]("leaf")
 			}
-			app := NewApplication[*sharedParentOptions]().
-				WithName("app").
+			app := NewApplication[*sharedParentOptions]("app").
 				WithHelp(false).
 				WithStringFlag("name", func(f *FlagRequirement[string, string]) { f.WithField("Name") }).
-				WithCommand(NewSimpleCommand().
-					WithName("group").
+				WithCommand(NewSimpleCommand("group").
 					WithCommand(leaf),
 				).
 				MustCreate()
@@ -54,8 +52,7 @@ type nearestChildOptions struct {
 
 func TestParentInjectionUsesNearestMatchAndCanonicalStructRoot(t *testing.T) {
 	initialized := false
-	app := NewApplication[sharedParentOptions]().
-		WithName("app").
+	app := NewApplication[sharedParentOptions]("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
 		WithStringFlag("root-name", func(f *FlagRequirement[string, string]) {
@@ -63,15 +60,13 @@ func TestParentInjectionUsesNearestMatchAndCanonicalStructRoot(t *testing.T) {
 				WithField("Name").
 				WithDefault("root")
 		}).
-		WithCommand(NewCommand[*sharedParentOptions]().
-			WithName("a").
+		WithCommand(NewCommand[*sharedParentOptions]("a").
 			WithStringFlag("parent-name", func(f *FlagRequirement[string, string]) {
 				f.
 					WithField("Name").
 					WithDefault("parent")
 			}).
-			WithCommand(NewCommand[*nearestChildOptions]().
-				WithName("b").
+			WithCommand(NewCommand[*nearestChildOptions]("b").
 				WithInitializeHandler(func(_ context.Context, options *nearestChildOptions) error {
 					if options.Nearest.Name != "parent" || options.Root.Name != "root" {
 						return errors.New("parents not decoded before initialization")
@@ -110,13 +105,10 @@ type anonymousParentChild struct {
 }
 
 func TestAnonymousParentReferenceIsOpaqueAndInvocationLocal(t *testing.T) {
-	app := NewApplication[*InjectableAppOptions]().
-		WithName("app").
+	app := NewApplication[*InjectableAppOptions]("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
-		WithCommand(NewCommand[*anonymousParentChild]().
-			WithName("run"),
-		).
+		WithCommand(NewCommand[*anonymousParentChild]("run")).
 		MustCreate()
 	defer func() { require.NoError(t, app.Close()) }()
 	command, found := FindCommand[*anonymousParentChild](app, "run")
@@ -157,15 +149,13 @@ func TestMatchingTypeChildRequirementCanBeReusedUnderDifferentNames(t *testing.T
 	type childOptions struct {
 		Parent *sharedParentOptions `parent:"matchingType"`
 	}
-	child := NewCommand[*childOptions]().WithName("child")
+	child := NewCommand[*childOptions]("child")
 	branch := func(name string) *CommandRequirement[*sharedParentOptions] {
-		return NewCommand[*sharedParentOptions]().
-			WithName(name).
+		return NewCommand[*sharedParentOptions](name).
 			WithCreateOptionsHandler(func(context.Context) (*sharedParentOptions, error) { return &sharedParentOptions{Name: name}, nil }).
 			WithCommand(child)
 	}
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
 		WithCommand(branch("a"), branch("z")).
@@ -198,15 +188,13 @@ func TestNamedParentDoesNotTransferLifecycleOwnership(t *testing.T) {
 		t.Run(map[bool]string{false: "success", true: "factory-error"}[rollback], func(t *testing.T) {
 			parentCloses, childCloses := 0, 0
 			primary := errors.New("factory failed")
-			app := NewApplication[*LifecycleParentOptions]().
-				WithName("app").
+			app := NewApplication[*LifecycleParentOptions]("app").
 				WithHelp(false).
 				WithErrorHandlerEnabled(false).
 				WithCreateOptionsHandler(func(context.Context) (*LifecycleParentOptions, error) {
 					return &LifecycleParentOptions{closes: &parentCloses}, nil
 				}).
-				WithCommand(NewCommand[*lifecycleChildOptions]().
-					WithName("run").
+				WithCommand(NewCommand[*lifecycleChildOptions]("run").
 					WithCreateOptionsHandler(func(context.Context) (*lifecycleChildOptions, error) {
 						options := &lifecycleChildOptions{closes: &childCloses}
 						if rollback {
@@ -246,15 +234,13 @@ func TestCanceledFactoryRetainsParentDependencyForCleanup(t *testing.T) {
 	defer cancel()
 	linked := false
 	closes := 0
-	app := NewApplication[*LifecycleParentOptions]().
-		WithName("app").
+	app := NewApplication[*LifecycleParentOptions]("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
 		WithCreateOptionsHandler(func(context.Context) (*LifecycleParentOptions, error) {
 			return &LifecycleParentOptions{closes: &closes}, nil
 		}).
-		WithCommand(NewCommand[*cancelingParentChild]().
-			WithName("run").
+		WithCommand(NewCommand[*cancelingParentChild]("run").
 			WithCreateOptionsHandler(func(context.Context) (*cancelingParentChild, error) {
 				cancel()
 				return &cancelingParentChild{linked: &linked}, nil
@@ -277,52 +263,46 @@ func TestParentInjectionRejectsInvalidSchemasAndConflictingFactoryPointers(t *te
 	}{
 		{"wrong-root-type", NewCommand[*struct {
 			Parent *sharedParentOptions `parent:"application"`
-		}]().WithName("run"), "no application ancestor"},
+		}]("run"), "no application ancestor"},
 		{"no-match", NewCommand[*struct {
 			Parent *sharedParentOptions `parent:"matchingType"`
-		}]().WithName("run"), "no matchingType ancestor"},
+		}]("run"), "no matchingType ancestor"},
 		{"unknown-mode", NewCommand[*struct {
 			Parent *NoOptions `parent:"command:a"`
-		}]().WithName("run"), "invalid parent tag"},
+		}]("run"), "invalid parent tag"},
 		{"not-pointer", NewCommand[*struct {
 			Parent NoOptions `parent:"matchingType"`
-		}]().WithName("run"), "pointer to struct"},
+		}]("run"), "pointer to struct"},
 		{"mixed-tag", NewCommand[*struct {
 			Parent *NoOptions `parent:"application" flag:"parent"`
-		}]().WithName("run"), "also be a flag"},
+		}]("run"), "also be a flag"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewSimpleApplication().
-				WithName("app").
+			_, err := NewSimpleApplication("app").
 				WithCommand(test.child).
 				Create()
 			require.ErrorContains(t, err, test.text)
 		})
 	}
-	_, err := NewApplication[*LifecycleParentOptions]().WithName("app").WithCommand(NewCommand[*struct {
+	_, err := NewApplication[*LifecycleParentOptions]("app").WithCommand(NewCommand[*struct {
 		*LifecycleParentOptions `parent:"application"`
-	}]().
-		WithName("run")).
+	}]("run")).
 		Create()
 	require.ErrorContains(t, err, "promotes lifecycle methods")
-	_, err = NewApplication[*sharedParentOptions]().
-		WithName("app").
+	_, err = NewApplication[*sharedParentOptions]("app").
 		WithCommand(NewCommand[*struct {
 			Parent *sharedParentOptions `parent:"application"`
-		}]().
-			WithName("run").
+		}]("run").
 			WithStringFlag("overlap", func(f *FlagRequirement[string, string]) { f.WithField("Parent", "Name") })).
 		Create()
 	require.ErrorContains(t, err, "overlaps an explicit flag")
 	type childOptions struct {
 		Parent *sharedParentOptions `parent:"application"`
 	}
-	app := NewApplication[*sharedParentOptions]().
-		WithName("app").
+	app := NewApplication[*sharedParentOptions]("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
-		WithCommand(NewCommand[*childOptions]().
-			WithName("run").
+		WithCommand(NewCommand[*childOptions]("run").
 			WithCreateOptionsHandler(func(context.Context) (*childOptions, error) {
 				return &childOptions{Parent: new(sharedParentOptions)}, nil
 			}),

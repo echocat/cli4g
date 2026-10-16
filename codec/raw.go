@@ -8,9 +8,12 @@ import (
 
 type raw[V, R any] struct{ source Codec[V, R] }
 
-// Raw adapts a typed codec for registry use without changing its behavior.
+// Raw adapts a typed codec for registry use. Unmarked errors receive neutral
+// messages while their causes and classification are retained.
 // Custom wrappers should implement ToRaw as Raw(ctx, wrapper), not delegate to
 // an embedded codec. Nil codecs and canceled contexts return nil.
+// Warning: ValidationError messages are displayed verbatim; authors must keep
+// supplied inputs and confidential data out of those messages.
 func Raw[V, R any](ctx context.Context, source Codec[V, R]) Codec[any, any] {
 	if ctx.Err() != nil || isNil(source) {
 		return nil
@@ -75,7 +78,8 @@ func (this raw[V, R]) ExpectMinMax(ctx context.Context, usage Usage) (int, int) 
 }
 
 func (this raw[V, R]) ParseRequirement(ctx context.Context, usage Usage, args ...string) (any, error) {
-	return this.source.ParseRequirement(ctx, usage, args...)
+	value, err := this.source.ParseRequirement(ctx, usage, args...)
+	return value, SanitizeError(err, "value could not be decoded")
 }
 
 func (this raw[V, R]) FormatRequirement(ctx context.Context, value any) ([]string, error) {
@@ -83,7 +87,8 @@ func (this raw[V, R]) FormatRequirement(ctx context.Context, value any) ([]strin
 	if err != nil {
 		return nil, err
 	}
-	return this.source.FormatRequirement(ctx, typed)
+	result, err := this.source.FormatRequirement(ctx, typed)
+	return result, SanitizeError(err, "value could not be formatted")
 }
 
 func (this raw[V, R]) DisplayRequirement(ctx context.Context, value any) ([]string, error) {
@@ -91,7 +96,8 @@ func (this raw[V, R]) DisplayRequirement(ctx context.Context, value any) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	return DisplayRequirement(ctx, this.source, typed)
+	result, err := DisplayRequirement(ctx, this.source, typed)
+	return result, SanitizeError(err, "value could not be displayed")
 }
 
 func (this raw[V, R]) CloneRequirement(ctx context.Context, value any) (any, error) {
@@ -99,7 +105,8 @@ func (this raw[V, R]) CloneRequirement(ctx context.Context, value any) (any, err
 	if err != nil {
 		return nil, err
 	}
-	return CloneRequirement(ctx, this.source, typed)
+	result, err := CloneRequirement(ctx, this.source, typed)
+	return result, SanitizeError(err, "value could not be copied")
 }
 
 func (this raw[V, R]) Resolve(ctx context.Context, scope Scope, value any) (any, error) {
@@ -107,7 +114,8 @@ func (this raw[V, R]) Resolve(ctx context.Context, scope Scope, value any) (any,
 	if err != nil {
 		return nil, err
 	}
-	return this.source.Resolve(ctx, scope, typed)
+	result, err := this.source.Resolve(ctx, scope, typed)
+	return result, SanitizeError(err, "value could not be resolved")
 }
 
 func (this raw[V, R]) IsCumulative() bool { return IsCumulative(this.source) }
@@ -121,7 +129,8 @@ func (this raw[V, R]) ParseRequirementInto(ctx context.Context, usage Usage, pre
 	if !ok {
 		return nil, fmt.Errorf("codec has no cumulative requirement parser")
 	}
-	return decoder.ParseRequirementInto(ctx, usage, typed, args...)
+	result, err := decoder.ParseRequirementInto(ctx, usage, typed, args...)
+	return result, SanitizeError(err, "value could not be decoded")
 }
 
 func (this raw[V, R]) RequirementType() reflect.Type { return reflect.TypeFor[R]() }

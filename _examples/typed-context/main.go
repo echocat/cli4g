@@ -22,15 +22,9 @@ type greetOptions struct {
 }
 
 func main() {
-	cli.NewApplication[*applicationOptions]().
-		WithName("typed-context").
-		WithDescription("Read typed invocation values from a context.").
-		WithCommand(cli.NewCommand[*messageOptions]().
-			WithName("message").
-			WithDescription("Message commands.").
-			WithCommand(cli.NewCommand[greetOptions]().
-				WithName("greet").
-				WithDescription("Greet someone using context helpers.").
+	cli.NewApplication[*applicationOptions]("typed-context", "Read typed invocation values from a context.").
+		WithCommand(cli.NewCommand[*messageOptions]("message", "Message commands.").
+			WithCommand(cli.NewCommand[greetOptions]("greet", "Greet someone using context helpers.").
 				WithHandler(greet))).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

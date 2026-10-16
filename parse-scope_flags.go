@@ -65,13 +65,13 @@ func (this *parseScope) addFlag(ctx context.Context, f *Flag[any, any], decoder 
 		// headers. Bind the partial aggregate before invocation rollback.
 		bindErr := this.storeFlag(ctx, f, v, previous)
 		if parseErr != nil {
-			return errors.Join(fmt.Errorf("flag --%s: %w", f.Name(), parseErr), bindErr)
+			return errors.Join(fmt.Errorf("flag --%s: %w", f.Name(), codec.SanitizeError(parseErr, "value could not be decoded")), bindErr)
 		}
 		return bindErr
 	}
 	v, err := decoder.ParseRequirement(ctx, codec.UsageFlag, args...)
 	if err != nil {
-		return fmt.Errorf("flag --%s: %w", f.Name(), err)
+		return fmt.Errorf("flag --%s: %w", f.Name(), codec.SanitizeError(err, "value could not be decoded"))
 	}
 	return this.storeFlag(ctx, f, v, previous)
 }

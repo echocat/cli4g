@@ -18,13 +18,11 @@ func TestDirectContainerHandlersReceiveCurrentContainer(t *testing.T) {
 		assert.False(t, found, "direct calls have no invocation to attach")
 		return nil
 	}
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithValidateHandler(handler).
 		WithInitializeHandler(handler).
 		WithHandler(handler).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
+		WithCommand(NewSimpleCommand("child").
 			WithValidateHandler(handler).
 			WithInitializeHandler(handler).
 			WithHandler(handler),

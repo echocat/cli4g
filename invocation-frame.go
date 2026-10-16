@@ -55,7 +55,7 @@ func (this *invocationFrame) validate(ctx context.Context) error {
 	ctx = withContainerContext(ctx, this.container)
 	if hasValidator {
 		if err := validator.Validate(ctx); err != nil {
-			return err
+			return codec.SanitizeError(err, "options could not be validated")
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -63,7 +63,7 @@ func (this *invocationFrame) validate(ctx context.Context) error {
 	}
 	if handler != nil {
 		if err := handler(ctx, this.currentOptions()); err != nil {
-			return err
+			return codec.SanitizeError(err, "options could not be validated")
 		}
 	}
 	return ctx.Err()
@@ -99,12 +99,12 @@ func (this *invocationFrame) close() error {
 	var errs []error
 	if this.value.IsValid() && this.container.base().closeHandler != nil {
 		if err := this.container.base().close(this.currentOptions()); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, codec.SanitizeError(err, "options could not be closed"))
 		}
 	}
 	if closer, ok := this.lifecycleOptions().(io.Closer); ok {
 		if err := closer.Close(); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, codec.SanitizeError(err, "options could not be closed"))
 		}
 	}
 	if this.resources != nil {
@@ -142,7 +142,7 @@ func (this *invocationFrame) resolve(ctx context.Context) error {
 		entry := &this.flags[i]
 		value, err := entry.flag.codec.Resolve(ctx, this, entry.requirement)
 		if err != nil {
-			return fmt.Errorf("flag --%s: %w", entry.flag.Name(), err)
+			return fmt.Errorf("flag --%s: %w", entry.flag.Name(), codec.SanitizeError(err, "value could not be resolved"))
 		}
 		if err := bindResolved(this.value, entry.flag.binding, entry.flag.valueType, value); err != nil {
 			return fmt.Errorf("flag --%s: %w", entry.flag.Name(), err)
@@ -158,7 +158,7 @@ func (this *invocationFrame) resolve(ctx context.Context) error {
 		entry := &this.arguments[i]
 		value, err := entry.argument.codec.Resolve(ctx, this, entry.requirement)
 		if err != nil {
-			return fmt.Errorf("argument %s: %w", entry.argument.Name(), err)
+			return fmt.Errorf("argument %s: %w", entry.argument.Name(), codec.SanitizeError(err, "value could not be resolved"))
 		}
 		if err := bindResolved(this.value, entry.argument.binding, entry.argument.valueType, value); err != nil {
 			return fmt.Errorf("argument %s: %w", entry.argument.Name(), err)

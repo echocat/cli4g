@@ -28,31 +28,28 @@ type independentInspectOptions struct {
 
 func TestIndependentOptionsAndTypedCommandHandles(t *testing.T) {
 	var events []string
-	serve := NewCommand[*independentServeOptions]().
-		WithName("serve", "s").
+	serve := NewCommand[*independentServeOptions]("serve").
+		WithAliases("s").
 		WithHandler(func(_ context.Context, options *independentServeOptions) error {
 			assert.Equal(t, uint16(8080), options.Port)
 			events = append(events, "serve")
 			return nil
 		})
-	appRequirement := NewApplication[*independentRootOptions]().
-		WithName("app").
+	appRequirement := NewApplication[*independentRootOptions]("app").
 		WithHandler(func(_ context.Context, options *independentRootOptions) error {
 			assert.True(t, options.Verbose)
 			events = append(events, "app")
 			return nil
 		}).
 		WithCommand(
-			NewCommand[independentParentOptions]().
-				WithName("group").
+			NewCommand[independentParentOptions]("group").
 				WithHandler(func(_ context.Context, options independentParentOptions) error {
 					assert.Equal(t, "config-value", options.Config)
 					events = append(events, "group")
 					return nil
 				}).
 				WithCommand(serve),
-			NewCommand[independentInspectOptions]().
-				WithName("inspect"),
+			NewCommand[independentInspectOptions]("inspect"),
 		)
 	assert.Equal(t, reflect.TypeFor[*independentRootOptions](), appRequirement.OptionsType())
 	assert.Equal(t, reflect.TypeFor[*independentServeOptions](), serve.OptionsType())
@@ -104,17 +101,11 @@ func TestIndependentOptionsAndTypedCommandHandles(t *testing.T) {
 }
 
 func TestTypedHandleDoesNotAcceptAnotherCompiledCommand(t *testing.T) {
-	app := NewSimpleApplication().
-		WithName("app").
-		WithCommand(NewCommand[*independentServeOptions]().
-			WithName("serve"),
-		).
+	app := NewSimpleApplication("app").
+		WithCommand(NewCommand[*independentServeOptions]("serve")).
 		MustCreate()
-	other := NewSimpleApplication().
-		WithName("other").
-		WithCommand(NewCommand[*independentServeOptions]().
-			WithName("serve"),
-		).
+	other := NewSimpleApplication("other").
+		WithCommand(NewCommand[*independentServeOptions]("serve")).
 		MustCreate()
 	command, found := FindCommand[*independentServeOptions](app, "serve")
 	require.True(t, found)
@@ -126,11 +117,8 @@ func TestTypedHandleDoesNotAcceptAnotherCompiledCommand(t *testing.T) {
 }
 
 func TestIndependentCommandOptionsConcurrentParsing(t *testing.T) {
-	app := NewApplication[*independentRootOptions]().
-		WithName("app").
-		WithCommand(NewCommand[*independentServeOptions]().
-			WithName("serve"),
-		).
+	app := NewApplication[*independentRootOptions]("app").
+		WithCommand(NewCommand[*independentServeOptions]("serve")).
 		MustCreate()
 	command, found := FindCommand[*independentServeOptions](app, "serve")
 	require.True(t, found)
