@@ -64,6 +64,36 @@ The default error handler exits with `2` for input errors, `130` for cancellatio
 - **Extensible values:** custom codecs support application-specific types and resources.
 - **Efficient reuse:** competitive runtime and allocation costs in the measured workloads.
 
+## Comparison at a glance
+
+Qualitative ratings for the [compared versions](_benchmarks):
+**★★★** strong · **★★☆** moderate/partial · **★☆☆** limited · **—** no native support.
+
+| Capability | **cli4g** | [urfave/cli](https://github.com/urfave/cli/tree/v3.14.0) | [Cobra](https://github.com/spf13/cobra/tree/v1.10.2) | [Kong](https://github.com/alecthomas/kong/tree/v1.16.1) | [Go `flag`](https://pkg.go.dev/flag@go1.27.2) |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Struct-tag option binding | ★★★ | — | — | ★★★ | — |
+| Definition simplicity (measured adapters)[^complexity] | ★★★ | ★★★ | ★☆☆ | ★★★ | ★☆☆ |
+| Command trees and automatic help | ★★★ | ★★★ | ★★★ | ★★★ | — |
+| Custom value types | ★★★ | ★★★ | ★★★ | ★★★ | ★★★ |
+| Lifecycle and resource cleanup | ★★★ | ★★☆ | ★★☆ | ★★☆ | — |
+| Compile once, isolated concurrent parses | ★★★ | — | — | — | — |
+| Per-parse schema profiles | ★★★ | — | — | — | — |
+| Shell completion | — | ★★★ | ★★★ | — | — |
+| Setup/compile + first invocation speed[^performance] | ★★☆ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
+| Parse/execute speed on reuse[^performance] | ★★★ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
+
+Isolated parses keep each invocation's values independent. Resource cleanup
+includes rollback after partial initialization failures; hooks alone need application-managed ownership.
+
+[^complexity]: Based on the benchmark adapters' [cognitive complexity](https://github.com/echocat/cli4g/blob/ce5d951/docs/benchmarks.md#cognitive-complexity); lower is better:
+    cli4g **1**, urfave/cli **0**, Cobra **14**, Kong **3**, Go `flag` **11–14**.
+    Includes handlers, reuse/reset, cleanup, and required helper methods; measures control flow rather than overall API ergonomics.
+
+[^performance]: Based on the [measured root/subcommand workloads](https://github.com/echocat/cli4g/blob/ce5d951/docs/benchmarks.md).
+    Setup is `OneShot`: definition creation/compilation plus one parse/execute and cleanup.
+    Reuse is `Reuse/100` and `Reuse/10000`, including amortized setup and cleanup.
+    Native binding modes differ; Go `flag` is a minimal baseline with application-written command dispatch.
+
 See [benchmarks and methodology](docs/benchmarks.md) for timings, allocations,
 code size, and cognitive complexity.
 
