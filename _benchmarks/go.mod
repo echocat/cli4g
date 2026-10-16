@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/echocat/cli4g v0.0.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 	github.com/urfave/cli/v3 v3.14.0
 	github.com/uudashr/gocognit v1.3.0
 )
