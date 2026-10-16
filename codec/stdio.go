@@ -14,6 +14,20 @@ type stdio struct {
 	stdout, stderr io.Writer
 }
 
+// Keep the immutable streams and their context overlay in one allocation.
+// Value returns a pointer into this context rather than boxing a stream copy.
+type stdioContext struct {
+	context.Context
+	streams stdio
+}
+
+func (this *stdioContext) Value(key any) any {
+	if _, ok := key.(stdioKey); ok {
+		return &this.streams
+	}
+	return this.Context.Value(key)
+}
+
 // ContextWithStdio supplies borrowed stdin, stdout and stderr for this operation.
 // The library never closes these streams. Nil stderr uses stdout; use io.Discard
 // to suppress stderr explicitly. Explicit streams suppress application fallback
@@ -26,14 +40,14 @@ func ContextWithStdio(ctx context.Context, stdin io.Reader, stdout, stderr io.Wr
 	if stderr == nil {
 		stderr = stdout
 	}
-	return context.WithValue(ctx, stdioKey{}, stdio{stdin, stdout, stderr})
+	return &stdioContext{Context: ctx, streams: stdio{stdin, stdout, stderr}}
 }
 
 // StdioOfContext returns stdin, stdout and stderr, or nil, nil, nil when none are
 // supplied. It never falls back to process stdio on its own.
 func StdioOfContext(ctx context.Context) (stdin io.Reader, stdout, stderr io.Writer) {
 	if ctx != nil {
-		if streams, ok := ctx.Value(stdioKey{}).(stdio); ok {
+		if streams, ok := ctx.Value(stdioKey{}).(*stdio); ok {
 			return streams.stdin, streams.stdout, streams.stderr
 		}
 	}
@@ -69,7 +83,7 @@ func ContextWithFallbackToStdio(ctx context.Context, fallback bool) context.Cont
 		ctx = context.Background()
 	}
 	if fallback {
-		if _, ok := ctx.Value(stdioKey{}).(stdio); !ok {
+		if _, ok := ctx.Value(stdioKey{}).(*stdio); !ok {
 			return ContextWithStdio(ctx, os.Stdin, os.Stdout, os.Stderr)
 		}
 	}

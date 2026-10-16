@@ -48,10 +48,36 @@ func compilePaths(node *compileNode, parents []*compileNode, path string, owner 
 			}
 		}
 		plan.schemas[i] = resolved
+		schema := &plan.schemas[i]
+		if schema.hasProfiles {
+			schema.unprofiled, err = selectSchema(schema, nil)
+			if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+		}
 	}
 	definition := node.container.base()
 	definition.containerSchema = plan.schemas[len(plan.schemas)-1]
 	definition.plan = plan
+	schema, err := selectSchema(&plan.schemas[len(plan.schemas)-1], nil)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	definition.unprofiled = selectedContainer{
+		container: node.container, schema: schema,
+		commands: definition.commands, commandByName: definition.commandsByName,
+	}
+	for i, command := range definition.commands {
+		if len(command.Profiles()) > 0 {
+			definition.unprofiled.commands = slices.Clone(definition.commands[:i])
+			for _, remaining := range definition.commands[i+1:] {
+				if len(remaining.Profiles()) == 0 {
+					definition.unprofiled.commands = append(definition.unprofiled.commands, remaining)
+				}
+			}
+			break
+		}
+	}
 	for _, child := range node.children {
 		if err := compilePaths(child, stack, path+" "+child.container.Name(), owner); err != nil {
 			return err

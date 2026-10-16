@@ -39,16 +39,16 @@ func (this Invocation[O]) HelpInfo() HelpInfo {
 	plan := info.Target.base().plan
 	if len(this.selected) > 0 {
 		info.Commands = append(info.Commands, this.selected[len(this.selected)-1].commands...)
-		plan = &parsePlan{schemas: make([]containerSchema, len(this.selected))}
-		for i, selected := range this.selected {
-			plan.schemas[i] = selected.schema
-		}
 	} else {
 		for command := range info.Target.Commands() {
 			info.Commands = append(info.Commands, command)
 		}
 	}
-	for i, schema := range plan.schemas {
+	for i := range info.Path {
+		schema := &plan.schemas[i]
+		if len(this.selected) > 0 {
+			schema = this.selected[i].schema
+		}
 		for _, flag := range schema.flags {
 			info.Flags = append(info.Flags, HelpFlagInfo{
 				Definition: flag,
@@ -58,13 +58,15 @@ func (this Invocation[O]) HelpInfo() HelpInfo {
 				MaxValues:  flag.arity.max,
 			})
 		}
-	}
-	for _, argument := range plan.schemas[len(plan.schemas)-1].arguments {
-		info.Arguments = append(info.Arguments, HelpArgumentInfo{
-			Definition: argument,
-			MinValues:  argument.arity.min,
-			MaxValues:  argument.arity.max,
-		})
+		if i == len(info.Path)-1 {
+			for _, argument := range schema.arguments {
+				info.Arguments = append(info.Arguments, HelpArgumentInfo{
+					Definition: argument,
+					MinValues:  argument.arity.min,
+					MaxValues:  argument.arity.max,
+				})
+			}
+		}
 	}
 	return info
 }

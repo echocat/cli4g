@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // Parse decodes vs, resolves values, validates options, and initializes them.
@@ -99,11 +98,7 @@ func (this *Application[O]) parsePrepared(ctx context.Context, opts *ParseOpts, 
 	}
 	target := input.scopes[len(input.scopes)-1]
 	if target.container.base().handler == nil && len(target.commands) > 0 {
-		path := []string{this.Name()}
-		for _, command := range input.commands {
-			path = append(path, command.Name())
-		}
-		return nil, NewValidationErrorf("a subcommand is required for %q", strings.Join(path, " "))
+		return nil, NewValidationErrorf("a subcommand is required for %q", input.namePath(this.Name()))
 	}
 	plan := this.plan
 	if len(input.commands) > 0 {

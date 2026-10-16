@@ -16,6 +16,8 @@ type containerSchema struct {
 	shortVariants map[rune][]*Flag[any, any]
 	arguments     []*Argument[any, any]
 	optionsType   reflect.Type
+	hasProfiles   bool
+	unprofiled    *containerSchema // compiled selection without profile assignments
 }
 
 func (this *containerSchema) addFlag(f *Flag[any, any]) error {
@@ -69,6 +71,7 @@ func (this *containerSchema) addFlag(f *Flag[any, any]) error {
 		}
 	}
 	this.flags = append(this.flags, f)
+	this.hasProfiles = this.hasProfiles || len(f.profiles) > 0
 	return nil
 }
 
@@ -86,5 +89,6 @@ func (this *containerSchema) addArgument(a *Argument[any, any]) error {
 	}
 	a.index = len(this.arguments)
 	this.arguments = append(this.arguments, a)
+	this.hasProfiles = this.hasProfiles || len(a.profiles) > 0
 	return nil
 }

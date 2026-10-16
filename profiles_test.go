@@ -446,16 +446,22 @@ func TestProfilesConcurrentParses(t *testing.T) {
 	for index := range 32 {
 		workers.Go(func() {
 			profile, value := "A", "world"
-			if index%2 == 0 {
+			if index%3 == 0 {
 				profile, value = "B", "42"
 			}
-			invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{profile}}, "--foo", value)
+			profiles, args := []string{profile}, []string{"--foo", value}
+			if index%3 == 2 {
+				profiles, args = nil, nil
+			}
+			invocation, err := app.Parse(nil, &ParseOpts{Profiles: profiles}, args...)
 			if !assert.NoError(t, err) {
 				return
 			}
 			defer func() { assert.NoError(t, invocation.Close()) }()
 			_, actual := invocation.Application()
-			if profile == "A" {
+			if len(profiles) == 0 {
+				assert.Equal(t, options{}, actual)
+			} else if profile == "A" {
 				assert.Equal(t, options{Text: "world"}, actual)
 			} else {
 				assert.Equal(t, options{Number: 42}, actual)
@@ -566,6 +572,17 @@ func TestProfilesUnvisitedSubtreeDoesNotConflict(t *testing.T) {
 	assert.ErrorContains(t, err, "app conflicting: selected profiles [A B]")
 }
 
+func TestProfilesConflictPathUsesCanonicalNamesForNestedAliases(t *testing.T) {
+	app := NewSimpleApplication("app").WithErrorHandlerEnabled(false).
+		WithCommand(NewSimpleCommand("group").WithAliases("g").
+			WithCommand(NewSimpleCommand("leaf").WithAliases("l").
+				WithFlag(NewFlag(codec.NewString(), "value").WithProfiles("A"),
+					NewFlag(codec.NewInt32(), "value").WithProfiles("B")))).MustCreate()
+	t.Cleanup(func() { assert.NoError(t, app.Close()) })
+	_, err := app.Parse(nil, &ParseOpts{Profiles: []string{"B", "A"}}, "g", "l")
+	assert.ErrorContains(t, err, "app group leaf: selected profiles [A B]")
+}
+
 func TestProfilesInheritedCodecOverridesSurviveHelpAndErrors(t *testing.T) {
 	type options struct {
 		Value string `flag:"value" profile:"A"`
@@ -604,4 +621,86 @@ func TestProfilesInheritedCodecOverridesSurviveHelpAndErrors(t *testing.T) {
 	definition := failureInfo.Flags[0].Definition
 	_, err = definition.Codec().ParseRequirement(context.Background(), codec.UsageFlag, "child")
 	assert.NoError(t, err)
+}
+
+func TestProfilesDefaultSelectionRemainsIndependentOfLaterParses(t *testing.T) {
+	type options struct {
+		Global string `flag:"global" default:"default"`
+		Extra  string `flag:"extra" profile:"A" default:"active"`
+		First  string `argument:"first" profile:"A"`
+		Tail   string `argument:"tail"`
+	}
+	app := NewApplication[options]("app").WithErrorHandlerEnabled(false).
+		WithHandler(func(context.Context, options) error { return nil }).
+		WithCommand(NewSimpleCommand("first-command"),
+			NewSimpleCommand("extra-command").WithProfiles("A"),
+			NewSimpleCommand("last-command")).MustCreate()
+	t.Cleanup(func() { assert.NoError(t, app.Close()) })
+	first, err := app.Parse(nil, nil, "tail")
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, first.Close()) })
+	_, actual := first.Application()
+	assert.Equal(t, options{Global: "default", Tail: "tail"}, actual)
+	argument, value := first.Argument(1)
+	require.NotNil(t, argument)
+	assert.Equal(t, "tail", value)
+	before := first.HelpInfo()
+	require.Len(t, before.Commands, 2)
+	assert.Equal(t, "first-command", before.Commands[0].Name())
+	assert.Equal(t, "last-command", before.Commands[1].Name())
+	assert.Len(t, before.Flags, 2) // global and help
+	assert.Len(t, before.Arguments, 1)
+	for range 3 {
+		active, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A"}}, "first", "tail")
+		require.NoError(t, err)
+		assert.Len(t, active.HelpInfo().Commands, 3)
+		assert.Len(t, active.HelpInfo().Flags, 3)
+		assert.Len(t, active.HelpInfo().Arguments, 2)
+		assert.NoError(t, active.Close())
+		inactive, err := app.Parse(nil, &ParseOpts{}, "tail")
+		require.NoError(t, err)
+		assert.Equal(t, before, inactive.HelpInfo())
+		assert.NoError(t, inactive.Close())
+		assert.Equal(t, before, first.HelpInfo(), "retained selections must not change")
+		_, err = app.Parse(nil, nil, "--extra=unavailable")
+		assert.ErrorContains(t, err, "unknown flag --extra")
+	}
+}
+
+func TestProfilesDefaultSelectionPreservesInheritedOverrides(t *testing.T) {
+	for _, profiled := range []bool{false, true} {
+		t.Run(fmt.Sprint(profiled), func(t *testing.T) {
+			type options struct {
+				Value string `flag:"value"`
+			}
+			rootCodec, err := codec.NewEnum(codec.NewString(), "root")
+			require.NoError(t, err)
+			childCodec, err := codec.NewEnum(codec.NewString(), "child")
+			require.NoError(t, err)
+			var failureInfo HelpInfo
+			r := NewApplication[options]("app").WithCodec(rootCodec).
+				WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
+					failureInfo = invocation.HelpInfo()
+					return err
+				}).
+				WithCommand(NewSimpleCommand("child").WithCodec(childCodec))
+			if profiled {
+				r.WithFlag(NewFlag(codec.NewBool(), "inactive").WithProfiles("unused"))
+			}
+			app := r.MustCreate()
+			t.Cleanup(func() { assert.NoError(t, app.Close()) })
+			for _, args := range [][]string{{"child"}, {"--value=child", "child"}, {"child", "--help"}} {
+				invocation, err := app.Parse(nil, nil, args...)
+				require.NoError(t, err)
+				info := invocation.HelpInfo()
+				_, err = info.Flags[0].Definition.Codec().ParseRequirement(context.Background(), codec.UsageFlag, "child")
+				assert.NoError(t, err)
+				assert.NoError(t, invocation.Close())
+			}
+			_, err = app.Parse(nil, nil, "child", "--unknown")
+			require.Error(t, err)
+			_, err = failureInfo.Flags[0].Definition.Codec().ParseRequirement(context.Background(), codec.UsageFlag, "child")
+			assert.NoError(t, err)
+		})
+	}
 }

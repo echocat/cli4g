@@ -5,11 +5,12 @@ import (
 	"slices"
 )
 
-// selectedContainer is invocation-local. Public metadata always exposes the
-// complete immutable definition, never a mutable active-profile switch.
+// selectedContainer references an immutable compiled or invocation-local schema.
+// Public metadata always exposes the complete immutable definition, never a
+// mutable active-profile switch.
 type selectedContainer struct {
 	container     Container
-	schema        containerSchema
+	schema        *containerSchema
 	commands      []CommandLike
 	commandByName map[string]CommandLike
 }
@@ -28,18 +29,14 @@ func conflictingFlags(a, b *Flag[any, any]) error {
 	return nil
 }
 
-func selectSchema(source containerSchema, profiles []string) (containerSchema, error) {
-	hasProfiles := false
-	for _, flag := range source.flags {
-		hasProfiles = hasProfiles || len(flag.profiles) > 0
-	}
-	for _, argument := range source.arguments {
-		hasProfiles = hasProfiles || len(argument.profiles) > 0
-	}
-	if !hasProfiles {
+func selectSchema(source *containerSchema, profiles []string) (*containerSchema, error) {
+	if !source.hasProfiles {
 		return source, nil
 	}
-	result := containerSchema{optionsType: source.optionsType,
+	if len(profiles) == 0 && source.unprofiled != nil {
+		return source.unprofiled, nil
+	}
+	result := &containerSchema{optionsType: source.optionsType,
 		flagByName: make(map[string]*Flag[any, any]), flagByShort: make(map[rune]*Flag[any, any])}
 	var bindings []*fieldBinding
 	addBinding := func(binding *fieldBinding) error {
@@ -106,30 +103,33 @@ func fieldBindingsOverlap(a, b *fieldBinding) bool {
 
 func selectContainer(container Container, parents []selectedContainer, profiles []string) (selectedContainer, error) {
 	base := container.base()
+	if len(profiles) == 0 {
+		// Create validated and retained this immutable selection, including on
+		// definitions that also contain profile-assigned inputs or commands.
+		return base.unprofiled, nil
+	}
 	result := selectedContainer{container: container}
 	var err error
-	result.schema, err = selectSchema(base.containerSchema, profiles)
+	result.schema, err = selectSchema(&base.containerSchema, profiles)
 	if err != nil {
 		return result, err
 	}
-	// Keep the common, profile-free path allocation-free beyond the scanner's
-	// existing path storage. Create already proved all its schema constraints.
-	if len(base.plan.definition.profiles) == 0 {
+	if len(base.unprofiled.commands) == len(base.commands) {
 		result.commands, result.commandByName = base.commands, base.commandsByName
-		return result, nil
-	}
-	result.commandByName = make(map[string]CommandLike)
-	for _, command := range base.commands {
-		if !profileActive(command.Profiles(), profiles) {
-			continue
-		}
-		for _, name := range command.Names() {
-			if previous := result.commandByName[name]; previous != nil {
-				return result, fmt.Errorf("command %q is duplicated (definitions %s profiles %v and %s profiles %v)", name, previous.Name(), previous.Profiles(), command.Name(), command.Profiles())
+	} else {
+		result.commandByName = make(map[string]CommandLike)
+		for _, command := range base.commands {
+			if !profileActive(command.Profiles(), profiles) {
+				continue
 			}
-			result.commandByName[name] = command
+			for _, name := range command.Names() {
+				if previous := result.commandByName[name]; previous != nil {
+					return result, fmt.Errorf("command %q is duplicated (definitions %s profiles %v and %s profiles %v)", name, previous.Name(), previous.Profiles(), command.Name(), command.Profiles())
+				}
+				result.commandByName[name] = command
+			}
+			result.commands = append(result.commands, command)
 		}
-		result.commands = append(result.commands, command)
 	}
 	if len(result.commands) > 0 {
 		for _, argument := range result.schema.arguments {

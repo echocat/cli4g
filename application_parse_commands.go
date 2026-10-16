@@ -21,8 +21,8 @@ func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, v
 			return
 		}
 		plan := input.scopes[len(input.scopes)-1].container.base().plan
-		for i, source := range plan.schemas {
-			selected, selectionErr := selectSchema(source, profiles)
+		for i := range plan.schemas {
+			selected, selectionErr := selectSchema(&plan.schemas[i], profiles)
 			if selectionErr != nil {
 				if err == nil {
 					err = fmt.Errorf("selected schema: %w", selectionErr)
@@ -43,7 +43,6 @@ func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, v
 		return input, NewValidationErrorf("%s: selected profiles %v: %v", this.Name(), profiles, err)
 	}
 	path := input.scopes
-	namePath := this.Name()
 	endOfOptions := false
 	for i := 0; i < len(vs); i++ {
 		if err := ctx.Err(); err != nil {
@@ -92,11 +91,10 @@ func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, v
 				input.commands = append(input.commands, command)
 				input.positions = append(input.positions, nil)
 				current, err = selectContainer(command, path, profiles)
-				namePath += " " + command.Name()
 				path = append(path, current)
 				input.scopes = path
 				if err != nil {
-					return input, NewValidationErrorf("%s: selected profiles %v: %v", namePath, profiles, err)
+					return input, NewValidationErrorf("%s: selected profiles %v: %v", input.namePath(this.Name()), profiles, err)
 				}
 				continue
 			}

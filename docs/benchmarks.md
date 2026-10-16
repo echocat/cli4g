@@ -33,10 +33,10 @@ Invocation: `bench [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [667](../_benchmarks/cli4g_test.go) | 1 | 6.93 | 1.55 | 1.49 | 8632 / 119 | 1088.8 / 20.68 |
-| urfave | [368](../_benchmarks/urfave_test.go) | 0 | 6.08 | 4.29 | 4.48 | 8184 / 214 | 4400.4 / 162.67 |
-| cobra | [748](../_benchmarks/cobra_test.go) | 14 | 3.00 | 1.65 | 1.66 | 5642 / 49 | 2159.2 / 16.34 |
-| flag | [665](../_benchmarks/flag_test.go) | 11 | 0.38 | 0.17 | 0.17 | 842 / 12 | 24.1 / 1.00 |
+| cli4g | [667](../_benchmarks/cli4g_test.go) | 1 | 6.36 | 1.33 | 1.27 | 8600 / 118 | 976.8 / 19.68 |
+| urfave | [368](../_benchmarks/urfave_test.go) | 0 | 5.77 | 4.13 | 4.14 | 8184 / 214 | 4400.4 / 162.67 |
+| cobra | [748](../_benchmarks/cobra_test.go) | 14 | 2.82 | 1.52 | 1.57 | 5642 / 49 | 2159.2 / 16.34 |
+| flag | [665](../_benchmarks/flag_test.go) | 11 | 0.36 | 0.17 | 0.15 | 842 / 12 | 24.1 / 1.00 |
 | kong | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 
 ## Root / StructTags
@@ -45,11 +45,11 @@ Invocation: `bench [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [317](../_benchmarks/cli4g_test.go) | 1 | 8.69 | 1.62 | 1.54 | 9243 / 135 | 1163.6 / 23.35 |
+| cli4g | [317](../_benchmarks/cli4g_test.go) | 1 | 7.82 | 1.38 | 1.29 | 9211 / 134 | 1051.6 / 22.35 |
 | urfave | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | cobra | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | flag | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
-| kong | [320](../_benchmarks/kong_test.go) | 3 | 21.39 | 9.26 | 8.98 | 20631 / 359 | 6771.7 / 176.37 |
+| kong | [320](../_benchmarks/kong_test.go) | 3 | 20.41 | 8.99 | 8.77 | 20631 / 359 | 6771.5 / 176.37 |
 
 ## Subcommand / Direct
 
@@ -57,10 +57,10 @@ Invocation: `bench a b [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [755](../_benchmarks/cli4g_test.go) | 1 | 12.85 | 2.42 | 2.31 | 18656 / 226 | 1932.6 / 26.69 |
-| urfave | [473](../_benchmarks/urfave_test.go) | 0 | 15.36 | 11.25 | 11.09 | 21792 / 561 | 12905.0 / 429.35 |
-| cobra | [851](../_benchmarks/cobra_test.go) | 14 | 8.93 | 2.29 | 2.22 | 18590 / 136 | 1589.9 / 26.68 |
-| flag | [734](../_benchmarks/flag_test.go) | 14 | 0.40 | 0.18 | 0.17 | 842 / 12 | 24.1 / 1.00 |
+| cli4g | [755](../_benchmarks/cli4g_test.go) | 1 | 11.94 | 1.96 | 1.79 | 18619 / 223 | 1529.9 / 23.69 |
+| urfave | [473](../_benchmarks/urfave_test.go) | 0 | 15.35 | 10.84 | 10.81 | 21792 / 561 | 12905.0 / 429.35 |
+| cobra | [851](../_benchmarks/cobra_test.go) | 14 | 8.45 | 2.28 | 2.19 | 18590 / 136 | 1589.9 / 26.68 |
+| flag | [734](../_benchmarks/flag_test.go) | 14 | 0.39 | 0.17 | 0.16 | 842 / 12 | 24.1 / 1.00 |
 | kong | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 
 ## Subcommand / StructTags
@@ -69,11 +69,11 @@ Invocation: `bench a b [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [405](../_benchmarks/cli4g_test.go) | 1 | 14.72 | 2.50 | 2.39 | 19267 / 242 | 2007.3 / 29.36 |
+| cli4g | [405](../_benchmarks/cli4g_test.go) | 1 | 13.67 | 2.02 | 1.97 | 19229 / 239 | 1604.6 / 26.36 |
 | urfave | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | cobra | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | flag | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
-| kong | [324](../_benchmarks/kong_test.go) | 3 | 34.46 | 17.98 | 17.46 | 33917 / 558 | 15005.8 / 315.73 |
+| kong | [324](../_benchmarks/kong_test.go) | 3 | 33.80 | 16.96 | 16.41 | 33916 / 558 | 15005.4 / 315.73 |
 
 ## Scope
 
