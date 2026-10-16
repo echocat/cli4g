@@ -26,9 +26,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) (err error) {
-	app, err := cli.NewApplication[*options]().
-		WithName("manual-invocation").
-		WithDescription("Create once, then parse, execute, and close independent invocations.").
+	app, err := cli.NewApplication[*options]("manual-invocation", "Create once, then parse, execute, and close independent invocations.").
 		WithErrorHandlerEnabled(false).
 		WithHandler(greet).
 		Create()

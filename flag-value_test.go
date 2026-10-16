@@ -74,8 +74,9 @@ func TestAutomaticFlagValuePointerReceiversBoolAndCumulativeNonSlices(t *testing
 		Counter flagReceiverCounter `flag:"count|counter"`
 		Map     flagReceiverMap     `flag:"map"`
 	}
-	app, err := NewApplication[options]().WithName("app").
-		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
+	app, err := NewApplication[options]("app").
+		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--value=text", "--enabled", "--count=2", "--counter=3", "--map=a=one", "--map=b=two")
@@ -107,7 +108,8 @@ func TestCumulativeFlagValueStateIsStrictlyInvocationLocalInParallel(t *testing.
 		Counter flagReceiverCounter `flag:"count"`
 		Map     flagReceiverMap     `flag:"map"`
 	}
-	app, err := NewApplication[*options]().WithName("app").Create()
+	app, err := NewApplication[*options]("app").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	var workers sync.WaitGroup
@@ -168,10 +170,13 @@ func TestFlagValueFactoryRunsOncePerCumulativeFlagAndSetFailureIsOwned(t *testin
 		return created, nil
 	})
 	require.NoError(t, err)
-	app, err := NewApplication[*constructedFlagOptions]().WithName("app").WithFlag(
-		NewFlag(decoder).WithName("value").WithField("Value"),
-	).
-		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
+	app, err := NewApplication[*constructedFlagOptions]("app").
+		WithFlag(
+			NewFlag(decoder, "value").
+				WithField("Value"),
+		).
+		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	assert.Zero(t, factories.Load(), "Create must not call resource factories")
@@ -198,9 +203,12 @@ func TestFlagValueFactoryRunsOncePerCumulativeFlagAndSetFailureIsOwned(t *testin
 		return &constructedFlagValue{Data: make(map[string]string), closes: &closes, setErr: primary, failOn: "bad", closeErr: cleanup}, nil
 	})
 	require.NoError(t, err)
-	failedApp, err := NewApplication[*constructedFlagOptions]().WithName("failed").WithFlag(
-		NewFlag(later).WithName("value").WithField("Value"),
-	).WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
+	failedApp, err := NewApplication[*constructedFlagOptions]("failed").
+		WithFlag(NewFlag(later, "value").
+			WithField("Value"),
+		).
+		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, failedApp.Close()) }()
 	_, err = failedApp.Parse(nil, nil, "--value=first", "--value=bad")
@@ -240,9 +248,11 @@ func TestFlagValueTypedTokenDefaultsAreIndependent(t *testing.T) {
 	decoder, err := codec.NewFlagValue[clonedFlagValue]()
 	require.NoError(t, err)
 	original := []string{"visible"}
-	app, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(decoder).WithName("value").WithDefault(original),
-	).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(NewFlag(decoder, "value").
+			WithDefault(original),
+		).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	original[0] = "modified"
@@ -294,7 +304,9 @@ func TestFlagValueRegisteredAndNamedOverridesBeatAutomaticFallback(t *testing.T)
 	type options struct {
 		Value flagReceiverValue `flag:"value"`
 	}
-	app, err := NewApplication[options]().WithName("app").WithCodec(overridingFlagValueCodec{Codec: decoder, prefix: "explicit:"}).Create()
+	app, err := NewApplication[options]("app").
+		WithCodec(overridingFlagValueCodec{Codec: decoder, prefix: "explicit:"}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--value=input")
@@ -305,7 +317,9 @@ func TestFlagValueRegisteredAndNamedOverridesBeatAutomaticFallback(t *testing.T)
 	type namedOptions struct {
 		Value flagReceiverValue `flag:"value" type:"named"`
 	}
-	named, err := NewApplication[namedOptions]().WithName("named").WithCodec(overridingFlagValueCodec{Codec: decoder, prefix: "named:"}, "named").Create()
+	named, err := NewApplication[namedOptions]("named").
+		WithCodec(overridingFlagValueCodec{Codec: decoder, prefix: "named:"}, "named").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, named.Close()) }()
 	other, err := named.Parse(nil, nil, "--value=input")
@@ -334,7 +348,9 @@ func TestFlagValueFactoryCanDeclareTraitsWhenZeroProbeIsNotUsable(t *testing.T) 
 		return &configuredBoolFlag{Value: new(bool)}, nil
 	}, codec.FlagValueConfig[*configuredBoolFlag]{Traits: &codec.FlagValueTraits{BoolFlag: true}})
 	require.NoError(t, err)
-	app, err := NewSimpleApplication().WithName("app").WithFlag(NewFlag(decoder).WithName("enabled")).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(NewFlag(decoder, "enabled")).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	assert.Zero(t, factories)
@@ -360,7 +376,12 @@ func TestFlagValueCumulativeMapTypedDefaultsUseExplicitDeepCloneAndCLIReplacesTh
 	require.NoError(t, err)
 	type options struct{ Data flagReceiverMap }
 	prototype := []string{"default=entry"}
-	app, err := NewApplication[options]().WithName("app").WithFlag(NewFlag(decoder).WithName("map").WithField("Data").WithDefault(prototype)).Create()
+	app, err := NewApplication[options]("app").
+		WithFlag(NewFlag(decoder, "map").
+			WithField("Data").
+			WithDefault(prototype),
+		).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	prototype[0] = "changed"
@@ -382,9 +403,12 @@ func TestFlagValueExplicitRequirementHasPriorityAndUnknownNameFails(t *testing.T
 	type options struct {
 		Value flagReceiverValue `flag:"value"`
 	}
-	app, err := NewApplication[options]().WithName("app").WithFlag(
-		NewFlag(overridingFlagValueCodec{Codec: adapter, prefix: "requirement:"}).WithName("value").WithField("Value"),
-	).WithCodec(overridingFlagValueCodec{Codec: adapter, prefix: "registry:"}).Create()
+	app, err := NewApplication[options]("app").
+		WithFlag(NewFlag(overridingFlagValueCodec{Codec: adapter, prefix: "requirement:"}, "value").
+			WithField("Value"),
+		).
+		WithCodec(overridingFlagValueCodec{Codec: adapter, prefix: "registry:"}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--value=input")
@@ -394,7 +418,7 @@ func TestFlagValueExplicitRequirementHasPriorityAndUnknownNameFails(t *testing.T
 	assert.Equal(t, "requirement:input", parsed.Value.Text)
 	missing, err := NewApplication[struct {
 		Value flagReceiverValue `flag:"value" type:"missing"`
-	}]().WithName("missing").Create()
+	}]("missing").Create()
 	assert.Nil(t, missing)
 	require.ErrorContains(t, err, "name \"missing\"")
 }
@@ -417,7 +441,8 @@ func TestFlagValueBoolCumulativeCounterAndStandardFlagGetterTypes(t *testing.T) 
 		Count    bareFlagCounter   `flag:"verbose" short:"v"`
 		Duration flagReceiverValue `argument:"value"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "-vv", "--verbose=false", "input")
@@ -443,7 +468,8 @@ func TestFlagValueCumulativeSliceRebindsAggregateWithoutAppendingItsPrefixTwice(
 	type options struct {
 		Values flagReceiverSlice `flag:"value" default:"default"`
 	}
-	app, err := NewApplication[*options]().WithName("app").Create()
+	app, err := NewApplication[*options]("app").
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	inherited, err := app.Parse(nil, nil)
@@ -485,9 +511,12 @@ func TestFlagValueCancellationDuringLaterSetRetainsAggregateForOptionsCleanup(t 
 		return created, nil
 	})
 	require.NoError(t, err)
-	app, err := NewApplication[*constructedFlagOptions]().WithName("app").
-		WithFlag(NewFlag(decoder).WithName("value").WithField("Value")).
-		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
+	app, err := NewApplication[*constructedFlagOptions]("app").
+		WithFlag(NewFlag(decoder, "value").
+			WithField("Value"),
+		).
+		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(ctx, nil, "--value=first", "--value=cancel")
@@ -507,7 +536,8 @@ func BenchmarkApplicationParseFlagValue(b *testing.B) {
 			type options struct {
 				Count flagReceiverCounter `flag:"count"`
 			}
-			app, err := NewApplication[*options]().WithName("app").Create()
+			app, err := NewApplication[*options]("app").
+				Create()
 			require.NoError(b, err)
 			defer func() { assert.NoError(b, app.Close()) }()
 			benchmarkParse(b, app, context.Background(), nil, args...)
@@ -516,7 +546,11 @@ func BenchmarkApplicationParseFlagValue(b *testing.B) {
 			type options struct{ Count flagReceiverCounter }
 			decoder, err := codec.NewFlagValue[flagReceiverCounter]()
 			require.NoError(b, err)
-			app, err := NewApplication[*options]().WithName("app").WithFlag(NewFlag(decoder).WithName("count").WithField("Count")).Create()
+			app, err := NewApplication[*options]("app").
+				WithFlag(NewFlag(decoder, "count").
+					WithField("Count"),
+				).
+				Create()
 			require.NoError(b, err)
 			defer func() { assert.NoError(b, app.Close()) }()
 			benchmarkParse(b, app, context.Background(), nil, args...)
@@ -525,7 +559,11 @@ func BenchmarkApplicationParseFlagValue(b *testing.B) {
 			type options struct{ Count *flagReceiverCounter }
 			decoder, err := codec.NewPointerFlagValue(func() (*flagReceiverCounter, error) { return new(flagReceiverCounter), nil })
 			require.NoError(b, err)
-			app, err := NewApplication[*options]().WithName("app").WithFlag(NewFlag(decoder).WithName("count").WithField("Count")).Create()
+			app, err := NewApplication[*options]("app").
+				WithFlag(NewFlag(decoder, "count").
+					WithField("Count"),
+				).
+				Create()
 			require.NoError(b, err)
 			defer func() { assert.NoError(b, app.Close()) }()
 			benchmarkParse(b, app, context.Background(), nil, args...)

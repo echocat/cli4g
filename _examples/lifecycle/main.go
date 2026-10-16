@@ -60,9 +60,7 @@ func (opts *options) Close() error {
 }
 
 func main() {
-	cli.NewApplication[*options]().
-		WithName("lifecycle").
-		WithDescription("Initialize invocation-owned resources and clean them up.").
+	cli.NewApplication[*options]("lifecycle", "Initialize invocation-owned resources and clean them up.").
 		WithHandler(printMessage).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func TestDemo(t *testing.T) {
-	commandA := NewCommand[testCommandAOpts]().
+	commandA := NewCommand[testCommandAOpts]("a").WithAliases("aliasForA").
 		WithCodec(custom1Codec{}).
 		WithCodec(customVariadic1Codec{}).
 		WithHandler(func(ctx context.Context, options testCommandAOpts) error {
@@ -30,15 +30,11 @@ func TestDemo(t *testing.T) {
 			_, flagValue := invocation.Flag("someString")
 			assert.Equal(t, "foo", flagValue)
 			return nil
-		}).
-		WithName("a", "aliasForA")
-	requirement := NewSimpleApplication().
-		WithName("test").
-		WithDescription("test description").
+		})
+	requirement := NewSimpleApplication("test", "test description").
 		WithCommand(
 			commandA,
-			NewCommand[testCommandBOpts]().
-				WithName("b"),
+			NewCommand[testCommandBOpts]("b"),
 		)
 	app, err := requirement.Create()
 	require.ErrorContains(t, err, `name "moo"`)

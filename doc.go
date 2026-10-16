@@ -6,6 +6,22 @@
 // For caller-managed errors, use [ApplicationRequirement.WithErrorHandlerEnabled]
 // and [ApplicationRequirement.CreateParseAndExecute].
 //
+// # Builder constructors
+//
+// [NewApplication], [NewSimpleApplication], [NewCommand], and [NewSimpleCommand]
+// accept optional name and description strings:
+//
+//	app := NewSimpleApplication("app", "Example application.")
+//	command := NewSimpleCommand("run", "Run", "the application.")
+//	app.WithCommand(command)
+//
+// [NewFlag] and [NewArgument] accept the same optional strings after their codec.
+// The first string is the primary name; all subsequent strings form the
+// description, joined with one space between each part. Additional strings are
+// never aliases: add flag/command aliases with WithAliases. WithName and
+// WithDescription can still override constructor metadata. With no strings,
+// configure the name later; Create validates the completed definition.
+//
 // # Options and bindings
 //
 // Use exported fields in a struct or pointer-to-struct options type:

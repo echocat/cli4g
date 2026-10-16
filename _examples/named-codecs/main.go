@@ -35,9 +35,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("named-codecs").
-		WithDescription("Select different codecs for the same Go type using type tags.").
+	cli.NewApplication[options]("named-codecs", "Select different codecs for the same Go type using type tags.").
 		WithCodec(minimumDurationCodec{codec.NewDuration(), time.Nanosecond}, "positive").
 		WithCodec(minimumDurationCodec{codec.NewDuration(), 0}, "nonnegative").
 		WithHandler(showDurations).

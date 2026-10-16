@@ -13,9 +13,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("argument-syntax").
-		WithDescription("Optional arguments, variadic arguments, and the -- terminator.").
+	cli.NewApplication[options]("argument-syntax", "Optional arguments, variadic arguments, and the -- terminator.").
 		WithHandler(showArguments).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

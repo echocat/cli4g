@@ -55,7 +55,7 @@ func TestDirectExecutionDuringParseKeepsOuterCleanupAndResponse(t *testing.T) {
 						options.late = late
 						return nil
 					}
-					definition := NewApplication[*parseHookOptions]().WithName("app").
+					definition := NewApplication[*parseHookOptions]("app").
 						WithHandler(func(context.Context, *parseHookOptions) error {
 							if !normalExecution {
 								return primary
@@ -70,7 +70,7 @@ func TestDirectExecutionDuringParseKeepsOuterCleanupAndResponse(t *testing.T) {
 							}
 							return nil
 						}).
-						WithCommand(NewSimpleCommand().WithName("child").
+						WithCommand(NewSimpleCommand("child").
 							WithHandler(func(context.Context, NoOptions) error {
 								if !normalExecution {
 									return primary

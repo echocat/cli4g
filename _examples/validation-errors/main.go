@@ -31,9 +31,7 @@ func (opts options) Validate(ctx context.Context) error {
 
 func main() {
 	response := cli.DefaultErrorHandler
-	cli.NewApplication[options]().
-		WithName("validation-errors").
-		WithDescription("Distinguish invalid input from technical failures in Validate.").
+	cli.NewApplication[options]("validation-errors", "Distinguish invalid input from technical failures in Validate.").
 		WithErrorHandler(func(ctx context.Context, invocation cli.InvocationLike, err error) error {
 			var number *strconv.NumError
 			var detail string

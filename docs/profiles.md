@@ -10,7 +10,7 @@ type options struct {
     Verbose bool   `flag:"verbose"`
 }
 
-app := cli.NewApplication[options]().WithName("example").MustCreate()
+app := cli.NewApplication[options]("example").MustCreate()
 defer app.Close()
 
 invocation, err := app.Parse(ctx, &cli.ParseOpts{
@@ -49,9 +49,9 @@ select different profiles; user callbacks must still be concurrency-safe.
 ## Commands
 
 ```go
-cli.NewSimpleApplication().WithName("example").WithCommand(
-    cli.NewCommand[TextOptions]().WithName("convert").WithProfiles("A"),
-    cli.NewCommand[NumberOptions]().WithName("convert").WithProfiles("B"),
+cli.NewSimpleApplication("example").WithCommand(
+    cli.NewCommand[TextOptions]("convert").WithProfiles("A"),
+    cli.NewCommand[NumberOptions]("convert").WithProfiles("B"),
 )
 ```
 

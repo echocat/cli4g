@@ -22,21 +22,15 @@ type sumOptions struct {
 }
 
 func main() {
-	cli.NewApplication[*applicationOptions]().
-		WithName("commands-introspection").
-		WithDescription("Inspect the invocation from a root handler.").
+	cli.NewApplication[*applicationOptions]("commands-introspection", "Inspect the invocation from a root handler.").
 		WithHandler(showCommand).
 		WithCommand(
-			cli.NewCommand[greetOptions]().
-				WithName("greet", "hello").
-				WithDescription("Greet someone.").
+			cli.NewCommand[greetOptions]("greet", "Greet someone.").
+				WithAliases("hello").
 				WithHandler(greet),
-			cli.NewSimpleCommand().
-				WithName("math").
-				WithDescription("Arithmetic commands.").
-				WithCommand(cli.NewCommand[sumOptions]().
-					WithName("sum", "add").
-					WithDescription("Add one or more integers.").
+			cli.NewSimpleCommand("math", "Arithmetic commands.").
+				WithCommand(cli.NewCommand[sumOptions]("sum", "Add one or more integers.").
+					WithAliases("add").
 					WithHandler(sum),
 				),
 		).

@@ -30,29 +30,22 @@ func main() {
 	if selected := os.Getenv("CLI4G_PROFILES"); selected != "" {
 		profiles = strings.Split(selected, ",")
 	}
-	cli.NewSimpleApplication().WithName("profiles").
-		WithDescription("Select typed command variants through ParseOpts.Profiles.").
+	cli.NewSimpleApplication("profiles", "Select typed command variants through ParseOpts.Profiles.").
 		WithCommand(
-			cli.NewCommand[greeterOptions]().
-				WithName("greet").
-				WithDescription("Greet someone.").
+			cli.NewCommand[greeterOptions]("greet", "Greet someone.").
 				WithHandler(func(ctx context.Context, opts greeterOptions) error {
 					if cli.ContextContainsProfile(ctx, "number") {
 						return cli.Printf(ctx, "Hello, #%d\n", opts.PrincipalRank)
 					}
 					return cli.Printf(ctx, "Hello, %s\n", opts.PrincipalName)
 				}),
-			cli.NewCommand[textOptions]().
-				WithName("convert").
+			cli.NewCommand[textOptions]("convert", "Print text.").
 				WithProfiles("text").
-				WithDescription("Print text.").
 				WithHandler(func(ctx context.Context, opts textOptions) error {
 					return cli.Printf(ctx, "%s%s\n", opts.Foo, opts.Suffix)
 				}),
-			cli.NewCommand[numberOptions]().
-				WithName("convert").
+			cli.NewCommand[numberOptions]("convert", "Multiply a number.").
 				WithProfiles("number").
-				WithDescription("Multiply a number.").
 				WithHandler(func(ctx context.Context, opts numberOptions) error {
 					return cli.Printf(ctx, "%d\n", opts.Foo*opts.Factor)
 				}),

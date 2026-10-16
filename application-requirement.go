@@ -12,14 +12,19 @@ import (
 // O must be a struct or pointer to a struct; exported tags define inputs.
 // By default, input and execution errors use [DefaultErrorHandler], and missing
 // context streams fall back to process stdin/stdout/stderr.
-func NewApplication[O any]() *ApplicationRequirement[O] {
-	return &ApplicationRequirement[O]{Help: true, FallbackToStdio: true}
+// The first optional string sets the name; further strings form the description,
+// joined with spaces. With no strings, configure the name later; Create validates
+// the completed builder.
+func NewApplication[O any](nameAndDescription ...string) *ApplicationRequirement[O] {
+	name, description := parseNameAndDescription(nameAndDescription)
+	return &ApplicationRequirement[O]{Name: name, Description: description, Help: true, FallbackToStdio: true}
 }
 
 // NewSimpleApplication starts a builder without an options struct.
 // Read unbound values through [Invocation.Flag] and [Invocation.Argument].
-func NewSimpleApplication() *ApplicationRequirement[NoOptions] {
-	return NewApplication[NoOptions]()
+// Optional strings set the name and description as in [NewApplication].
+func NewSimpleApplication(nameAndDescription ...string) *ApplicationRequirement[NoOptions] {
+	return NewApplication[NoOptions](nameAndDescription...)
 }
 
 // ApplicationRequirement configures options, inputs, commands, and handlers.

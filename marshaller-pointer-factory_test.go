@@ -18,8 +18,8 @@ func TestMarshallerPointerHelpersDeferInvalidFactoryUntilCreate(t *testing.T) {
 	for _, scope := range []string{"app", "command"} {
 		for _, kind := range []string{"flag", "slice-flag", "map-flag", "argument", "slice-argument", "map-argument"} {
 			t.Run(scope+"/"+kind, func(t *testing.T) {
-				root := NewSimpleApplication().WithName("app")
-				child := NewSimpleCommand().WithName("run")
+				root := NewSimpleApplication("app")
+				child := NewSimpleCommand("run")
 				require.NotPanics(t, func() {
 					if scope == "app" {
 						switch kind {
@@ -66,7 +66,7 @@ func TestMarshallerPointerHelpersDeferInvalidFactoryUntilCreate(t *testing.T) {
 
 func TestMarshallerPointerCallbackCanReplaceInvalidFactory(t *testing.T) {
 	var factory func() *pointerFactoryText
-	root := NewSimpleApplication().WithName("app")
+	root := NewSimpleApplication("app")
 	require.NotPanics(t, func() {
 		root.WithMarshallerPFlag("value", factory, func(f *FlagRequirement[*pointerFactoryText, string]) {
 			f.WithCodec(codec.NewMarshallerP(func() *pointerFactoryText { return new(pointerFactoryText) }))

@@ -19,13 +19,13 @@ func TestCreateRejectsAnonymousCodecResourceClosePromotion(t *testing.T) {
 			if kind == "tag-flag" {
 				_, err = NewApplication[*struct {
 					*os.File `flag:"input"`
-				}]().WithName("app").WithCodec(codec.NewFile()).Create()
+				}]("app").WithCodec(codec.NewFile()).Create()
 			} else if kind == "tag-argument" {
 				_, err = NewApplication[*struct {
 					*os.File `argument:"input"`
-				}]().WithName("app").WithCodec(codec.NewFile()).Create()
+				}]("app").WithCodec(codec.NewFile()).Create()
 			} else {
-				root := NewApplication[*struct{ *os.File }]().WithName("app")
+				root := NewApplication[*struct{ *os.File }]("app")
 				if kind == "explicit-flag" {
 					root.WithFileFlag("input", func(f *FlagRequirement[*os.File, codec.FileRequirement]) { f.WithField("File").WithDefaultStr(path) })
 				} else {
@@ -47,7 +47,7 @@ func TestNamedFileBindingDoesNotPromoteScopeOwnedClose(t *testing.T) {
 	}
 	path := filepath.Join(t.TempDir(), "input")
 	require.NoError(t, os.WriteFile(path, []byte("data"), 0600))
-	app, err := NewApplication[*options]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).WithCodec(codec.NewFile()).Create()
+	app, err := NewApplication[*options]("app").WithHelp(false).WithErrorHandlerEnabled(false).WithCodec(codec.NewFile()).Create()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--input", path)

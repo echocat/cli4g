@@ -58,9 +58,17 @@ func TestEnumsIntegrateWithTagsTypedAdaptersCollectionsAndHelp(t *testing.T) {
 	levels, err := codec.NewValueEnum(enumLevel("info"), enumLevel("debug"))
 	require.NoError(t, err)
 	var output bytes.Buffer
-	app := NewApplication[options]().WithName("enums").WithErrorHandlerEnabled(false).
-		WithCodec(described).WithCodec(codec.NewSlice(text)).WithCodec(codec.NewMap[string](text)).WithCodec(levels).
-		WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).MustCreate()
+	app := NewApplication[options]("enums").
+		WithErrorHandlerEnabled(false).
+		WithCodec(described).
+		WithCodec(codec.NewSlice(text)).
+		WithCodec(codec.NewMap[string](text)).
+		WithCodec(levels).
+		WithHelpHandler(testDefaultTemplatedHelpRequirement().
+			WithOutput(&output).
+			MustCreate(),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	ctx := context.Background()
 	require.NoError(t, app.ParseAndExecute(ctx, nil, "--help"))
@@ -123,9 +131,13 @@ func TestThirdPartyEnumHelpMetadataIsPreservedAndNeverResolves(t *testing.T) {
 	var output bytes.Buffer
 	app := NewApplication[struct {
 		Choice string `flag:"choice" type:"custom"`
-	}]().WithName("app").WithCodec(source, "custom").
-		WithHelpHandler(testDefaultTemplatedHelpRequirement().WithOutput(&output).MustCreate()).
-		WithCommand(NewSimpleCommand().WithName("child")).MustCreate()
+	}]("app").WithCodec(source, "custom").
+		WithHelpHandler(testDefaultTemplatedHelpRequirement().
+			WithOutput(&output).
+			MustCreate(),
+		).
+		WithCommand(NewSimpleCommand("child")).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	require.NoError(t, app.ParseAndExecute(nil, nil, "child", "--help"))
 	assert.Contains(t, output.String(), "Inherited flags:")
@@ -141,7 +153,9 @@ func TestThirdPartyEnumHelpMetadataIsPreservedAndNeverResolves(t *testing.T) {
 		{Codec: codec.NewString(), variants: []codec.EnumVariant[string]{{Value: "same"}, {Value: "same"}}},
 		{Codec: codec.NewString(), failure: metadataFailure},
 	} {
-		_, err := NewSimpleApplication().WithName("app").WithCodec(invalid).Create()
+		_, err := NewSimpleApplication("app").
+			WithCodec(invalid).
+			Create()
 		require.Error(t, err)
 		if invalid.failure != nil {
 			assert.ErrorIs(t, err, metadataFailure)
@@ -154,19 +168,19 @@ func TestEnumTagsRejectMisconfigurationAndExplicitBindingWins(t *testing.T) {
 		func() error {
 			_, err := NewApplication[struct {
 				Value int `flag:"value" enum:"a|b"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				Value string `flag:"value" enum:"a|a"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 		func() error {
 			_, err := NewApplication[struct {
 				Value string `flag:"value" enum:"a|b" type:"named"`
-			}]().WithName("app").Create()
+			}]("app").Create()
 			return err
 		},
 	} {
@@ -177,9 +191,11 @@ func TestEnumTagsRejectMisconfigurationAndExplicitBindingWins(t *testing.T) {
 	type options struct {
 		Value string `flag:"old" enum:"a|a"`
 	}
-	app := NewApplication[options]().WithName("app").WithStringFlag("value", func(f *FlagRequirement[string, string]) {
-		f.WithField("Value")
-	}).MustCreate()
+	app := NewApplication[options]("app").
+		WithStringFlag("value", func(f *FlagRequirement[string, string]) {
+			f.WithField("Value")
+		}).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--value", "unrestricted")
 	require.NoError(t, err)

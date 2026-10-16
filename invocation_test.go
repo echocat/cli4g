@@ -49,8 +49,7 @@ func TestExecuteCancellationStopsHandlersAndRetainsOwnership(t *testing.T) {
 			defer cancel()
 			var events []string
 			closed := false
-			app := NewSimpleApplication().
-				WithName("app").
+			app := NewSimpleApplication("app").
 				WithHandler(func(context.Context, NoOptions) error {
 					events = append(events, "root")
 					if test.stage == "root handler" {
@@ -59,8 +58,7 @@ func TestExecuteCancellationStopsHandlersAndRetainsOwnership(t *testing.T) {
 					return nil
 				}).
 				WithCloseHandler(func(NoOptions) error { closed = true; return nil }).
-				WithCommand(NewSimpleCommand().
-					WithName("leaf").
+				WithCommand(NewSimpleCommand("leaf").
 					WithHandler(func(context.Context, NoOptions) error {
 						events = append(events, "leaf")
 						if test.stage == "leaf handler" {
@@ -93,13 +91,14 @@ func TestExecuteCancellationStopsHandlersAndRetainsOwnership(t *testing.T) {
 
 func TestExecuteNormalizesNilContext(t *testing.T) {
 	called := false
-	app, err := NewSimpleApplication().WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithHandler(func(ctx context.Context, _ NoOptions) error {
 			require.NotNil(t, ctx)
 			assert.NoError(t, ctx.Err())
 			called = true
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(nil, nil)
 	require.NoError(t, err)
@@ -126,8 +125,7 @@ func (o *lifecycleOptions) Close() error {
 
 func TestLifecycle(t *testing.T) {
 	var events []string
-	a := NewSimpleApplication().
-		WithName("app").
+	a := NewSimpleApplication("app").
 		WithInitializeHandler(func(context.Context, NoOptions) error { events = append(events, "init app"); return nil }).
 		WithHandler(func(context.Context, NoOptions) error {
 			events = append(events, "exec app")
@@ -137,8 +135,7 @@ func TestLifecycle(t *testing.T) {
 			events = append(events, "close app")
 			return errors.New("app error")
 		}).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
+		WithCommand(NewSimpleCommand("child").
 			WithInitializeHandler(func(context.Context, NoOptions) error { events = append(events, "init child"); return nil }).
 			WithHandler(func(context.Context, NoOptions) error {
 				events = append(events, "exec child")
@@ -159,8 +156,7 @@ func TestLifecycle(t *testing.T) {
 }
 
 func TestOptionsLifecycle(t *testing.T) {
-	a, err := NewApplication[*lifecycleOptions]().
-		WithName("options").
+	a, err := NewApplication[*lifecycleOptions]("options").
 		Create()
 	require.NoError(t, err)
 	_, err = a.Parse(context.Background(), nil, "invalid")
@@ -178,8 +174,7 @@ func TestTypedOptionsWithDifferentContextValues(t *testing.T) {
 		Name string `flag:"name" required:"true"`
 	}
 	var events []string
-	app, err := NewApplication[options]().
-		WithName("app").
+	app, err := NewApplication[options]("app").
 		WithInitializeHandler(func(ctx context.Context, value options) error {
 			assert.Equal(t, "parse", ctx.Value(contextKey{}))
 			assert.Equal(t, "value", value.Name)
@@ -217,8 +212,7 @@ func TestIndependentOptionsInitializationRollback(t *testing.T) {
 	}
 	failure := errors.New("child initialization failed")
 	var events []string
-	app := NewApplication[appOptions]().
-		WithName("app").
+	app := NewApplication[appOptions]("app").
 		WithInitializeHandler(func(_ context.Context, options appOptions) error {
 			assert.Equal(t, "token-value", options.Token)
 			events = append(events, "initialize app")
@@ -229,8 +223,7 @@ func TestIndependentOptionsInitializationRollback(t *testing.T) {
 			events = append(events, "close app")
 			return nil
 		}).
-		WithCommand(NewCommand[*childOptions]().
-			WithName("child").
+		WithCommand(NewCommand[*childOptions]("child").
 			WithInitializeHandler(func(_ context.Context, options *childOptions) error {
 				assert.Equal(t, "id-value", options.ID)
 				events = append(events, "initialize child")

@@ -22,9 +22,7 @@ func main() {
 	var output bytes.Buffer
 	// The embedded application sees only these streams, not the host's stdio.
 	embedded := codec.ContextWithStdio(ctx, strings.NewReader("Injected input.\n"), &output, codec.StderrOfContext(ctx))
-	cli.NewApplication[options]().
-		WithName("stdio").
-		WithDescription("Run with context-provided in-memory streams and no stdio fallback.").
+	cli.NewApplication[options]("stdio", "Run with context-provided in-memory streams and no stdio fallback.").
 		WithFallbackToStdio(false).
 		WithHandler(copyInput).
 		MustCreateParseAndExecute(embedded, nil, os.Args[1:]...)

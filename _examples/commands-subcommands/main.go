@@ -13,20 +13,12 @@ type numbersOptions struct {
 }
 
 func main() {
-	cli.NewSimpleApplication().
-		WithName("commands-subcommands").
-		WithDescription("Commands organized under a command group.").
-		WithCommand(cli.NewSimpleCommand().
-			WithName("math").
-			WithDescription("Arithmetic commands.").
+	cli.NewSimpleApplication("commands-subcommands", "Commands organized under a command group.").
+		WithCommand(cli.NewSimpleCommand("math", "Arithmetic commands.").
 			WithCommand(
-				cli.NewCommand[numbersOptions]().
-					WithName("sum").
-					WithDescription("Add integers.").
+				cli.NewCommand[numbersOptions]("sum", "Add integers.").
 					WithHandler(sum),
-				cli.NewCommand[numbersOptions]().
-					WithName("product").
-					WithDescription("Multiply integers.").
+				cli.NewCommand[numbersOptions]("product", "Multiply integers.").
 					WithHandler(product),
 			),
 		).

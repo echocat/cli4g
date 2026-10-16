@@ -26,8 +26,7 @@ func TestDefaultsFollowSourcePrecedenceAndReplaceFactorySlices(t *testing.T) {
 		Name string `argument:"name" default:"child-default"`
 	}
 	var factories int
-	app, err := NewApplication[*options]().
-		WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCreateOptionsHandler(func(context.Context) (*options, error) {
 			factories++
 			return &options{
@@ -35,14 +34,13 @@ func TestDefaultsFollowSourcePrecedenceAndReplaceFactorySlices(t *testing.T) {
 				Empty: "factory", Factory: "factory-only",
 			}, nil
 		}).
-		WithFlag(NewFlag(codec.NewStrings()).
-			WithName("items", "item").
+		WithFlag(NewFlag(codec.NewStrings(), "items").
+			WithAliases("item").
 			WithShort('i').
 			WithField("Items").
 			WithDefault([]string{"default-one", "default-two"}),
 		).
-		WithCommand(NewCommand[childOptions]().
-			WithName("child").
+		WithCommand(NewCommand[childOptions]("child").
 			WithCreateOptionsHandler(func(context.Context) (childOptions, error) {
 				return childOptions{Name: "child-factory"}, nil
 			}),
@@ -105,15 +103,23 @@ func TestTypedDefaultsAreSnapshotsAndIndependentAcrossConcurrentInvocations(t *t
 	}
 	prototype := []string{"original"}
 	var factories atomic.Int64
-	app, err := NewApplication[*options]().WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCreateOptionsHandler(func(context.Context) (*options, error) {
 			factories.Add(1)
 			return &options{Zero: 99, Nil: []string{"factory"}}, nil
-		}).WithFlag(
-		NewFlag(codec.NewStrings()).WithName("values").WithField("Values").WithDefault(prototype),
-		NewFlag(codec.NewInt()).WithName("zero").WithField("Zero").WithDefault(0),
-		NewFlag(codec.NewStrings()).WithName("nil").WithField("Nil").WithDefault(nil),
-	).Create()
+		}).
+		WithFlag(
+			NewFlag(codec.NewStrings(), "values").
+				WithField("Values").
+				WithDefault(prototype),
+			NewFlag(codec.NewInt(), "zero").
+				WithField("Zero").
+				WithDefault(0),
+			NewFlag(codec.NewStrings(), "nil").
+				WithField("Nil").
+				WithDefault(nil),
+		).
+		Create()
 	require.NoError(t, err)
 	prototype[0] = "changed after Create"
 	flag, found := app.Flag("values")
@@ -150,11 +156,17 @@ func TestTypedDefaultsAreSnapshotsAndIndependentAcrossConcurrentInvocations(t *t
 }
 
 func TestDefaultSettersReplaceEachOtherAndStringsDescribeCompleteValues(t *testing.T) {
-	flag := NewFlag(codec.NewInt()).WithName("value").WithDefault(1).WithDefaultStr("2")
+	flag := NewFlag(codec.NewInt(), "value").
+		WithDefault(1).
+		WithDefaultStr("2")
 	flag.SetDefault(3)
-	argument := NewArgument(codec.NewStrings()).WithName("values").WithDefault([]string{"old"})
+	argument := NewArgument(codec.NewStrings(), "values").
+		WithDefault([]string{"old"})
 	argument.SetDefaultStr("one two", "three,four")
-	app, err := NewSimpleApplication().WithName("app").WithFlag(flag).WithArgument(argument).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(flag).
+		WithArgument(argument).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil)
 	require.NoError(t, err)
@@ -179,24 +191,32 @@ func TestRequiredAndDefaultAreRejectedIncludingEmptyAndZeroValues(t *testing.T) 
 		{
 			name: "typed flag zero",
 			build: func() error {
-				_, err := NewSimpleApplication().WithName("app").
-					WithFlag(NewFlag(codec.NewInt()).WithName("value").WithDefault(0).WithRequired(true)).Create()
+				_, err := NewSimpleApplication("app").
+					WithFlag(NewFlag(codec.NewInt(), "value").
+						WithDefault(0).
+						WithRequired(true),
+					).
+					Create()
 				return err
 			},
 		},
 		{
 			name: "string flag empty",
 			build: func() error {
-				_, err := NewSimpleApplication().WithName("app").
-					WithFlag(NewFlag(codec.NewString()).WithName("value").WithRequired(true).WithDefaultStr("")).Create()
+				_, err := NewSimpleApplication("app").
+					WithFlag(NewFlag(codec.NewString(), "value").
+						WithRequired(true).
+						WithDefaultStr(""),
+					).
+					Create()
 				return err
 			},
 		},
 		{
 			name: "typed argument nil",
 			build: func() error {
-				_, err := NewSimpleApplication().WithName("app").
-					WithArgument(NewArgument(codec.NewStrings()).WithName("value").WithDefault(nil).WithRequired(true)).Create()
+				_, err := NewSimpleApplication("app").
+					WithArgument(NewArgument(codec.NewStrings(), "value").WithDefault(nil).WithRequired(true)).Create()
 				return err
 			},
 		},
@@ -205,7 +225,7 @@ func TestRequiredAndDefaultAreRejectedIncludingEmptyAndZeroValues(t *testing.T) 
 			build: func() error {
 				_, err := NewApplication[struct {
 					Value string `flag:"value" required:"true" default:""`
-				}]().WithName("app").Create()
+				}]("app").Create()
 				return err
 			},
 		},
@@ -214,7 +234,7 @@ func TestRequiredAndDefaultAreRejectedIncludingEmptyAndZeroValues(t *testing.T) 
 			build: func() error {
 				_, err := NewApplication[struct {
 					Value string `argument:"value" required:"true" default:"default"`
-				}]().WithName("app").Create()
+				}]("app").Create()
 				return err
 			},
 		},
@@ -229,7 +249,8 @@ func TestStringDefaultsAreDecodedOnlyWhenNeededAndErrorsHaveDefinitionNames(t *t
 	type options struct {
 		Number int `flag:"number" env:"DEFAULT_TEST_NUMBER" default:"invalid"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").
+		Create()
 	require.NoError(t, err)
 	noEnv := &ParseOpts{LookupEnv: func(context.Context, string) (string, bool) { return "", false }}
 	invocation, err := app.Parse(context.Background(), noEnv)
@@ -270,14 +291,21 @@ func TestDecodedDefaultsRemainOwnedOnCancellationOrLaterRequiredFailure(t *testi
 					}
 				},
 			}
-			app, err := NewApplication[*resourceOptions]().WithName("app").WithFlag(
-				NewFlag(decoder).WithName("resource").WithField("Resource").WithDefaultStr("default"),
-				NewFlag(codec.NewInt()).WithName("count").WithField("Count").WithRequired(true),
-			).WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error {
-				// This fixture measures decoded-value ownership, independently of
-				// help rendering's additional default formatting and value creation.
-				return err
-			}).Create()
+			app, err := NewApplication[*resourceOptions]("app").
+				WithFlag(
+					NewFlag(decoder, "resource").
+						WithField("Resource").
+						WithDefaultStr("default"),
+					NewFlag(codec.NewInt(), "count").
+						WithField("Count").
+						WithRequired(true),
+				).
+				WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error {
+					// This fixture measures decoded-value ownership, independently of
+					// help rendering's additional default formatting and value creation.
+					return err
+				}).
+				Create()
 			require.NoError(t, err)
 			invocation, err := app.Parse(ctx, nil)
 			assert.Nil(t, invocation)
@@ -293,10 +321,13 @@ func TestDecodedDefaultsRemainOwnedOnCancellationOrLaterRequiredFailure(t *testi
 }
 
 func TestNoDefaultAndCanceledDefaultAccess(t *testing.T) {
-	app, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(codec.NewString()).WithName("absent"),
-		NewFlag(codec.NewString()).WithName("present").WithDefault("value"),
-	).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(
+			NewFlag(codec.NewString(), "absent"),
+			NewFlag(codec.NewString(), "present").
+				WithDefault("value"),
+		).
+		Create()
 	require.NoError(t, err)
 	absent, found := app.Flag("absent")
 	require.True(t, found)
@@ -318,9 +349,12 @@ func TestNoDefaultAndCanceledDefaultAccess(t *testing.T) {
 
 func TestDefaultSnapshotCloneFailureIsACompileError(t *testing.T) {
 	failure := errors.New("cannot snapshot codec")
-	_, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(grammarString{min: 1, max: 1, cloneErr: failure}).WithName("value").WithDefault("default"),
-	).Create()
+	_, err := NewSimpleApplication("app").
+		WithFlag(
+			NewFlag(grammarString{min: 1, max: 1, cloneErr: failure}, "value").
+				WithDefault("default"),
+		).
+		Create()
 	require.ErrorIs(t, err, failure)
 	require.ErrorContains(t, err, "flag --value default")
 }
@@ -343,9 +377,12 @@ func TestTypedRequirementCancellationDoesNotAcquireResource(t *testing.T) {
 		},
 	}
 	prototype := "default"
-	app, err := NewApplication[*resourceOptions]().WithName("app").WithFlag(
-		NewFlag(decoder).WithName("resource").WithField("Resource").WithDefault(prototype),
-	).Create()
+	app, err := NewApplication[*resourceOptions]("app").
+		WithFlag(NewFlag(decoder, "resource").
+			WithField("Resource").
+			WithDefault(prototype),
+		).
+		Create()
 	require.NoError(t, err)
 	assert.Nil(t, cloned, "Create snapshots the requirement, not the resource")
 	invocation, err := app.Parse(ctx, nil)
@@ -373,9 +410,11 @@ func (c rewritingDefaultCodec) ParseRequirement(ctx context.Context, usage codec
 }
 
 func TestStringDefaultTokensRemainIndependentWhenCodecRewritesItsInput(t *testing.T) {
-	app, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(rewritingDefaultCodec{grammarString{min: 1, max: 1}}).WithName("value").WithDefaultStr("original"),
-	).Create()
+	app, err := NewSimpleApplication("app").
+		WithFlag(NewFlag(rewritingDefaultCodec{grammarString{min: 1, max: 1}}, "value").
+			WithDefaultStr("original"),
+		).
+		Create()
 	require.NoError(t, err)
 	var workers sync.WaitGroup
 	for range 32 {

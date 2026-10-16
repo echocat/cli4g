@@ -51,11 +51,17 @@ func TestCodecRegistryDeepestWinsForAncestorOptionsAndNamedAliases(t *testing.T)
 		Alias   registryValue `flag:"alias" type:"other"`
 		Unnamed registryValue `flag:"unnamed"`
 	}
-	app, err := cli.NewApplication[*options]().WithName("app").WithErrorHandlerEnabled(false).
-		WithCodec(registryCodec{from: "root"}, "moo", "other").WithCodec(registryCodec{from: "unnamed"}).
-		WithCommand(cli.NewSimpleCommand().WithName("parent").WithCodec(registryCodec{from: "parent"}, "moo").
-			WithCommand(cli.NewSimpleCommand().WithName("leaf").WithCodec(registryCodec{from: "leaf"}, "moo"))).Create()
-	require.NoError(t, err)
+	app := cli.NewApplication[*options]("app").
+		WithErrorHandlerEnabled(false).
+		WithCodec(registryCodec{from: "root"}, "moo", "other").
+		WithCodec(registryCodec{from: "unnamed"}).
+		WithCommand(cli.NewSimpleCommand("parent").
+			WithCodec(registryCodec{from: "parent"}, "moo").
+			WithCommand(cli.NewSimpleCommand("leaf").
+				WithCodec(registryCodec{from: "leaf"}, "moo"),
+			),
+		).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
 		args       []string
@@ -82,7 +88,7 @@ func TestRegistryResolutionIsCompileTimeAndParallelRequirementsAreIndependent(t 
 	type options struct {
 		Value registryValue `flag:"value"`
 	}
-	app, err := cli.NewApplication[options]().WithName("app").WithCodec(registryCodec{from: "selected", checks: checks}).Create()
+	app, err := cli.NewApplication[options]("app").WithCodec(registryCodec{from: "selected", checks: checks}).Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	baseline := checks.Load()
@@ -113,7 +119,7 @@ func TestRegistryAndSnapshotRejectMissingUnknownAndInvalidCodecs(t *testing.T) {
 	type options struct {
 		Value registryValue `flag:"value" type:"missing"`
 	}
-	_, err := cli.NewApplication[options]().WithName("app").WithCodec(registryCodec{from: "unnamed"}).Create()
+	_, err := cli.NewApplication[options]("app").WithCodec(registryCodec{from: "unnamed"}).Create()
 	require.ErrorContains(t, err, "no codec")
 	_, err = codec.NewRegistry(context.Background(), []codec.Registration{{Codec: registryCodec{}, Names: []string{""}}})
 	require.ErrorContains(t, err, "empty codec name")

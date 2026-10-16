@@ -27,9 +27,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	cli.NewApplication[options]().
-		WithName("cancellation").
-		WithDescription("Cancel an endlessly running handler with Ctrl+C.").
+	cli.NewApplication[options]("cancellation", "Cancel an endlessly running handler with Ctrl+C.").
 		WithHandler(work).
 		MustCreateParseAndExecute(ctx, nil, os.Args[1:]...)
 }

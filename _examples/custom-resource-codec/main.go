@@ -15,9 +15,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-resource-codec").
-		WithDescription("Acquire a document through an invocation-owned codec scope.").
+	cli.NewApplication[options]("custom-resource-codec", "Acquire a document through an invocation-owned codec scope.").
 		WithCodec(documentCodec{}).
 		WithHandler(printDocument).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)

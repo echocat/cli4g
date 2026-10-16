@@ -71,9 +71,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	cli.NewApplication[options]().
-		WithName("enums").
-		WithDescription("Typed enums with automatic choices in help and errors.").
+	cli.NewApplication[options]("enums", "Typed enums with automatic choices in help and errors.").
 		WithCodec(formats).
 		WithCodec(codec.NewSlice(formats)).
 		WithCodec(levels).

@@ -12,7 +12,7 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [commands-introspection](commands-introspection) | Inspecting the invocation's command path and help metadata |
 | [typed-context](typed-context) | Reading typed application, command, and flag values from context |
 | [stdio](stdio) | Injecting in-memory context streams and disabling process-stdio fallback |
-| [builder-fields](builder-fields) | Explicit flags/arguments and WithField instead of tags |
+| [builder-fields](builder-fields) | Flag/argument constructors with names, descriptions, and WithField instead of tags |
 | [embedded-options](embedded-options) | Reusing tagged flag groups through struct embedding |
 | [options-factory](options-factory) | Creating options from configuration and injecting a service |
 | [validation](validation) | Options validation and input-error responses |

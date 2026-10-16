@@ -14,8 +14,8 @@ func TestCreateRejectsTypedNilFlagAndArgumentRequirements(t *testing.T) {
 		for _, kind := range []string{"flag", "argument"} {
 			for _, typed := range []bool{false, true} {
 				t.Run(scope+"/"+kind+map[bool]string{false: "/nil-interface", true: "/typed-nil"}[typed], func(t *testing.T) {
-					root := NewSimpleApplication().WithName("app")
-					child := NewSimpleCommand().WithName("run")
+					root := NewSimpleApplication("app")
+					child := NewSimpleCommand("run")
 					if kind == "flag" {
 						var spec FlagRequirementLike
 						if typed {

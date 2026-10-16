@@ -15,12 +15,21 @@ func TestHelpAndErrorHandlersShareNonConcurrentOutput(t *testing.T) {
 	var output bytes.Buffer
 	var apps []*Application[NoOptions]
 	for range 2 {
-		help, err := NewTemplatedHelpHandler().WithOutput(&output).
-			WithApplicationTemplate("HELP\n").WithCommandTemplate("HELP\n").Create()
+		help, err := NewTemplatedHelpHandler().
+			WithOutput(&output).
+			WithApplicationTemplate("HELP\n").
+			WithCommandTemplate("HELP\n").
+			Create()
 		require.NoError(t, err)
-		response, err := NewRespondErrorHandler().WithOutput(&output).WithHelpHandler(help).Create()
+		response, err := NewRespondErrorHandler().
+			WithOutput(&output).
+			WithHelpHandler(help).
+			Create()
 		require.NoError(t, err)
-		app, err := NewSimpleApplication().WithName("app").WithHelpHandler(help).WithErrorHandler(response).Create()
+		app, err := NewSimpleApplication("app").
+			WithHelpHandler(help).
+			WithErrorHandler(response).
+			Create()
 		require.NoError(t, err)
 		defer func() { assert.NoError(t, app.Close()) }()
 		apps = append(apps, app)

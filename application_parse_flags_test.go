@@ -29,9 +29,12 @@ func BenchmarkApplicationParseShortValue(b *testing.B) {
 			{"Long", "--text="}, {"Short", "-s="}, {"Unicode", "-界="}, {"Cluster", "-abs="},
 		} {
 			b.Run(fmt.Sprintf("%s/Bytes=%d", form.name, size), func(b *testing.B) {
-				app, err := NewApplication[*options]().WithName("app").WithFlag(
-					NewFlag(codec.NewString()).WithName("text").WithShort('s', '界').WithField("Text"),
-				).Create()
+				app, err := NewApplication[*options]("app").
+					WithFlag(NewFlag(codec.NewString(), "text").
+						WithShort('s', '界').
+						WithField("Text"),
+					).
+					Create()
 				require.NoError(b, err)
 				defer func() { assert.NoError(b, app.Close()) }()
 				benchmarkParse(b, app, context.Background(), nil, form.prefix+value)
@@ -41,13 +44,10 @@ func BenchmarkApplicationParseShortValue(b *testing.B) {
 }
 
 func TestVariadicFlagStopsAtNextOption(t *testing.T) {
-	a, err := NewSimpleApplication().
-		WithName("variadic").
+	a, err := NewSimpleApplication("variadic").
 		WithFlag(
-			NewFlag(customVariadic1Codec{}).
-				WithName("items"),
-			NewFlag(codec.NewBool()).
-				WithName("verbose"),
+			NewFlag(customVariadic1Codec{}, "items"),
+			NewFlag(codec.NewBool(), "verbose"),
 		).
 		Create()
 	require.NoError(t, err)
@@ -61,11 +61,9 @@ func TestVariadicFlagStopsAtNextOption(t *testing.T) {
 }
 
 func TestConcurrentImmutableCodecParsesIndependentValues(t *testing.T) {
-	a, err := NewSimpleApplication().
-		WithName("immutable").
+	a, err := NewSimpleApplication("immutable").
 		WithFlag(
-			NewFlag(codec.NewInt()).
-				WithName("count"),
+			NewFlag(codec.NewInt(), "count"),
 		).
 		Create()
 	require.NoError(t, err)
@@ -90,8 +88,7 @@ func TestSliceCodecInOptionsAndDefaults(t *testing.T) {
 		Bools   []bool   `flag:"bools"`
 		Numbers []uint8  `argument:"numbers"`
 	}
-	a, err := NewApplication[*options]().
-		WithName("slices").
+	a, err := NewApplication[*options]("slices").
 		Create()
 	require.NoError(t, err)
 	inv, err := a.Parse(context.Background(), nil, "--strings=one", "--strings=two", "--bools=true", "--bools=false", "3", "4")
@@ -109,11 +106,8 @@ func TestRepeatedSliceFlags(t *testing.T) {
 		Uint16s []uint16 `flag:"uint16s|nums" short:"u" env:"NUMBERS" required:"true"`
 		Single  int      `flag:"single"`
 	}
-	a := NewApplication[*options]().
-		WithName("repeat").
-		WithCommand(NewSimpleCommand().
-			WithName("child"),
-		).
+	a := NewApplication[*options]("repeat").
+		WithCommand(NewSimpleCommand("child")).
 		MustCreate()
 	ctx := context.Background()
 	inv := a.MustParse(ctx, nil, "--uint16s=1", "--nums", "2", "-u3")
@@ -175,7 +169,7 @@ func TestShortFlagEqualsValuesAndExistingAttachedSeparatedAndClusterForms(t *tes
 		Beta  bool   `flag:"beta" short:"b"`
 		Gamma bool   `flag:"gamma" short:"c"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, test := range []struct {
@@ -219,7 +213,7 @@ func TestShortOptionalBoolEqualsDoesNotConsumeFollowingPositions(t *testing.T) {
 		Alpha   bool     `flag:"alpha" short:"a"`
 		Values  []string `argument:"values"`
 	}
-	app, err := NewApplication[options]().WithName("app").
+	app, err := NewApplication[options]("app").
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
@@ -238,10 +232,10 @@ func TestShortOptionalBoolEqualsDoesNotConsumeFollowingPositions(t *testing.T) {
 }
 
 func TestShortEqualsSupportsUnicodeAndOptionalStringAndRejectsZeroArity(t *testing.T) {
-	app, err := NewSimpleApplication().WithName("app").WithFlag(
-		NewFlag(codec.NewString()).WithName("unicode").WithShort('ü'),
-		NewFlag(grammarString{min: 0, max: 1}).WithName("optional").WithShort('o'),
-		NewFlag(grammarString{min: 0, max: 0}).WithName("zero").WithShort('z'),
+	app, err := NewSimpleApplication("app").WithFlag(
+		NewFlag(codec.NewString(), "unicode").WithShort('ü'),
+		NewFlag(grammarString{min: 0, max: 1}, "optional").WithShort('o'),
+		NewFlag(grammarString{min: 0, max: 0}, "zero").WithShort('z'),
 	).WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err }).Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
@@ -258,11 +252,8 @@ func TestShortEqualsSupportsUnicodeAndOptionalStringAndRejectsZeroArity(t *testi
 }
 
 func TestShortHelpEqualsFalseContinuesWhileTrueStops(t *testing.T) {
-	app := NewSimpleApplication().
-		WithName("app").
-		WithCommand(NewSimpleCommand().
-			WithName("run"),
-		).MustCreate()
+	app := NewSimpleApplication("app").
+		WithCommand(NewSimpleCommand("run")).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation := app.MustParse(nil, nil, "-h=false", "run")
 	require.NoError(t, invocation.Close())

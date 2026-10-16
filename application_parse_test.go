@@ -88,12 +88,13 @@ func TestParseRejectsCanceledContextBeforeProcessing(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			clones := &atomic.Int64{}
-			app, err := NewSimpleApplication().WithName("app").
-				WithFlag(NewFlag(grammarString{min: 1, max: 1, clones: clones}).WithName("value")).
+			app, err := NewSimpleApplication("app").
+				WithFlag(NewFlag(grammarString{min: 1, max: 1, clones: clones}, "value")).
 				WithInitializeHandler(func(context.Context, NoOptions) error {
 					assert.Fail(t, "initializer must not run for an already canceled context")
 					return nil
-				}).Create()
+				}).
+				Create()
 			require.NoError(t, err)
 			ctx, cancel := test.context()
 			defer cancel()
@@ -109,7 +110,7 @@ func TestParseRejectsCanceledContextBeforeProcessing(t *testing.T) {
 
 func TestParseNormalizesNilContextBeforeDecoding(t *testing.T) {
 	var events []string
-	app, err := NewSimpleApplication().WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithFlag(NewFlag(callbackCodec[string, string]{
 			Codec: codec.NewString(),
 			onClone: func(ctx context.Context) {
@@ -120,12 +121,13 @@ func TestParseNormalizesNilContextBeforeDecoding(t *testing.T) {
 				assert.NotNil(t, ctx)
 				events = append(events, "decode")
 			},
-		}).WithName("value")).
+		}, "value")).
 		WithInitializeHandler(func(ctx context.Context, _ NoOptions) error {
 			assert.NotNil(t, ctx)
 			events = append(events, "initialize")
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(nil, nil, "--value=data")
 	require.NoError(t, err)
@@ -158,12 +160,10 @@ func (*constantOneCodec) ExpectMinMax(context.Context, codec.Usage) (int, int) {
 
 func testApplication(t *testing.T) *Application[*rootOpts] {
 	t.Helper()
-	a := NewApplication[*rootOpts]().
-		WithName("app").
-		WithCommand(NewCommand[*childOpts]().
-			WithName("run", "r").
-			WithFlag(NewFlag(codec.NewString()).
-				WithName("extra").
+	a := NewApplication[*rootOpts]("app").
+		WithCommand(NewCommand[*childOpts]("run").
+			WithAliases("r").
+			WithFlag(NewFlag(codec.NewString(), "extra").
 				WithField("Extra"),
 			),
 		).
@@ -232,8 +232,7 @@ func TestParseChecksRequiredValuesBeforeInitialization(t *testing.T) {
 	type childOptions struct {
 		Name string `argument:"name" required:"true"`
 	}
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithInitializeHandler(func(context.Context, NoOptions) error {
 			events = append(events, "initialize app")
 			return nil
@@ -242,9 +241,7 @@ func TestParseChecksRequiredValuesBeforeInitialization(t *testing.T) {
 			events = append(events, "close app")
 			return nil
 		}).
-		WithCommand(NewCommand[*childOptions]().
-			WithName("child"),
-		).
+		WithCommand(NewCommand[*childOptions]("child")).
 		MustCreate()
 	invocation, err := app.Parse(context.Background(), nil, "child")
 	require.ErrorContains(t, err, "required argument")
@@ -257,8 +254,7 @@ func TestParseRollsBackSuccessfulInitializers(t *testing.T) {
 	appCloseErr := errors.New("app close failed")
 	childCloseErr := errors.New("child close failed")
 	var events []string
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithInitializeHandler(func(context.Context, NoOptions) error {
 			events = append(events, "initialize app")
 			return nil
@@ -267,8 +263,7 @@ func TestParseRollsBackSuccessfulInitializers(t *testing.T) {
 			events = append(events, "close app")
 			return appCloseErr
 		}).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
+		WithCommand(NewSimpleCommand("child").
 			WithInitializeHandler(func(context.Context, NoOptions) error {
 				events = append(events, "initialize child")
 				return nil
@@ -277,8 +272,7 @@ func TestParseRollsBackSuccessfulInitializers(t *testing.T) {
 				events = append(events, "close child")
 				return childCloseErr
 			}).
-			WithCommand(NewCommand[NoOptions]().
-				WithName("grandchild").
+			WithCommand(NewCommand[NoOptions]("grandchild").
 				WithInitializeHandler(func(context.Context, NoOptions) error {
 					events = append(events, "initialize grandchild")
 					return initErr
@@ -332,14 +326,12 @@ func benchmarkScalarArgs() []string {
 }
 
 func benchmarkCommandRequirement(depth int) *ApplicationRequirement[*benchmarkScalarOptions] {
-	requirement := NewApplication[*benchmarkScalarOptions]().WithName("app")
+	requirement := NewApplication[*benchmarkScalarOptions]("app")
 	if depth > 0 {
-		first := NewSimpleCommand().
-			WithName("command0")
+		first := NewSimpleCommand("command0")
 		current := first
 		for i := 1; i < depth; i++ {
-			next := NewSimpleCommand().
-				WithName("command" + strconv.Itoa(i))
+			next := NewSimpleCommand("command" + strconv.Itoa(i))
 			current.WithCommand(next)
 			current = next
 		}
@@ -379,22 +371,25 @@ func benchmarkParse[O any](b *testing.B, app *Application[O], ctx context.Contex
 func BenchmarkApplicationParse(b *testing.B) {
 	ctx := context.Background()
 	b.Run("Empty", func(b *testing.B) {
-		app, err := NewSimpleApplication().WithName("app").Create()
+		app, err := NewSimpleApplication("app").Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil)
 	})
 	b.Run("Scalar/ValueOptions", func(b *testing.B) {
-		app, err := NewApplication[benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil, benchmarkScalarArgs()...)
 	})
 	b.Run("Scalar/PointerOptions", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil, benchmarkScalarArgs()...)
 	})
 	b.Run("Scalar/CancelableContext", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -405,7 +400,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 			type options struct {
 				Values []uint16 `flag:"value"`
 			}
-			app, err := NewApplication[*options]().WithName("app").Create()
+			app, err := NewApplication[*options]("app").
+				Create()
 			require.NoError(b, err)
 			args := make([]string, count)
 			for i := range count {
@@ -414,8 +410,9 @@ func BenchmarkApplicationParse(b *testing.B) {
 			benchmarkParse(b, app, ctx, nil, args...)
 		})
 		b.Run("RepeatedSliceUnbound/Values="+strconv.Itoa(count), func(b *testing.B) {
-			app, err := NewSimpleApplication().WithName("app").
-				WithFlag(NewFlag(codec.NewSlice(codec.NewUint16())).WithName("value")).Create()
+			app, err := NewSimpleApplication("app").
+				WithFlag(NewFlag(codec.NewSlice(codec.NewUint16()), "value")).
+				Create()
 			require.NoError(b, err)
 			args := make([]string, count)
 			for i := range args {
@@ -427,7 +424,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 			type options struct {
 				Values []uint16 `argument:"values"`
 			}
-			app, err := NewApplication[*options]().WithName("app").Create()
+			app, err := NewApplication[*options]("app").
+				Create()
 			require.NoError(b, err)
 			args := make([]string, count)
 			for i := range count {
@@ -438,7 +436,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 	}
 	for _, depth := range []int{1, 4, 16} {
 		b.Run("CommandPath/Depth="+strconv.Itoa(depth), func(b *testing.B) {
-			app, err := benchmarkCommandRequirement(depth).Create()
+			app, err := benchmarkCommandRequirement(depth).
+				Create()
 			require.NoError(b, err)
 			benchmarkParse(b, app, ctx, nil, benchmarkCommandArgs(depth)...)
 		})
@@ -447,7 +446,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 		type options struct {
 			Value string `flag:"value" env:"BENCH_VALUE"`
 		}
-		app, err := NewApplication[*options]().WithName("app").Create()
+		app, err := NewApplication[*options]("app").
+			Create()
 		require.NoError(b, err)
 		opts := &ParseOpts{LookupEnv: func(context.Context, string) (string, bool) {
 			return "value", true
@@ -455,9 +455,9 @@ func BenchmarkApplicationParse(b *testing.B) {
 		benchmarkParse(b, app, ctx, opts)
 	})
 	b.Run("OptionalArguments/Omitted=16", func(b *testing.B) {
-		requirement := NewSimpleApplication().WithName("app")
+		requirement := NewSimpleApplication("app")
 		for i := range 16 {
-			requirement.WithArgument(NewArgument(codec.NewString()).WithName("value" + strconv.Itoa(i)))
+			requirement.WithArgument(NewArgument(codec.NewString(), "value"+strconv.Itoa(i)))
 		}
 		app, err := requirement.Create()
 		require.NoError(b, err)
@@ -469,7 +469,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 			Verbose bool     `flag:"verbose"`
 			Values  []uint16 `argument:"values"`
 		}
-		app, err := NewApplication[*options]().WithName("app").Create()
+		app, err := NewApplication[*options]("app").
+			Create()
 		require.NoError(b, err)
 		args := []string{"--name=server", "--verbose"}
 		for i := range 128 {
@@ -478,7 +479,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 		benchmarkParse(b, app, ctx, nil, args...)
 	})
 	b.Run("Mixed/SeparatedScalarValues", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		args := []string{
 			"--name", "server", "--config", "config.yaml", "--host", "localhost", "--region", "eu",
@@ -487,7 +489,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 		benchmarkParse(b, app, ctx, nil, args...)
 	})
 	b.Run("Sparse/OneOfTenFlags", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil, "--name=server")
 	})
@@ -497,7 +500,8 @@ func BenchmarkApplicationParse(b *testing.B) {
 			Verbose bool     `flag:"verbose"`
 			Values  []uint16 `flag:"value"`
 		}
-		app, err := NewApplication[*options]().WithName("app").Create()
+		app, err := NewApplication[*options]("app").
+			Create()
 		require.NoError(b, err)
 		args := make([]string, 128)
 		for i := range args {
@@ -506,10 +510,10 @@ func BenchmarkApplicationParse(b *testing.B) {
 		benchmarkParse(b, app, ctx, nil, args...)
 	})
 	b.Run("FixedArguments/Values=16", func(b *testing.B) {
-		requirement := NewSimpleApplication().WithName("app")
+		requirement := NewSimpleApplication("app")
 		args := make([]string, 16)
 		for i := range args {
-			requirement.WithArgument(NewArgument(codec.NewString()).WithName("value" + strconv.Itoa(i)))
+			requirement.WithArgument(NewArgument(codec.NewString(), "value"+strconv.Itoa(i)))
 			args[i] = strconv.Itoa(i)
 		}
 		app, err := requirement.Create()
@@ -517,15 +521,17 @@ func BenchmarkApplicationParse(b *testing.B) {
 		benchmarkParse(b, app, ctx, nil, args...)
 	})
 	b.Run("Lifecycle/TypedValueHandlers", func(b *testing.B) {
-		app, err := NewApplication[benchmarkScalarOptions]().WithName("app").
+		app, err := NewApplication[benchmarkScalarOptions]("app").
 			WithValidateHandler(func(context.Context, benchmarkScalarOptions) error { return nil }).
 			WithInitializeHandler(func(context.Context, benchmarkScalarOptions) error { return nil }).
-			WithCloseHandler(func(benchmarkScalarOptions) error { return nil }).Create()
+			WithCloseHandler(func(benchmarkScalarOptions) error { return nil }).
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil, benchmarkScalarArgs()...)
 	})
 	b.Run("Lifecycle/OptionsMethods", func(b *testing.B) {
-		app, err := NewApplication[benchmarkLifecycleOptions]().WithName("app").Create()
+		app, err := NewApplication[benchmarkLifecycleOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, ctx, nil, benchmarkScalarArgs()...)
 	})
@@ -560,17 +566,20 @@ func benchmarkParseAfterGC[O any](b *testing.B, app *Application[O], opts *Parse
 // AfterGC is a cold-pool measurement, not a process-start or Create benchmark.
 func BenchmarkApplicationParseAfterGC(b *testing.B) {
 	b.Run("Empty", func(b *testing.B) {
-		app, err := NewSimpleApplication().WithName("app").Create()
+		app, err := NewSimpleApplication("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParseAfterGC(b, app, nil)
 	})
 	b.Run("Scalar/ValueOptions", func(b *testing.B) {
-		app, err := NewApplication[benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParseAfterGC(b, app, nil, benchmarkScalarArgs()...)
 	})
 	b.Run("Scalar/PointerOptions", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParseAfterGC(b, app, nil, benchmarkScalarArgs()...)
 	})
@@ -579,7 +588,8 @@ func BenchmarkApplicationParseAfterGC(b *testing.B) {
 			type options struct {
 				Values []uint16 `flag:"value"`
 			}
-			app, err := NewApplication[*options]().WithName("app").Create()
+			app, err := NewApplication[*options]("app").
+				Create()
 			require.NoError(b, err)
 			args := make([]string, count)
 			for i := range args {
@@ -597,7 +607,8 @@ func BenchmarkApplicationParseAfterGC(b *testing.B) {
 		type options struct {
 			Value string `flag:"value" env:"BENCH_VALUE"`
 		}
-		app, err := NewApplication[*options]().WithName("app").Create()
+		app, err := NewApplication[*options]("app").
+			Create()
 		require.NoError(b, err)
 		opts := &ParseOpts{LookupEnv: func(context.Context, string) (string, bool) {
 			return "value", true
@@ -640,7 +651,8 @@ func BenchmarkApplicationParseParallel(b *testing.B) {
 		type options struct {
 			Values []uint16 `flag:"value"`
 		}
-		app, err := NewApplication[*options]().WithName("app").Create()
+		app, err := NewApplication[*options]("app").
+			Create()
 		require.NoError(b, err)
 		args := make([]string, 128)
 		for i := range args {
@@ -649,12 +661,14 @@ func BenchmarkApplicationParseParallel(b *testing.B) {
 		benchmarkParseParallel(b, app, args...)
 	})
 	b.Run("Scalar/ValueOptions", func(b *testing.B) {
-		app, err := NewApplication[benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParseParallel(b, app, benchmarkScalarArgs()...)
 	})
 	b.Run("Scalar/PointerOptions", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").Create()
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
+			Create()
 		require.NoError(b, err)
 		benchmarkParseParallel(b, app, benchmarkScalarArgs()...)
 	})
@@ -666,32 +680,32 @@ func BenchmarkApplicationParseParallel(b *testing.B) {
 }
 
 func benchmarkDefaultRequirement(typed bool) *ApplicationRequirement[*benchmarkScalarOptions] {
-	requirement := NewApplication[*benchmarkScalarOptions]().WithName("app")
+	requirement := NewApplication[*benchmarkScalarOptions]("app")
 	if typed {
 		return requirement.WithFlag(
-			NewFlag(codec.NewString()).WithName("name").WithField("Name").WithDefault("server"),
-			NewFlag(codec.NewString()).WithName("config").WithField("Config").WithDefault("config.yaml"),
-			NewFlag(codec.NewString()).WithName("host").WithField("Host").WithDefault("localhost"),
-			NewFlag(codec.NewString()).WithName("region").WithField("Region").WithDefault("eu"),
-			NewFlag(codec.NewUint16()).WithName("port").WithField("Port").WithDefault(8080),
-			NewFlag(codec.NewUint()).WithName("retries").WithField("Retries").WithDefault(3),
-			NewFlag(codec.NewInt64()).WithName("timeout").WithField("Timeout").WithDefault(30),
-			NewFlag(codec.NewInt()).WithName("workers").WithField("Workers").WithDefault(4),
-			NewFlag(codec.NewFloat64()).WithName("rate").WithField("Rate").WithDefault(1.5),
-			NewFlag(codec.NewBool()).WithName("verbose").WithField("Verbose").WithDefault(true),
+			NewFlag(codec.NewString(), "name").WithField("Name").WithDefault("server"),
+			NewFlag(codec.NewString(), "config").WithField("Config").WithDefault("config.yaml"),
+			NewFlag(codec.NewString(), "host").WithField("Host").WithDefault("localhost"),
+			NewFlag(codec.NewString(), "region").WithField("Region").WithDefault("eu"),
+			NewFlag(codec.NewUint16(), "port").WithField("Port").WithDefault(8080),
+			NewFlag(codec.NewUint(), "retries").WithField("Retries").WithDefault(3),
+			NewFlag(codec.NewInt64(), "timeout").WithField("Timeout").WithDefault(30),
+			NewFlag(codec.NewInt(), "workers").WithField("Workers").WithDefault(4),
+			NewFlag(codec.NewFloat64(), "rate").WithField("Rate").WithDefault(1.5),
+			NewFlag(codec.NewBool(), "verbose").WithField("Verbose").WithDefault(true),
 		)
 	}
 	return requirement.WithFlag(
-		NewFlag(codec.NewString()).WithName("name").WithField("Name").WithDefaultStr("server"),
-		NewFlag(codec.NewString()).WithName("config").WithField("Config").WithDefaultStr("config.yaml"),
-		NewFlag(codec.NewString()).WithName("host").WithField("Host").WithDefaultStr("localhost"),
-		NewFlag(codec.NewString()).WithName("region").WithField("Region").WithDefaultStr("eu"),
-		NewFlag(codec.NewUint16()).WithName("port").WithField("Port").WithDefaultStr("8080"),
-		NewFlag(codec.NewUint()).WithName("retries").WithField("Retries").WithDefaultStr("3"),
-		NewFlag(codec.NewInt64()).WithName("timeout").WithField("Timeout").WithDefaultStr("30"),
-		NewFlag(codec.NewInt()).WithName("workers").WithField("Workers").WithDefaultStr("4"),
-		NewFlag(codec.NewFloat64()).WithName("rate").WithField("Rate").WithDefaultStr("1.5"),
-		NewFlag(codec.NewBool()).WithName("verbose").WithField("Verbose").WithDefaultStr("true"),
+		NewFlag(codec.NewString(), "name").WithField("Name").WithDefaultStr("server"),
+		NewFlag(codec.NewString(), "config").WithField("Config").WithDefaultStr("config.yaml"),
+		NewFlag(codec.NewString(), "host").WithField("Host").WithDefaultStr("localhost"),
+		NewFlag(codec.NewString(), "region").WithField("Region").WithDefaultStr("eu"),
+		NewFlag(codec.NewUint16(), "port").WithField("Port").WithDefaultStr("8080"),
+		NewFlag(codec.NewUint(), "retries").WithField("Retries").WithDefaultStr("3"),
+		NewFlag(codec.NewInt64(), "timeout").WithField("Timeout").WithDefaultStr("30"),
+		NewFlag(codec.NewInt(), "workers").WithField("Workers").WithDefaultStr("4"),
+		NewFlag(codec.NewFloat64(), "rate").WithField("Rate").WithDefaultStr("1.5"),
+		NewFlag(codec.NewBool(), "verbose").WithField("Verbose").WithDefaultStr("true"),
 	)
 }
 
@@ -715,10 +729,11 @@ func BenchmarkApplicationParseDefaults(b *testing.B) {
 		})
 	}
 	b.Run("Factory", func(b *testing.B) {
-		app, err := NewApplication[*benchmarkScalarOptions]().WithName("app").
+		app, err := NewApplication[*benchmarkScalarOptions]("app").
 			WithCreateOptionsHandler(func(context.Context) (*benchmarkScalarOptions, error) {
 				return &benchmarkScalarOptions{Name: "server", Workers: 4}, nil
-			}).Create()
+			}).
+			Create()
 		require.NoError(b, err)
 		benchmarkParse(b, app, context.Background(), nil)
 	})

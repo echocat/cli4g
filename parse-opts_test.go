@@ -15,7 +15,8 @@ func TestLookupEnvReceivesCallerContextAndYieldsToExplicitFlags(t *testing.T) {
 	type options struct {
 		Value string `flag:"value" env:"VALUE" required:"true"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").
+		Create()
 	require.NoError(t, err)
 	ctx := context.WithValue(context.Background(), contextKey{}, "parse")
 	lookups := 0
@@ -47,7 +48,8 @@ func TestEnvironmentLookupDefaultsAndOverrides(t *testing.T) {
 	type options struct {
 		Value string `flag:"value" env:"BIFROEST_CLI_TEST_ENV_VALUE" required:"true"`
 	}
-	app, err := NewApplication[options]().WithName("app").Create()
+	app, err := NewApplication[options]("app").
+		Create()
 	require.NoError(t, err)
 	for _, test := range []struct {
 		name  string

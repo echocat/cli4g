@@ -17,11 +17,16 @@ func TestFileResolvePreservesContentsUnlessTruncationIsExplicit(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "output")
 		require.NoError(t, os.WriteFile(path, []byte("existing data"), 0600))
 		var opened *os.File
-		app := NewApplication[options]().WithName("app").WithErrorHandlerEnabled(false).
+		app := NewApplication[options]("app").
+			WithErrorHandlerEnabled(false).
 			WithFileFlag("output", func(f *FlagRequirement[*os.File, codec.FileRequirement]) {
-				f.WithField("Output").WithDefault(codec.FileRequirement{Path: path, Mode: codec.FileWrite, Truncate: truncate})
-			}).WithValidateHandler(func(context.Context, options) error { return NewValidationErrorf("invalid settings") }).
-			WithCloseHandler(func(opts options) error { opened = opts.Output; return nil }).MustCreate()
+				f.
+					WithField("Output").
+					WithDefault(codec.FileRequirement{Path: path, Mode: codec.FileWrite, Truncate: truncate})
+			}).
+			WithValidateHandler(func(context.Context, options) error { return NewValidationErrorf("invalid settings") }).
+			WithCloseHandler(func(opts options) error { opened = opts.Output; return nil }).
+			MustCreate()
 		invocation, err := app.Parse(context.Background(), nil)
 		require.ErrorIs(t, err, ErrValidation)
 		assert.Nil(t, invocation)

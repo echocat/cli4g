@@ -117,8 +117,7 @@ func TestInvocationContextInLifecycleHandlers(t *testing.T) {
 		assert.Equal(t, marker, ctx.Value(markerKey{}))
 		events = append(events, stage+" "+containerName)
 	}
-	app := NewApplication[contextRootOptions]().
-		WithName("app").
+	app := NewApplication[contextRootOptions]("app").
 		WithValidateHandler(func(ctx context.Context, options contextRootOptions) error {
 			assert.False(t, options.Ready)
 			check(ctx, "validate", "app")
@@ -138,10 +137,8 @@ func TestInvocationContextInLifecycleHandlers(t *testing.T) {
 			check(options.ctx, "close", "app")
 			return nil
 		}).
-		WithCommand(NewCommand[contextChildOptions]().
-			WithName("child").
-			WithFlag(NewFlag(codec.NewString()).
-				WithName("extra")).
+		WithCommand(NewCommand[contextChildOptions]("child").
+			WithFlag(NewFlag(codec.NewString(), "extra")).
 			WithValidateHandler(func(ctx context.Context, options contextChildOptions) error {
 				assert.False(t, options.Ready)
 				check(ctx, "validate", "child")
@@ -201,8 +198,7 @@ func TestInvocationContextIsNotIntroducedDuringDecoding(t *testing.T) {
 	type options struct {
 		Value string `flag:"value" env:"VALUE" required:"true"`
 	}
-	app, err := NewApplication[*options]().
-		WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCodec(contextCheckingDecoder{codec.NewString()}).
 		Create()
 	require.NoError(t, err)
@@ -223,8 +219,7 @@ func TestInvocationContextDuringRollback(t *testing.T) {
 	type markerKey struct{}
 	failure := errors.New("initialization failed")
 	cleanupSeen := false
-	app := NewApplication[contextRootOptions]().
-		WithName("app").
+	app := NewApplication[contextRootOptions]("app").
 		WithCloseHandler(func(options contextRootOptions) error {
 			ctx := options.ctx
 			invocation, found := InvocationFromContext(ctx)
@@ -239,10 +234,8 @@ func TestInvocationContextDuringRollback(t *testing.T) {
 			cleanupSeen = true
 			return nil
 		}).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
-			WithFlag(NewFlag(codec.NewString()).
-				WithName("extra")).
+		WithCommand(NewSimpleCommand("child").
+			WithFlag(NewFlag(codec.NewString(), "extra")).
 			WithInitializeHandler(func(ctx context.Context, _ NoOptions) error {
 				invocation, found := InvocationFromContext(ctx)
 				require.True(t, found)
@@ -262,8 +255,7 @@ func TestInvocationContextIsolationAcrossConcurrentCalls(t *testing.T) {
 	type options struct {
 		Value string `flag:"value" required:"true"`
 	}
-	app, err := NewApplication[*options]().
-		WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithHandler(func(ctx context.Context, options *options) error {
 			invocation, found := InvocationFromContext(ctx)
 			if !found {

@@ -28,8 +28,7 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 		return nil, fmt.Errorf("application %q: %w", r.Name, err)
 	}
 	if r.Help {
-		flag, err := NewFlag(codec.NewBool()).WithName("help").WithShort('h').
-			WithDescription("Show help.").createRaw()
+		flag, err := NewFlag(codec.NewBool(), "help", "Show help.").WithShort('h').createRaw()
 		if err != nil {
 			return nil, err
 		}

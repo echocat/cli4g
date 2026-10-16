@@ -10,14 +10,11 @@ import (
 
 func TestEmbeddedFields(t *testing.T) {
 	type options struct{ testFlagsOptsMixin }
-	a, err := NewApplication[*options]().
-		WithName("embedded").
+	a, err := NewApplication[*options]("embedded").
 		WithFlag(
-			NewFlag(custom1Codec{}).
-				WithName("custom1").
+			NewFlag(custom1Codec{}, "custom1").
 				WithField("testFlagsOptsMixin", "Custom1"),
-			NewFlag(customVariadic1Codec{}).
-				WithName("customVariadic1").
+			NewFlag(customVariadic1Codec{}, "customVariadic1").
 				WithField("testFlagsOptsMixin", "CustomVariadic1"),
 		).
 		Create()
@@ -32,11 +29,9 @@ func TestExplicitCodecOverridesTaggedField(t *testing.T) {
 	type opts struct {
 		Custom custom1 `flag:"custom"`
 	}
-	a, err := NewApplication[*opts]().
-		WithName("custom").
+	a, err := NewApplication[*opts]("custom").
 		WithFlag(
-			NewFlag(custom1Codec{}).
-				WithName("custom").
+			NewFlag(custom1Codec{}, "custom").
 				WithField("Custom"),
 		).
 		Create()

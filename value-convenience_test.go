@@ -21,8 +21,10 @@ func TestValueConvenienceFlagsAndArguments(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		for _, kind := range []string{"flag", "pointer-flag", "slice-flag", "pointer-slice-flag", "argument", "pointer-argument", "slice-argument", "pointer-slice-argument"} {
 			t.Run(scope+"/"+kind, func(t *testing.T) {
-				root := NewApplication[valueConvenienceOptions]().WithName("app").WithHelp(false)
-				child := NewCommand[valueConvenienceOptions]().WithName("run", "r")
+				root := NewApplication[valueConvenienceOptions]("app").
+					WithHelp(false)
+				child := NewCommand[valueConvenienceOptions]("run").
+					WithAliases("r")
 				factories := 0
 				factory := func() *flagReceiverValue { factories++; return &flagReceiverValue{Hidden: 10} }
 				configureFlag := func(f *FlagRequirement[flagReceiverValue, []string]) {
@@ -152,8 +154,10 @@ func valueConvenienceParsedOptions(t *testing.T, scope string, invocation *Invoc
 func TestValueConvenienceBoolAndCumulativeTraits(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		t.Run(scope, func(t *testing.T) {
-			root := NewApplication[valueConvenienceOptions]().WithName("app").WithHelp(false)
-			child := NewCommand[valueConvenienceOptions]().WithName("run", "r")
+			root := NewApplication[valueConvenienceOptions]("app").
+				WithHelp(false)
+			child := NewCommand[valueConvenienceOptions]("run").
+				WithAliases("r")
 			factories := 0
 			factory := func() *flagReceiverMap { factories++; return new(flagReceiverMap) }
 			configureBool := func(f *FlagRequirement[flagReceiverBool, []string]) { f.WithField("Bool").WithShort('b') }
@@ -186,8 +190,9 @@ func TestValueConvenienceBoolAndCumulativeTraits(t *testing.T) {
 func TestValueConvenienceWithoutCallbacks(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		t.Run(scope, func(t *testing.T) {
-			root := NewSimpleApplication().WithName("app").WithHelp(false)
-			child := NewSimpleCommand().WithName("run")
+			root := NewSimpleApplication("app").
+				WithHelp(false)
+			child := NewSimpleCommand("run")
 			if scope == "command" {
 				child.WithValueFlag[flagReceiverValue]("value").WithValueSliceArgument[flagReceiverValue]("arguments")
 				root.WithCommand(child)

@@ -36,7 +36,9 @@ func TestFileStdioTagsSupportArgumentsSliceFlagsAndDefaults(t *testing.T) {
 		Outputs []*os.File `flag:"output" fileMode:"write" allowStdio:"true"`
 		Default *os.File   `flag:"default" default:"stdin" allowStdio:"true"`
 	}
-	app := NewApplication[options]().WithName("files").WithErrorHandlerEnabled(false).MustCreate()
+	app := NewApplication[options]("files").
+		WithErrorHandlerEnabled(false).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	ctx := codec.ContextWithStdio(context.Background(), input, output, nil)
 	invocation, err := app.Parse(ctx, nil, "--output", "-", "--output", "stdout", "-")
@@ -67,7 +69,8 @@ func TestFileStdioBuildersPreserveStreamsOnSuccessAndValidationFailure(t *testin
 	ctx := codec.ContextWithStdio(context.Background(), input, output, nil)
 	failure := errors.New("validation failed")
 	for _, fail := range []bool{false, true} {
-		app := NewSimpleApplication().WithName("files").WithErrorHandlerEnabled(false).
+		app := NewSimpleApplication("files").
+			WithErrorHandlerEnabled(false).
 			WithFileFlag("input", func(f *FlagRequirement[*os.File, codec.FileRequirement]) {
 				// Typed defaults opt in independently of the codec's policy.
 				f.WithDefault(codec.FileRequirement{Path: "stdin", AllowStdio: true})
@@ -80,7 +83,8 @@ func TestFileStdioBuildersPreserveStreamsOnSuccessAndValidationFailure(t *testin
 					return failure
 				}
 				return nil
-			}).MustCreate()
+			}).
+			MustCreate()
 		invocation, err := app.Parse(ctx, nil)
 		if fail {
 			assert.ErrorIs(t, err, failure)
@@ -103,11 +107,15 @@ func TestFileStdioBuildersPreserveStreamsOnSuccessAndValidationFailure(t *testin
 
 func TestFileStdioApplicationFallbackPolicy(t *testing.T) {
 	for _, fallback := range []bool{false, true} {
-		app := NewSimpleApplication().WithName("files").WithErrorHandlerEnabled(false).
+		app := NewSimpleApplication("files").
+			WithErrorHandlerEnabled(false).
 			WithFallbackToStdio(fallback).
 			WithFileFlag("input", func(f *FlagRequirement[*os.File, codec.FileRequirement]) {
-				f.WithCodec(codec.NewFile().WithAllowStdio(true)).WithDefaultStr("-")
-			}).MustCreate()
+				f.WithCodec(codec.NewFile().
+					WithAllowStdio(true),
+				).WithDefaultStr("-")
+			}).
+			MustCreate()
 		defer func() { assert.NoError(t, app.Close()) }()
 		invocation, err := app.Parse(nil, nil)
 		if fallback {

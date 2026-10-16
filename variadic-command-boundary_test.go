@@ -8,17 +8,15 @@ import (
 )
 
 func TestVariadicFlagCommandBoundaryTracksSelectionState(t *testing.T) {
-	app, err := NewSimpleApplication().
-		WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
-		WithFlag(NewFlag(grammarString{min: 1, max: -1}).
-			WithName("items").
+		WithFlag(NewFlag(grammarString{min: 1, max: -1}, "items").
 			WithShort('i'),
 		).
 		WithStringSliceArgument("positions").
-		WithCommand(NewSimpleCommand().
-			WithName("run", "r"),
+		WithCommand(NewSimpleCommand("run").
+			WithAliases("r"),
 		).
 		Create()
 	require.NoError(t, err)

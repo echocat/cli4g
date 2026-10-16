@@ -1,25 +1,32 @@
 package cli
 
 import (
+	"testing"
+
 	"github.com/echocat/cli4g/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCreateRejectsTaggedWholeAndExplicitDescendantBindings(t *testing.T) {
 	for _, kind := range []string{"flag", "argument"} {
 		t.Run(kind, func(t *testing.T) {
-			leaf := NewFlag(codec.NewString()).WithName("leaf").WithField("Text").WithDefault("fallback")
+			leaf := NewFlag(codec.NewString(), "leaf").
+				WithField("Text").
+				WithDefault("fallback")
 			var err error
 			if kind == "flag" {
 				_, err = NewApplication[*struct {
 					*ExplicitEmbeddedValue `flag:"whole"`
-				}]().WithName("app").WithFlag(leaf).Create()
+				}]("app").
+					WithFlag(leaf).
+					Create()
 			} else {
 				_, err = NewApplication[*struct {
 					*ExplicitEmbeddedValue `argument:"whole"`
-				}]().WithName("app").WithFlag(leaf).Create()
+				}]("app").
+					WithFlag(leaf).
+					Create()
 			}
 			require.ErrorContains(t, err, "overlapping")
 		})
@@ -33,18 +40,23 @@ func TestCreateRejectsExplicitWholeDescendantBindingsInEitherOrder(t *testing.T)
 			t.Run(kind+map[bool]string{true: "/whole-first", false: "/leaf-first"}[wholeFirst], func(t *testing.T) {
 				decoder, err := codec.NewValueP(func() *ExplicitEmbeddedValue { return new(ExplicitEmbeddedValue) })
 				require.NoError(t, err)
-				root := NewApplication[*options]().WithName("app")
+				root := NewApplication[*options]("app")
 				if kind == "flags" {
-					whole := NewFlag(decoder).WithName("whole").WithField("ExplicitEmbeddedValue")
-					leaf := NewFlag(codec.NewString()).WithName("leaf").WithField("Text").WithDefault("fallback")
+					whole := NewFlag(decoder, "whole").
+						WithField("ExplicitEmbeddedValue")
+					leaf := NewFlag(codec.NewString(), "leaf").
+						WithField("Text").
+						WithDefault("fallback")
 					if wholeFirst {
 						root.WithFlag(whole, leaf)
 					} else {
 						root.WithFlag(leaf, whole)
 					}
 				} else if kind == "arguments" {
-					whole := NewArgument(decoder).WithName("whole").WithField("ExplicitEmbeddedValue")
-					leaf := NewArgument(codec.NewString()).WithName("leaf").WithField("ExplicitEmbeddedValue", "Text")
+					whole := NewArgument(decoder, "whole").
+						WithField("ExplicitEmbeddedValue")
+					leaf := NewArgument(codec.NewString(), "leaf").
+						WithField("ExplicitEmbeddedValue", "Text")
 					if wholeFirst {
 						root.WithArgument(whole, leaf)
 					} else {
@@ -52,11 +64,13 @@ func TestCreateRejectsExplicitWholeDescendantBindingsInEitherOrder(t *testing.T)
 					}
 				} else {
 					if wholeFirst {
-						root.WithFlag(NewFlag(decoder).WithName("whole").WithField("ExplicitEmbeddedValue"))
+						root.WithFlag(NewFlag(decoder, "whole").
+							WithField("ExplicitEmbeddedValue"))
 						root.WithStringArgument("leaf", func(a *ArgumentRequirement[string, string]) { a.WithField("Text") })
 					} else {
 						root.WithStringFlag("leaf", func(f *FlagRequirement[string, string]) { f.WithField("Text") })
-						root.WithArgument(NewArgument(decoder).WithName("whole").WithField("ExplicitEmbeddedValue"))
+						root.WithArgument(NewArgument(decoder, "whole").
+							WithField("ExplicitEmbeddedValue"))
 					}
 				}
 				_, err = root.Create()
@@ -72,9 +86,12 @@ func TestSiblingBindingsAndExplicitLeafTagPrecedenceRemainValid(t *testing.T) {
 		Second string `flag:"second-tag" default:"sibling"`
 	}
 	type options struct{ Fields fields }
-	app, err := NewApplication[*options]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).
+	app, err := NewApplication[*options]("app").
+		WithHelp(false).
+		WithErrorHandlerEnabled(false).
 		WithStringFlag("first", func(f *FlagRequirement[string, string]) { f.WithField("Fields", "First") }).
-		WithStringFlag("second", func(f *FlagRequirement[string, string]) { f.WithField("Fields", "Second") }).Create()
+		WithStringFlag("second", func(f *FlagRequirement[string, string]) { f.WithField("Fields", "Second") }).
+		Create()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--first=one", "--second=two")

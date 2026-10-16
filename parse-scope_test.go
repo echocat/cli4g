@@ -55,8 +55,7 @@ func TestParseCleansOptionsWhenContainerInitializationFails(t *testing.T) {
 	failure := errors.New("container initialization failed")
 	trace := &initializationTrace{}
 	ctx := context.WithValue(context.Background(), initializationTraceKey{}, trace)
-	app, err := NewApplication[tracedOptions]().
-		WithName("app").
+	app, err := NewApplication[tracedOptions]("app").
 		WithInitializeHandler(func(contextValue context.Context, value tracedOptions) error {
 			ctx := contextValue.Value(initializationTraceKey{}).(*initializationTrace)
 			assert.True(t, value.initialized, "pointer initializer must update value-typed options")
@@ -84,14 +83,12 @@ func TestParseClosesOptionsEvenWhenTheirInitializerFails(t *testing.T) {
 	failure := errors.New("options initialization failed")
 	trace := &initializationTrace{failOption: 2, failure: failure}
 	ctx := context.WithValue(context.Background(), initializationTraceKey{}, trace)
-	app := NewApplication[*tracedOptions]().
-		WithName("app").
+	app := NewApplication[*tracedOptions]("app").
 		WithCloseHandler(func(options *tracedOptions) error {
 			options.ctx.events = append(options.ctx.events, "close app")
 			return nil
 		}).
-		WithCommand(NewCommand[*tracedOptions]().
-			WithName("child").
+		WithCommand(NewCommand[*tracedOptions]("child").
 			WithCloseHandler(func(options *tracedOptions) error {
 				options.ctx.events = append(options.ctx.events, "close child")
 				return nil
@@ -114,8 +111,7 @@ func TestParseClosesOptionsEvenWhenTheirInitializerFails(t *testing.T) {
 func TestPointerLifecycleHooksForValueOptions(t *testing.T) {
 	trace := &initializationTrace{}
 	ctx := context.WithValue(context.Background(), initializationTraceKey{}, trace)
-	app, err := NewApplication[tracedOptions]().
-		WithName("app").
+	app, err := NewApplication[tracedOptions]("app").
 		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(ctx, nil)
@@ -139,7 +135,7 @@ func TestDecodedValueOptionsAreVisibleInEveryTypedHandler(t *testing.T) {
 		events = append(events, stage)
 		return nil
 	}
-	app, err := NewApplication[options]().WithName("app").
+	app, err := NewApplication[options]("app").
 		WithValidateHandler(func(_ context.Context, value options) error { return check("validate", value) }).
 		WithInitializeHandler(func(_ context.Context, value options) error { return check("initialize", value) }).
 		WithHandler(func(_ context.Context, value options) error { return check("execute", value) }).
@@ -167,12 +163,13 @@ func (options *closeOnlyOptions) Close() error {
 
 func TestCloseOnlyLifecycleWithoutInitializationHooks(t *testing.T) {
 	handlerCalled := false
-	app, err := NewApplication[closeOnlyOptions]().WithName("app").
+	app, err := NewApplication[closeOnlyOptions]("app").
 		WithCloseHandler(func(options closeOnlyOptions) error {
 			assert.Equal(t, "data", options.Value)
 			handlerCalled = true
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	invocation, err := app.Parse(context.Background(), nil, "--value=data")
 	require.NoError(t, err)
@@ -309,19 +306,15 @@ func TestParseOwnsDecodedResourcesAcrossLifecycleFailures(t *testing.T) {
 				}
 				return nil
 			}
-			app := NewApplication[*resourceOptions]().
-				WithName("app").
+			app := NewApplication[*resourceOptions]("app").
 				WithCodec(resourceCodec).
-				WithFlag(NewFlag(resourceCodec).
-					WithName("root-resource").
+				WithFlag(NewFlag(resourceCodec, "root-resource").
 					WithField("Resource"),
 				).
-				WithFlag(NewFlag(codec.NewInt()).
-					WithName("root-count").
+				WithFlag(NewFlag(codec.NewInt(), "root-count").
 					WithField("Count"),
 				).
-				WithFlag(NewFlag(codec.NewString()).
-					WithName("root-mode").
+				WithFlag(NewFlag(codec.NewString(), "root-mode").
 					WithField("Mode"),
 				).
 				WithValidateHandler(validate).
@@ -330,8 +323,7 @@ func TestParseOwnsDecodedResourcesAcrossLifecycleFailures(t *testing.T) {
 					events = append(events, "close container root")
 					return nil
 				}).
-				WithCommand(NewCommand[resourceOptions]().
-					WithName("child").
+				WithCommand(NewCommand[resourceOptions]("child").
 					WithValidateHandler(func(ctx context.Context, options resourceOptions) error {
 						return validate(ctx, &options)
 					}).
@@ -383,12 +375,9 @@ func (*untouchedOptions) Close() error {
 }
 
 func TestParseClosesOptionsBeforeTheirDecodingStarts(t *testing.T) {
-	app := NewSimpleApplication().
-		WithName("app").
-		WithFlag(NewFlag(codec.NewInt()).
-			WithName("value")).
-		WithCommand(NewCommand[untouchedOptions]().
-			WithName("child").
+	app := NewSimpleApplication("app").
+		WithFlag(NewFlag(codec.NewInt(), "value")).
+		WithCommand(NewCommand[untouchedOptions]("child").
 			WithInitializeHandler(func(context.Context, untouchedOptions) error {
 				assert.Fail(t, "initialization must not run after a decoding error")
 				return nil
@@ -474,7 +463,7 @@ func TestParseCancellationClosesRetainedResources(t *testing.T) {
 					}
 				},
 			}
-			requirement := NewApplication[*cancellationOptions]().WithName("app").
+			requirement := NewApplication[*cancellationOptions]("app").
 				WithCodec(resourceCodec).
 				WithFlag(NewFlag(callbackCodec[string, string]{
 					Codec: codec.NewString(),
@@ -482,7 +471,7 @@ func TestParseCancellationClosesRetainedResources(t *testing.T) {
 						control.events = append(control.events, "clone abort")
 						cancel()
 					},
-				}).WithName("abort")).
+				}, "abort")).
 				WithValidateHandler(func(context.Context, *cancellationOptions) error {
 					control.events = append(control.events, "validate container")
 					if test.stage == "container validation" {
@@ -503,7 +492,9 @@ func TestParseCancellationClosesRetainedResources(t *testing.T) {
 				})
 			args := []string{"--resource=resource"}
 			if test.stage == "argument decoding" {
-				requirement.WithArgument(NewArgument(resourceCodec).WithName("resource").WithField("Resource"))
+				requirement.WithArgument(NewArgument(resourceCodec, "resource").
+					WithField("Resource"),
+				)
 				args = []string{"resource"}
 			}
 			if test.stage == "codec clone" {
@@ -541,15 +532,13 @@ func TestParseCancellationSkipsLaterScopeInitialization(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rootClosed := false
-	app := NewSimpleApplication().
-		WithName("app").
+	app := NewSimpleApplication("app").
 		WithInitializeHandler(func(context.Context, NoOptions) error {
 			cancel()
 			return nil
 		}).
 		WithCloseHandler(func(NoOptions) error { rootClosed = true; return nil }).
-		WithCommand(NewCommand[untouchedOptions]().
-			WithName("child").
+		WithCommand(NewCommand[untouchedOptions]("child").
 			WithInitializeHandler(func(context.Context, untouchedOptions) error {
 				assert.Fail(t, "later scope initializer must not run after cancellation")
 				return nil
@@ -604,8 +593,7 @@ func (options *poolChildOptions) Close() error { options.Closes++; return nil }
 func TestRetainedInvocationsSurviveScopeReuseAndGC(t *testing.T) {
 	failure := errors.New("initialization failed")
 	var failedInvocation *Invocation[poolContextOptions]
-	app := NewApplication[poolContextOptions]().
-		WithName("app").
+	app := NewApplication[poolContextOptions]("app").
 		WithInitializeHandler(func(ctx context.Context, options poolContextOptions) error {
 			if options.Name == "fail" {
 				invocation, _ := InvocationFromContext(ctx)
@@ -625,9 +613,7 @@ func TestRetainedInvocationsSurviveScopeReuseAndGC(t *testing.T) {
 			}
 			return nil
 		}).
-		WithCommand(NewCommand[*poolChildOptions]().
-			WithName("child"),
-		).
+		WithCommand(NewCommand[*poolChildOptions]("child")).
 		MustCreate()
 	child, found := FindCommand[*poolChildOptions](app, "child")
 	require.True(t, found)
@@ -696,7 +682,8 @@ func TestRetainedInvocationsSurviveScopeReuseAndGC(t *testing.T) {
 }
 
 func TestConcurrentLiveInvocationsAreIndependentOfPooledScopes(t *testing.T) {
-	app, err := NewApplication[poolContextOptions]().WithName("app").Create()
+	app, err := NewApplication[poolContextOptions]("app").
+		Create()
 	require.NoError(t, err)
 	var wg sync.WaitGroup
 	for i := range 32 {
@@ -729,7 +716,8 @@ func TestConcurrentLiveInvocationsAreIndependentOfPooledScopes(t *testing.T) {
 
 func TestScopeResetDetachesFrameAndClearsCachedIndexes(t *testing.T) {
 	for _, count := range []int{2, 129} {
-		app, err := NewSimpleApplication().WithName("app").Create()
+		app, err := NewSimpleApplication("app").
+			Create()
 		require.NoError(t, err)
 		frame := &invocationFrame{container: app, value: app.newOptions()}
 		index := make(map[*Flag[any, any]]int, count)

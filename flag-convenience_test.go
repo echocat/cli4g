@@ -71,8 +71,9 @@ func flagConvenienceCase[V, R any](
 		for _, scope := range []string{"application", "command"} {
 			for _, mode := range []string{"plain", "configured", "required-default"} {
 				t.Run(scope+"/"+mode, func(t *testing.T) {
-					root := NewSimpleApplication().WithName("app").WithHelp(false)
-					child := NewSimpleCommand().WithName("run")
+					root := NewSimpleApplication("app").
+						WithHelp(false)
+					child := NewSimpleCommand("run")
 					var configure []func(*FlagRequirement[V, R])
 					var order []int
 					var configured *FlagRequirement[V, R]
@@ -159,11 +160,13 @@ type flagConvenienceOptions struct {
 // The explicit builder form is the behavioral reference for field bindings,
 // override priority, validation and duplicate errors, rather than a new parser.
 func portConvenienceRequirement(scope, form string, configure ...func(*FlagRequirement[uint32, uint32])) *ApplicationRequirement[flagConvenienceOptions] {
-	root := NewApplication[flagConvenienceOptions]().WithName("app").WithHelp(false).
+	root := NewApplication[flagConvenienceOptions]("app").
+		WithHelp(false).
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { return err })
-	child := NewCommand[flagConvenienceOptions]().WithName("run", "r")
+	child := NewCommand[flagConvenienceOptions]("run").
+		WithAliases("r")
 	if form == "explicit" {
-		flag := NewFlag(codec.NewUint32()).WithName("port")
+		flag := NewFlag(codec.NewUint32(), "port")
 		for _, callback := range configure {
 			callback(flag)
 		}
@@ -280,8 +283,10 @@ func TestFlagConvenienceRequiredMatchesExplicitBuilder(t *testing.T) {
 func TestFlagConvenienceBoolAndSliceFieldSemantics(t *testing.T) {
 	for _, scope := range []string{"application", "command"} {
 		t.Run(scope, func(t *testing.T) {
-			root := NewApplication[flagConvenienceOptions]().WithName("app").WithHelp(false)
-			child := NewCommand[flagConvenienceOptions]().WithName("run", "r")
+			root := NewApplication[flagConvenienceOptions]("app").
+				WithHelp(false)
+			child := NewCommand[flagConvenienceOptions]("run").
+				WithAliases("r")
 			prototype := []uint32{8080, 8443}
 			configureBool := func(f *FlagRequirement[bool, bool]) { f.WithField("Verbose").WithShort('v') }
 			configureSlice := func(f *FlagRequirement[[]uint32, []uint32]) {

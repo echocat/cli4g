@@ -25,9 +25,7 @@ func (opts options) Validate(_ context.Context) error {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("validation").
-		WithDescription("Validate decoded options before executing a handler.").
+	cli.NewApplication[options]("validation", "Validate decoded options before executing a handler.").
 		WithHandler(sayHello).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

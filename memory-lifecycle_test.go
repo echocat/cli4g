@@ -65,8 +65,10 @@ func awaitWeakCollection[T any](t *testing.T, references []weak.Pointer[T]) {
 // must release their captures, even though public getters keep runtime values.
 func TestClosedInvocationDropsCleanupCapturesButKeepsReadableValues(t *testing.T) {
 	observed := new(retentionObservations)
-	app, err := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-		WithFlag(NewFlag(retentionCodec{Codec: codec.NewString(), observed: observed}).WithName("value")).Create()
+	app, err := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
+		WithFlag(NewFlag(retentionCodec{Codec: codec.NewString(), observed: observed}, "value")).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--value=payload")
@@ -85,8 +87,9 @@ func TestSuccessfulAndFailedInvocationsAreNotRetainedByParsePools(t *testing.T) 
 	for _, fail := range []bool{false, true} {
 		t.Run(map[bool]string{false: "success", true: "rollback"}[fail], func(t *testing.T) {
 			observed := new(retentionObservations)
-			builder := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-				WithFlag(NewFlag(retentionCodec{Codec: codec.NewString(), observed: observed}).WithName("value"))
+			builder := NewSimpleApplication("app").
+				WithErrorHandlerEnabled(false).
+				WithFlag(NewFlag(retentionCodec{Codec: codec.NewString(), observed: observed}, "value"))
 			primary := errors.New("validate failed")
 			if fail {
 				builder.WithValidateHandler(func(context.Context, NoOptions) error { return primary })

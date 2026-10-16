@@ -16,17 +16,11 @@ type sumOptions struct {
 }
 
 func main() {
-	cli.NewSimpleApplication().
-		WithName("commands").
-		WithDescription("Two independent commands.").
+	cli.NewSimpleApplication("commands", "Two independent commands.").
 		WithCommand(
-			cli.NewCommand[greetOptions]().
-				WithName("greet").
-				WithDescription("Greet someone.").
+			cli.NewCommand[greetOptions]("greet", "Greet someone.").
 				WithHandler(greet),
-			cli.NewCommand[sumOptions]().
-				WithName("sum").
-				WithDescription("Add integers.").
+			cli.NewCommand[sumOptions]("sum", "Add integers.").
 				WithHandler(sum),
 		).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)

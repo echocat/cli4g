@@ -23,12 +23,12 @@ type echoOptions struct {
 }
 
 func main() {
-	cli.NewSimpleApplication().
-		WithName("embedded-options").
-		WithDescription("Reuse a tagged options group through struct embedding.").
+	cli.NewSimpleApplication("embedded-options", "Reuse a tagged options group through struct embedding.").
 		WithCommand(
-			cli.NewCommand[greetOptions]().WithName("greet").WithDescription("Greet someone.").WithHandler(greet),
-			cli.NewCommand[echoOptions]().WithName("echo").WithDescription("Print a message.").WithHandler(echo),
+			cli.NewCommand[greetOptions]("greet", "Greet someone.").
+				WithHandler(greet),
+			cli.NewCommand[echoOptions]("echo", "Print a message.").
+				WithHandler(echo),
 		).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

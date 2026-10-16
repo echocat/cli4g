@@ -25,12 +25,15 @@ func TestTypedContextHelpersReadRootCurrentParentAndDecodedFlags(t *testing.T) {
 	var observedRoot *typedContextRootOptions
 	var observedParent *contextAOptions
 	var observedChild *contextBOptions
-	root := NewApplication[*typedContextRootOptions]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).
+	root := NewApplication[*typedContextRootOptions]("app").
+		WithHelp(false).
+		WithErrorHandlerEnabled(false).
 		WithCreateOptionsHandler(func(ctx context.Context) (*typedContextRootOptions, error) {
 			_, found := ApplicationFromContext[*typedContextRootOptions](ctx)
 			assert.False(t, found)
 			return &typedContextRootOptions{FactoryOnly: "factory"}, nil
-		}).WithStringFlag("foo", func(f *FlagRequirement[string, string]) { f.WithField("Foo").WithAliases("alias") }).
+		}).
+		WithStringFlag("foo", func(f *FlagRequirement[string, string]) { f.WithField("Foo").WithAliases("alias") }).
 		WithInitializeHandler(func(_ context.Context, options *typedContextRootOptions) error { options.Foo = "updated"; return nil }).
 		WithHandler(func(ctx context.Context, options *typedContextRootOptions) error {
 			current, found := ApplicationFromContext[*typedContextRootOptions](ctx)
@@ -40,8 +43,12 @@ func TestTypedContextHelpersReadRootCurrentParentAndDecodedFlags(t *testing.T) {
 			assert.False(t, found, "root handler has no current command")
 			return nil
 		})
-	a := NewCommand[*contextAOptions]().WithName("a", "first").WithCreateOptionsHandler(func(context.Context) (*contextAOptions, error) { return &contextAOptions{Name: "a"}, nil })
-	b := NewCommand[*contextBOptions]().WithName("b", "second").WithCreateOptionsHandler(func(context.Context) (*contextBOptions, error) { return &contextBOptions{Name: "b"}, nil }).
+	a := NewCommand[*contextAOptions]("a").
+		WithAliases("first").
+		WithCreateOptionsHandler(func(context.Context) (*contextAOptions, error) { return &contextAOptions{Name: "a"}, nil })
+	b := NewCommand[*contextBOptions]("b").
+		WithAliases("second").
+		WithCreateOptionsHandler(func(context.Context) (*contextBOptions, error) { return &contextBOptions{Name: "b"}, nil }).
 		WithHandler(func(ctx context.Context, options *contextBOptions) error {
 			var found bool
 			observedRoot, found = ApplicationFromContext[*typedContextRootOptions](ctx)
@@ -76,9 +83,9 @@ func TestTypedContextHelpersReadRootCurrentParentAndDecodedFlags(t *testing.T) {
 			return nil
 		})
 	a.WithCommand(b)
-	app, err := root.WithCommand(a, NewCommand[*contextBOptions]().
-		WithName("other"),
-	).Create()
+	app, err := root.
+		WithCommand(a, NewCommand[*contextBOptions]("other")).
+		Create()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "a", "b", "--foo=hello")
@@ -116,11 +123,13 @@ func (nilContextValueCodec) Resolve(ctx context.Context, _ codec.Scope, _ string
 	return nil, ctx.Err()
 }
 func TestFlagFromContextPreservesPresenceOfZeroAndNil(t *testing.T) {
-	app, err := NewSimpleApplication().WithName("app").WithHelp(false).
+	app, err := NewSimpleApplication("app").WithHelp(false).
 		WithStringFlag("empty", func(f *FlagRequirement[string, string]) { f.WithDefault("") }).
 		WithIntFlag("zero", func(f *FlagRequirement[int, int]) { f.WithDefault(0) }).
 		WithBoolFlag("false", func(f *FlagRequirement[bool, bool]) { f.WithDefault(false) }).
-		WithFlag(NewFlag(nilContextValueCodec{}).WithName("nil").WithDefault("nil")).
+		WithFlag(NewFlag(nilContextValueCodec{}, "nil").
+			WithDefault("nil"),
+		).
 		WithHandler(func(ctx context.Context, _ NoOptions) error {
 			empty, found := FlagFromContext[string](ctx, "empty")
 			assert.True(t, found)
@@ -157,11 +166,8 @@ func TestTypedContextHelpersReturnFalseWithoutInvocationOrHelpOptions(t *testing
 		_, found = FlagFromContext[string](ctx, "foo")
 		assert.False(t, found)
 	}
-	app, err := NewApplication[*typedContextRootOptions]().
-		WithName("app").
-		WithCommand(NewCommand[*contextBOptions]().
-			WithName("b"),
-		).
+	app, err := NewApplication[*typedContextRootOptions]("app").
+		WithCommand(NewCommand[*contextBOptions]("b")).
 		WithHelpHandler(func(ctx context.Context, _ InvocationLike) error {
 			_, found := ApplicationFromContext[*typedContextRootOptions](ctx)
 			assert.False(t, found)
@@ -210,11 +216,19 @@ func TestCommandFromContextFindsSelectedProfileVariant(t *testing.T) {
 		assert.False(t, found)
 		return nil
 	}
-	app := NewSimpleApplication().WithName("app").WithCommand(
-		NewCommand[*textOptions]().WithName("convert", "c").WithProfiles("A").
-			WithValidateHandler(checkText).WithInitializeHandler(checkText).WithHandler(checkText),
-		NewCommand[*numberOptions]().WithName("convert", "c").WithProfiles("B").
-			WithValidateHandler(checkNumber).WithInitializeHandler(checkNumber).WithHandler(checkNumber),
+	app := NewSimpleApplication("app").WithCommand(
+		NewCommand[*textOptions]("convert").
+			WithAliases("c").
+			WithProfiles("A").
+			WithValidateHandler(checkText).
+			WithInitializeHandler(checkText).
+			WithHandler(checkText),
+		NewCommand[*numberOptions]("convert").
+			WithAliases("c").
+			WithProfiles("B").
+			WithValidateHandler(checkNumber).
+			WithInitializeHandler(checkNumber).
+			WithHandler(checkNumber),
 	).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	for _, profile := range []string{"A", "B"} {
@@ -233,50 +247,61 @@ func TestCommandFromContextResolvesMixedProfileCommandPath(t *testing.T) {
 		Value string `flag:"value" default:"child"`
 	}
 	parentCalls, childCalls, helpCalls := 0, 0, 0
-	app := NewSimpleApplication().WithName("app").WithCommand(
-		NewCommand[*parentOptions]().WithName("admin", "a").WithProfiles("A").
-			WithCreateOptionsHandler(func(context.Context) (*parentOptions, error) {
-				return &parentOptions{Name: "parent"}, nil
-			}).WithHandler(func(ctx context.Context, options *parentOptions) error {
-			parentCalls++
-			parent, found := CommandFromContext[*parentOptions](ctx, "a")
-			assert.True(t, found)
-			assert.Same(t, options, parent)
-			child, found := CommandFromContext[*childOptions](ctx, "admin", "g", "cleanup")
-			require.True(t, found, "the complete selected path is available to ancestor handlers")
-			assert.Equal(t, "child", child.Value)
-			return nil
-		}).WithCommand(NewSimpleCommand().WithName("group", "g").WithCommand(
-			NewCommand[*childOptions]().WithName("cleanup", "c").WithProfiles("B").
-				WithHandler(func(ctx context.Context, options *childOptions) error {
-					childCalls++
-					actual, found := CommandFromContext[*childOptions](ctx, "a", "group", "c")
+	app := NewSimpleApplication("app").
+		WithCommand(
+			NewCommand[*parentOptions]("admin").
+				WithAliases("a").
+				WithProfiles("A").
+				WithCreateOptionsHandler(func(context.Context) (*parentOptions, error) {
+					return &parentOptions{Name: "parent"}, nil
+				}).
+				WithHandler(func(ctx context.Context, options *parentOptions) error {
+					parentCalls++
+					parent, found := CommandFromContext[*parentOptions](ctx, "a")
 					assert.True(t, found)
-					assert.Same(t, options, actual)
-					parent, found := CommandFromContext[*parentOptions](ctx, "admin")
-					require.True(t, found)
-					assert.Equal(t, "parent", parent.Name)
-					_, found = CommandFromContext[NoOptions](ctx, "admin", "group")
-					assert.True(t, found, "profile-free intermediate commands remain addressable")
-					for _, path := range [][]string{
-						{"admin", "group", "unselected"},
-						{"admin", "group", "missing"},
-						{"admin", "group", "cleanup", "extra"},
-						{"other", "group", "cleanup"},
-						{"cleanup"},
-					} {
-						_, found := CommandFromContext[*childOptions](ctx, path...)
-						assert.False(t, found, "path %v must match the selected stack from the root", path)
-					}
+					assert.Same(t, options, parent)
+					child, found := CommandFromContext[*childOptions](ctx, "admin", "g", "cleanup")
+					require.True(t, found, "the complete selected path is available to ancestor handlers")
+					assert.Equal(t, "child", child.Value)
 					return nil
-				}),
-			NewCommand[*childOptions]().WithName("unselected").WithProfiles("B").
-				WithCreateOptionsHandler(func(context.Context) (*childOptions, error) {
-					t.Error("lookup must not create options for an unselected sibling")
-					return &childOptions{}, nil
-				}),
-		)),
-	).WithHelpHandler(func(ctx context.Context, _ InvocationLike) error {
+				}).
+				WithCommand(NewSimpleCommand("group").
+					WithAliases("g").
+					WithCommand(
+						NewCommand[*childOptions]("cleanup").
+							WithAliases("c").
+							WithProfiles("B").
+							WithHandler(func(ctx context.Context, options *childOptions) error {
+								childCalls++
+								actual, found := CommandFromContext[*childOptions](ctx, "a", "group", "c")
+								assert.True(t, found)
+								assert.Same(t, options, actual)
+								parent, found := CommandFromContext[*parentOptions](ctx, "admin")
+								require.True(t, found)
+								assert.Equal(t, "parent", parent.Name)
+								_, found = CommandFromContext[NoOptions](ctx, "admin", "group")
+								assert.True(t, found, "profile-free intermediate commands remain addressable")
+								for _, path := range [][]string{
+									{"admin", "group", "unselected"},
+									{"admin", "group", "missing"},
+									{"admin", "group", "cleanup", "extra"},
+									{"other", "group", "cleanup"},
+									{"cleanup"},
+								} {
+									_, found := CommandFromContext[*childOptions](ctx, path...)
+									assert.False(t, found, "path %v must match the selected stack from the root", path)
+								}
+								return nil
+							}),
+						NewCommand[*childOptions]("unselected").
+							WithProfiles("B").
+							WithCreateOptionsHandler(func(context.Context) (*childOptions, error) {
+								t.Error("lookup must not create options for an unselected sibling")
+								return &childOptions{}, nil
+							}),
+					),
+				),
+		).WithHelpHandler(func(ctx context.Context, _ InvocationLike) error {
 		helpCalls++
 		_, found := CommandFromContext[*childOptions](ctx, "a", "g", "c")
 		assert.False(t, found, "help does not create command options")

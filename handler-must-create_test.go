@@ -19,7 +19,9 @@ func TestHandlerMustCreateBuildsUsableReturningHandlers(t *testing.T) {
 	output.Reset()
 	help := NewTemplatedHelpHandler().WithOutput(&output).
 		WithApplicationTemplate("HELP {{.FullName}}\n").MustCreate()
-	app := NewSimpleApplication().WithName("app").WithHelpHandler(help).MustCreate()
+	app := NewSimpleApplication("app").
+		WithHelpHandler(help).
+		MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(context.Background(), nil, "--help")
 	require.NoError(t, err)

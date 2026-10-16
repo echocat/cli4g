@@ -21,8 +21,9 @@ func TestExplicitEmbeddedLeafBindingOverridesOnlyItsTag(t *testing.T) {
 		*ExplicitEmbeddedValue
 		Other string `flag:"other" default:"other-default"`
 	}
-	app, err := NewApplication[*options]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).
-		WithStringFlag("external", func(f *FlagRequirement[string, string]) { f.WithField("Text") }).Create()
+	app, err := NewApplication[*options]("app").WithHelp(false).WithErrorHandlerEnabled(false).
+		WithStringFlag("external", func(f *FlagRequirement[string, string]) { f.WithField("Text") }).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, found := app.Flag("internal")
@@ -45,13 +46,17 @@ func TestExplicitWholeEmbeddedBindingDoesNotCollectDescendantTags(t *testing.T) 
 			}
 			decoder, err := codec.NewValueP(func() *ExplicitEmbeddedValue { return new(ExplicitEmbeddedValue) })
 			require.NoError(t, err)
-			root := NewApplication[*options]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false)
+			root := NewApplication[*options]("app").
+				WithHelp(false).
+				WithErrorHandlerEnabled(false)
 			var args []string
 			if kind == "flag" {
-				root.WithFlag(NewFlag(decoder).WithName("whole").WithField("ExplicitEmbeddedValue"))
+				root.WithFlag(NewFlag(decoder, "whole").
+					WithField("ExplicitEmbeddedValue"))
 				args = []string{"--whole=cli"}
 			} else {
-				root.WithArgument(NewArgument(decoder).WithName("whole").WithField("ExplicitEmbeddedValue"))
+				root.WithArgument(NewArgument(decoder, "whole").
+					WithField("ExplicitEmbeddedValue"))
 				args = []string{"cli"}
 			}
 			app, err := root.Create()
@@ -82,8 +87,12 @@ func TestExplicitRecursiveValueBindingIsOpaqueToTagCollection(t *testing.T) {
 	type options struct{ *RecursiveBoundValue }
 	decoder, err := codec.NewValueP(func() *RecursiveBoundValue { return new(RecursiveBoundValue) })
 	require.NoError(t, err)
-	app, err := NewApplication[*options]().WithName("app").WithHelp(false).WithErrorHandlerEnabled(false).
-		WithFlag(NewFlag(decoder).WithName("whole").WithField("RecursiveBoundValue")).Create()
+	app, err := NewApplication[*options]("app").
+		WithHelp(false).
+		WithErrorHandlerEnabled(false).
+		WithFlag(NewFlag(decoder, "whole").
+			WithField("RecursiveBoundValue")).
+		Create()
 	require.NoError(t, err, "tag discovery must not recurse into an explicitly bound codec value")
 	defer func() { assert.NoError(t, app.Close()) }()
 	invocation, err := app.Parse(nil, nil, "--whole=cli")

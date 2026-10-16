@@ -21,7 +21,7 @@ func (options *factoryValueOptions) Initialize(context.Context) error {
 func (options *factoryValueOptions) Close() error { options.Closes++; return nil }
 
 func TestFactoryStructOptionsKeepCanonicalPointerLifecycle(t *testing.T) {
-	app, err := NewApplication[factoryValueOptions]().WithName("app").
+	app, err := NewApplication[factoryValueOptions]("app").
 		WithCreateOptionsHandler(func(ctx context.Context) (factoryValueOptions, error) {
 			assert.NotNil(t, ctx)
 			return factoryValueOptions{Name: "factory"}, nil
@@ -42,7 +42,7 @@ func TestFactoryValuesDoNotSatisfyRequiredFlagsOrArguments(t *testing.T) {
 		Flag string `flag:"flag" required:"true"`
 		Arg  string `argument:"arg" required:"true"`
 	}
-	app, err := NewApplication[*options]().WithName("app").
+	app, err := NewApplication[*options]("app").
 		WithCreateOptionsHandler(func(context.Context) (*options, error) {
 			return &options{Flag: "factory", Arg: "factory"}, nil
 		}).Create()
@@ -76,19 +76,16 @@ func TestFactoryFailureClosesReturnedOptionsAndEarlierScopesInReverse(t *testing
 	cleanupFailure := errors.New("cleanup failed")
 	var closed []string
 	var unselectedCalls int
-	app := NewApplication[*factoryOwnedOptions]().
-		WithName("app").
+	app := NewApplication[*factoryOwnedOptions]("app").
 		WithCreateOptionsHandler(func(context.Context) (*factoryOwnedOptions, error) {
 			return &factoryOwnedOptions{name: "app", closed: &closed}, nil
 		}).
 		WithCommand(
-			NewCommand[*factoryOwnedOptions]().
-				WithName("child").
+			NewCommand[*factoryOwnedOptions]("child").
 				WithCreateOptionsHandler(func(context.Context) (*factoryOwnedOptions, error) {
 					return &factoryOwnedOptions{name: "child", closed: &closed, closeErr: cleanupFailure}, failure
 				}),
-			NewSimpleCommand().
-				WithName("unused").
+			NewSimpleCommand("unused").
 				WithCreateOptionsHandler(func(context.Context) (NoOptions, error) {
 					unselectedCalls++
 					return NoOptions{}, nil
@@ -106,10 +103,11 @@ func TestFactoryFailureClosesReturnedOptionsAndEarlierScopesInReverse(t *testing
 
 func TestFactoryNilPointersAreRejectedWithoutCallingNilCloser(t *testing.T) {
 	for _, failure := range []error{nil, errors.New("factory failed")} {
-		app, err := NewApplication[*factoryOwnedOptions]().WithName("app").
+		app, err := NewApplication[*factoryOwnedOptions]("app").
 			WithCreateOptionsHandler(func(context.Context) (*factoryOwnedOptions, error) {
 				return nil, failure
-			}).Create()
+			}).
+			Create()
 		require.NoError(t, err)
 		invocation, err := app.Parse(context.Background(), nil)
 		assert.Nil(t, invocation)
@@ -126,7 +124,7 @@ func TestFactoryCancellationRetainsOwnedOptionsAndSkipsLaterFactories(t *testing
 	defer cancel()
 	var closed []string
 	laterCalled := false
-	app := NewApplication[*factoryOwnedOptions]().WithName("app").
+	app := NewApplication[*factoryOwnedOptions]("app").
 		WithCreateOptionsHandler(func(received context.Context) (*factoryOwnedOptions, error) {
 			assert.Equal(t, ctx.Done(), received.Done())
 			assert.NoError(t, received.Err())
@@ -134,13 +132,13 @@ func TestFactoryCancellationRetainsOwnedOptionsAndSkipsLaterFactories(t *testing
 			assert.ErrorIs(t, received.Err(), context.Canceled)
 			return &factoryOwnedOptions{name: "app", closed: &closed}, nil
 		}).
-		WithCommand(NewSimpleCommand().
-			WithName("child").
+		WithCommand(NewSimpleCommand("child").
 			WithCreateOptionsHandler(func(context.Context) (NoOptions, error) {
 				laterCalled = true
 				return NoOptions{}, nil
 			}),
-		).MustCreate()
+		).
+		MustCreate()
 	invocation, err := app.Parse(ctx, nil, "child")
 	assert.Nil(t, invocation)
 	require.ErrorIs(t, err, context.Canceled)
@@ -149,7 +147,7 @@ func TestFactoryCancellationRetainsOwnedOptionsAndSkipsLaterFactories(t *testing
 }
 
 func TestOptionsFactoryIsCapturedAtCreateAndDoesNotReadLaterRequirementChanges(t *testing.T) {
-	requirement := NewApplication[factoryValueOptions]().WithName("app")
+	requirement := NewApplication[factoryValueOptions]("app")
 	requirement.SetCreateOptionsHandler(func(context.Context) (factoryValueOptions, error) {
 		return factoryValueOptions{Name: "original"}, nil
 	})

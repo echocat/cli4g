@@ -50,8 +50,10 @@ func (c cumulativePackedListCodec) ParseRequirementInto(ctx context.Context, usa
 }
 
 func TestRepeatedFlagsUseCodecAggregationRatherThanRuntimeSliceType(t *testing.T) {
-	plain := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-		WithFlag(NewFlag(packedListCodec{}).WithName("item")).MustCreate()
+	plain := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
+		WithFlag(NewFlag(packedListCodec{}, "item")).
+		MustCreate()
 	defer func() { assert.NoError(t, plain.Close()) }()
 	invocation, err := plain.Parse(context.Background(), nil, "--item=one")
 	require.NoError(t, err)
@@ -62,8 +64,10 @@ func TestRepeatedFlagsUseCodecAggregationRatherThanRuntimeSliceType(t *testing.T
 	require.ErrorIs(t, err, ErrValidation)
 	assert.ErrorContains(t, err, "supplied more than once")
 
-	aggregated := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false).
-		WithFlag(NewFlag(cumulativePackedListCodec{}).WithName("item")).MustCreate()
+	aggregated := NewSimpleApplication("app").
+		WithErrorHandlerEnabled(false).
+		WithFlag(NewFlag(cumulativePackedListCodec{}, "item")).
+		MustCreate()
 	defer func() { assert.NoError(t, aggregated.Close()) }()
 	for range 2 {
 		invocation, err := aggregated.Parse(context.Background(), nil, "--item=one", "--item=two")

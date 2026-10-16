@@ -20,9 +20,8 @@ func TestPrimitiveDefaultsAndCommandOverride(t *testing.T) {
 		Complex complex128 `flag:"complex"`
 		Values  []string   `argument:"values"`
 	}
-	a := NewApplication[*options]().WithName("numeric").
-		WithCommand(NewSimpleCommand().
-			WithName("override").
+	a := NewApplication[*options]("numeric").
+		WithCommand(NewSimpleCommand("override").
 			WithCodec(&constantOneCodec{}),
 		).
 		MustCreate()
@@ -44,11 +43,9 @@ func TestPrimitiveDefaultsAndCommandOverride(t *testing.T) {
 }
 
 func TestCreateSnapshotAndDuplicates(t *testing.T) {
-	r := NewSimpleApplication().
-		WithName("snapshot").
+	r := NewSimpleApplication("snapshot").
 		WithFlag(
-			NewFlag(codec.NewString()).
-				WithName("before"),
+			NewFlag(codec.NewString(), "before"),
 		)
 	a, err := r.Create()
 	require.NoError(t, err)
@@ -57,11 +54,9 @@ func TestCreateSnapshotAndDuplicates(t *testing.T) {
 	assert.False(t, found, "requirement mutation changed compiled schema")
 	_, found = a.Flag("before")
 	assert.True(t, found, "compiled flag disappeared")
-	bad := NewApplication[*rootOpts]().
-		WithName("bad").
+	bad := NewApplication[*rootOpts]("bad").
 		WithFlag(
-			NewFlag(codec.NewBool()).
-				WithName("verbose"),
+			NewFlag(codec.NewBool(), "verbose"),
 		)
 	_, err = bad.Create()
 	require.ErrorContains(t, err, "duplicate")
@@ -87,8 +82,7 @@ func TestAllPrimitiveSliceDefaults(t *testing.T) {
 		Complex64s  []complex64  `flag:"complex64s"`
 		Complex128s []complex128 `flag:"complex128s"`
 	}
-	a, err := NewApplication[*options]().
-		WithName("all-slices").
+	a, err := NewApplication[*options]("all-slices").
 		Create()
 	require.NoError(t, err)
 	inv, err := a.Parse(context.Background(), nil, "--uint16s=65535", "--int8s=-8", "--float32s=1.25", "--complex128s=1+2i")

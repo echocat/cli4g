@@ -66,13 +66,14 @@ func TestDecoderReadFailuresRemainOperationalAcrossInputSources(t *testing.T) {
 	for _, source := range []string{"CLI", "environment", "default", "argument"} {
 		t.Run(source, func(t *testing.T) {
 			decoder := unmarkedReadCodec{codec.NewString()}
-			root := NewSimpleApplication().WithName("app").WithErrorHandlerEnabled(false)
+			root := NewSimpleApplication("app").
+				WithErrorHandlerEnabled(false)
 			var args []string
 			if source == "argument" {
-				root.WithArgument(NewArgument(decoder).WithName("value"))
+				root.WithArgument(NewArgument(decoder, "value"))
 				args = []string{"input"}
 			} else {
-				flag := NewFlag(decoder).WithName("value").WithEnvVar("CLI4G_VALUE")
+				flag := NewFlag(decoder, "value").WithEnvVar("CLI4G_VALUE")
 				if source == "default" {
 					flag.WithDefaultStr("input")
 				} else if source == "CLI" {
@@ -102,15 +103,17 @@ func (opts *explicitValidatorOptions) Close() error                   { *opts.cl
 func TestOptionsValidateRequiresExplicitValidationMarker(t *testing.T) {
 	for _, cause := range []error{NewValidationErrorf("invalid settings"), io.ErrUnexpectedEOF, errors.New("storage unavailable")} {
 		closed, reported := 0, 0
-		app := NewApplication[*explicitValidatorOptions]().WithName("app").
+		app := NewApplication[*explicitValidatorOptions]("app").
 			WithCreateOptionsHandler(func(context.Context) (*explicitValidatorOptions, error) {
 				return &explicitValidatorOptions{failure: cause, closed: &closed}, nil
-			}).WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error {
-			reported++
-			assert.Equal(t, 1, closed)
-			assert.Equal(t, IsValidationError(cause), IsValidationError(err))
-			return nil
-		}).MustCreate()
+			}).
+			WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error {
+				reported++
+				assert.Equal(t, 1, closed)
+				assert.Equal(t, IsValidationError(cause), IsValidationError(err))
+				return nil
+			}).
+			MustCreate()
 		invocation, err := app.Parse(context.Background(), nil)
 		assert.Nil(t, invocation)
 		assert.ErrorIs(t, err, cause)
@@ -138,7 +141,7 @@ func TestInputFailuresAreClassifiedWithoutLosingCodecErrors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			calls := 0
 			var reported error
-			app, err := NewSimpleApplication().WithName("app").WithIntFlag("number").
+			app, err := NewSimpleApplication("app").WithIntFlag("number").
 				WithStringArgument("name", func(a *ArgumentRequirement[string, string]) { a.WithRequired(true) }).
 				WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { calls++; reported = err; return nil }).Create()
 			require.NoError(t, err)
@@ -176,12 +179,13 @@ func TestRequiredArgumentResponseOmitsApplicationAndCommandPrefixes(t *testing.T
 					return nil
 				}).Create()
 			require.NoError(t, err)
-			root := NewSimpleApplication().WithName("simple").WithErrorHandler(response)
+			root := NewSimpleApplication("simple").
+				WithErrorHandler(response)
 			var args []string
 			if command {
 				target = "greet"
 				args = []string{"greet"}
-				root.WithCommand(NewSimpleCommand().WithName("greet").
+				root.WithCommand(NewSimpleCommand("greet").
 					WithStringArgument("name", func(a *ArgumentRequirement[string, string]) { a.WithRequired(true) }))
 			} else {
 				root.WithStringArgument("name", func(a *ArgumentRequirement[string, string]) { a.WithRequired(true) })
@@ -220,8 +224,10 @@ func (v *inputUnmarshalValue) UnmarshalText(input []byte) error {
 }
 
 func TestUnmarshalContentFailureIsInputDespiteResolvePhase(t *testing.T) {
-	app, err := NewSimpleApplication().WithName("app").WithMarshallerFlag[inputUnmarshalValue]("value").
-		WithErrorHandlerEnabled(false).Create()
+	app, err := NewSimpleApplication("app").
+		WithMarshallerFlag[inputUnmarshalValue]("value").
+		WithErrorHandlerEnabled(false).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, err = app.Parse(nil, nil, "--value=bad")
@@ -241,11 +247,15 @@ func (*operationalSetValue) String() string { return "" }
 func TestResolvedValueErrorsUseContentRatherThanPhaseOrSource(t *testing.T) {
 	for _, source := range []string{"CLI", "environment", "default"} {
 		t.Run(source, func(t *testing.T) {
-			flag := NewFlag(mustInputValueCodec(t)).WithName("number").WithEnvVar("CLI4G_NUMBER")
+			flag := NewFlag(mustInputValueCodec(t), "number").
+				WithEnvVar("CLI4G_NUMBER")
 			if source == "default" {
 				flag.WithDefaultStr("bad")
 			}
-			app, err := NewSimpleApplication().WithName("app").WithFlag(flag).WithErrorHandlerEnabled(false).Create()
+			app, err := NewSimpleApplication("app").
+				WithFlag(flag).
+				WithErrorHandlerEnabled(false).
+				Create()
 			require.NoError(t, err)
 			defer func() { assert.NoError(t, app.Close()) }()
 			var args []string
@@ -260,8 +270,10 @@ func TestResolvedValueErrorsUseContentRatherThanPhaseOrSource(t *testing.T) {
 			assert.ErrorIs(t, err, strconv.ErrSyntax)
 		})
 	}
-	app, err := NewSimpleApplication().WithName("app").WithValueFlag[operationalSetValue]("value").
-		WithErrorHandlerEnabled(false).Create()
+	app, err := NewSimpleApplication("app").
+		WithValueFlag[operationalSetValue]("value").
+		WithErrorHandlerEnabled(false).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, app.Close()) }()
 	_, err = app.Parse(nil, nil, "--value=x")
@@ -312,7 +324,10 @@ func TestValidationAndOperationalFailuresRemainDistinctAfterCleanup(t *testing.T
 			if strings.HasPrefix(stage, "resolve") || stage == "special file" {
 				decoder.cause = cause
 			}
-			root := NewSimpleApplication().WithName("app").WithFlag(NewFlag(decoder).WithName("value").WithDefault("data"))
+			root := NewSimpleApplication("app").
+				WithFlag(NewFlag(decoder, "value").
+					WithDefault("data"),
+				)
 			if strings.HasPrefix(stage, "validate") {
 				root.WithValidateHandler(func(context.Context, NoOptions) error { return cause })
 			} else if stage == "initialize" {
@@ -374,7 +389,7 @@ func TestUnifiedResponderChoosesHelpAndPreservesOutputFailure(t *testing.T) {
 func TestParseAndExecuteReportsCleanupButRetainsApplication(t *testing.T) {
 	failure := errors.New("close failed")
 	calls, closes := 0, 0
-	app, err := NewSimpleApplication().WithName("app").
+	app, err := NewSimpleApplication("app").
 		WithCloseHandler(func(NoOptions) error { closes++; return failure }).
 		WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 			calls++
@@ -392,11 +407,11 @@ func TestParseAndExecuteReportsCleanupButRetainsApplication(t *testing.T) {
 
 func TestNestedParseFailureReachesOuterHandlerOnce(t *testing.T) {
 	innerCalls, outerCalls, closes := 0, 0, 0
-	inner, err := NewSimpleApplication().WithName("inner").
+	inner, err := NewSimpleApplication("inner").
 		WithErrorHandler(func(context.Context, InvocationLike, error) error { innerCalls++; return nil }).Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, inner.Close()) }()
-	outer, err := NewSimpleApplication().WithName("outer").
+	outer, err := NewSimpleApplication("outer").
 		WithHandler(func(ctx context.Context, _ NoOptions) error { _, err := inner.Parse(ctx, nil, "--unknown"); return err }).
 		WithCloseHandler(func(NoOptions) error { closes++; return nil }).
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error {
@@ -404,7 +419,8 @@ func TestNestedParseFailureReachesOuterHandlerOnce(t *testing.T) {
 			assert.Equal(t, 1, closes)
 			assert.ErrorIs(t, err, ErrValidation)
 			return nil
-		}).Create()
+		}).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, outer.Close()) }()
 	assert.ErrorIs(t, outer.ParseAndExecute(nil, nil), ErrValidation)
@@ -416,10 +432,11 @@ func TestUnifiedErrorDefaultExitCodesByKind(t *testing.T) {
 	stage := os.Getenv("CLI4G_ERROR_KIND_EXIT_TEST")
 	if stage != "" {
 		DefaultErrorHandler = subprocessDefaultErrorHandler
-		root := NewSimpleApplication().WithName("app").WithHelpHandler(func(context.Context, InvocationLike) error {
-			_, err := io.WriteString(os.Stderr, "HELP\n")
-			return err
-		})
+		root := NewSimpleApplication("app").
+			WithHelpHandler(func(context.Context, InvocationLike) error {
+				_, err := io.WriteString(os.Stderr, "HELP\n")
+				return err
+			})
 		switch stage {
 		case "input":
 			root.WithIntFlag("number")
@@ -453,7 +470,8 @@ func TestUnifiedErrorDefaultExitCodesByKind(t *testing.T) {
 					}
 					_, err = io.WriteString(os.Stderr, "HELP\n")
 					return err
-				}).MustCreateParseAndExecute(nil, nil)
+				}).
+				MustCreateParseAndExecute(nil, nil)
 		}
 		return
 	}

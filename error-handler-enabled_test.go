@@ -22,7 +22,8 @@ func TestErrorHandlerCanBeDisabledLocallyAndIsFrozenAtCreate(t *testing.T) {
 		_, _ = fmt.Fprintln(&output, err)
 		return errors.Join(err, globalError)
 	}
-	root := NewSimpleApplication().WithName("quiet").WithHelp(false).
+	root := NewSimpleApplication("quiet").
+		WithHelp(false).
 		WithErrorHandler(func(_ context.Context, _ InvocationLike, err error) error { customCalls++; return err }).
 		WithErrorHandlerEnabled(false)
 	quiet, err := root.Create()
@@ -32,7 +33,10 @@ func TestErrorHandlerCanBeDisabledLocallyAndIsFrozenAtCreate(t *testing.T) {
 	enabled, err := root.Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, enabled.Close()) }()
-	fallback, err := NewSimpleApplication().WithName("fallback").WithHelp(false).WithErrorHandler(nil).Create()
+	fallback, err := NewSimpleApplication("fallback").
+		WithHelp(false).
+		WithErrorHandler(nil).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, fallback.Close()) }()
 	DefaultErrorHandler = func(_ context.Context, _ InvocationLike, err error) error { replacementCalls++; return err }
@@ -50,7 +54,9 @@ func TestErrorHandlerCanBeDisabledLocallyAndIsFrozenAtCreate(t *testing.T) {
 	assert.Equal(t, 1, globalCalls)
 	assert.Contains(t, output.String(), "unknown flag --unknown")
 	assert.Zero(t, replacementCalls, "existing applications retain their captured default")
-	other, err := NewSimpleApplication().WithName("other").WithHelp(false).Create()
+	other, err := NewSimpleApplication("other").
+		WithHelp(false).
+		Create()
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, other.Close()) }()
 	_, err = other.Parse(nil, nil, "--unknown")

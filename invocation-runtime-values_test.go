@@ -32,12 +32,12 @@ func TestFailedParseGettersPublishOnlySuccessfullyResolvedRuntimeValues(t *testi
 		t.Run(stage, func(t *testing.T) {
 			calls := 0
 			decoder := separatedTextCodec{codec.NewString()}
-			root := NewSimpleApplication().WithName("app").
-				WithFlag(NewFlag[*resolvedText, string](decoder).WithName("first").WithShort('f')).
-				WithFlag(NewFlag[*resolvedText, string](decoder).WithName("second").WithShort('s')).
+			root := NewSimpleApplication("app").
+				WithFlag(NewFlag[*resolvedText, string](decoder, "first").WithShort('f')).
+				WithFlag(NewFlag[*resolvedText, string](decoder, "second").WithShort('s')).
 				WithIntFlag("number").
-				WithArgument(NewArgument[*resolvedText, string](decoder).WithName("first-argument")).
-				WithArgument(NewArgument[*resolvedText, string](decoder).WithName("second-argument"))
+				WithArgument(NewArgument[*resolvedText, string](decoder, "first-argument")).
+				WithArgument(NewArgument[*resolvedText, string](decoder, "second-argument"))
 			root.WithErrorHandler(func(_ context.Context, invocation InvocationLike, err error) error {
 				calls++
 				for _, name := range []string{"first", "second", "number"} {

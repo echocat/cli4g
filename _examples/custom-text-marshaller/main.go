@@ -29,9 +29,7 @@ type options struct {
 }
 
 func main() {
-	cli.NewApplication[options]().
-		WithName("custom-text-marshaller").
-		WithDescription("Use a type implementing text marshaling.").
+	cli.NewApplication[options]("custom-text-marshaller", "Use a type implementing text marshaling.").
 		WithHandler(showDate).
 		MustCreateParseAndExecute(context.Background(), nil, os.Args[1:]...)
 }

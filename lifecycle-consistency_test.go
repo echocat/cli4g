@@ -43,10 +43,15 @@ func TestDirectLifecycleCallsOptionsMethodsAndCallbacks(t *testing.T) {
 			return nil
 		}
 		closeOptions := func(*directMethodOptions) error { events = append(events, "callback close"); return nil }
-		root := NewApplication[*directMethodOptions]().WithName("app").WithValidateHandler(validate).
-			WithInitializeHandler(initialize).WithCloseHandler(closeOptions)
-		root.WithCommand(NewCommand[*directMethodOptions]().WithName("run").WithValidateHandler(validate).
-			WithInitializeHandler(initialize).WithCloseHandler(closeOptions))
+		root := NewApplication[*directMethodOptions]("app").
+			WithValidateHandler(validate).
+			WithInitializeHandler(initialize).
+			WithCloseHandler(closeOptions)
+		root.WithCommand(NewCommand[*directMethodOptions]("run").
+			WithValidateHandler(validate).
+			WithInitializeHandler(initialize).
+			WithCloseHandler(closeOptions),
+		)
 		app := root.MustCreate()
 		opts := &directMethodOptions{events: &events}
 		if command {
@@ -75,7 +80,8 @@ func TestCloseCallbackReleasesPartiallyCreatedOrInitializedOptions(t *testing.T)
 			failure := errors.New("failed " + stage)
 			var file *os.File
 			closed := 0
-			root := NewApplication[*options]().WithName("app").WithErrorHandlerEnabled(false).
+			root := NewApplication[*options]("app").
+				WithErrorHandlerEnabled(false).
 				WithCreateOptionsHandler(func(context.Context) (*options, error) {
 					var err error
 					file, err = os.Open(path)
@@ -86,7 +92,8 @@ func TestCloseCallbackReleasesPartiallyCreatedOrInitializedOptions(t *testing.T)
 						return &options{file}, failure
 					}
 					return &options{file}, nil
-				}).WithCloseHandler(func(opts *options) error { closed++; return opts.File.Close() })
+				}).
+				WithCloseHandler(func(opts *options) error { closed++; return opts.File.Close() })
 			if stage == "validate" {
 				root.WithValidateHandler(func(context.Context, *options) error { return failure })
 			} else if stage == "initialize" {
