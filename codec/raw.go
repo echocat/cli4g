@@ -20,9 +20,48 @@ func Raw[V, R any](ctx context.Context, source Codec[V, R]) Codec[any, any] {
 	}
 	result := raw[V, R]{source}
 	if enumeration, ok := source.(Enum[R]); ok {
-		return rawEnum[V, R]{raw: result, enumeration: enumeration}
+		enum := rawEnum[V, R]{raw: result, enumeration: enumeration}
+		if binder, ok := source.(TypeBinder); ok {
+			return rawEnumBinder[V, R]{rawEnum: enum, binder: binder}
+		}
+		return enum
+	}
+	if binder, ok := source.(TypeBinder); ok {
+		return rawBinder[V, R]{raw: result, binder: binder}
 	}
 	return result
+}
+
+type rawBinder[V, R any] struct {
+	raw[V, R]
+	binder TypeBinder
+}
+
+func (this rawBinder[V, R]) BindType(ctx context.Context, typ reflect.Type) (Codec[any, any], bool, error) {
+	return this.binder.BindType(ctx, typ)
+}
+
+func (this rawBinder[V, R]) ToRaw(ctx context.Context) Codec[any, any] {
+	if ctx.Err() != nil {
+		return nil
+	}
+	return this
+}
+
+type rawEnumBinder[V, R any] struct {
+	rawEnum[V, R]
+	binder TypeBinder
+}
+
+func (this rawEnumBinder[V, R]) BindType(ctx context.Context, typ reflect.Type) (Codec[any, any], bool, error) {
+	return this.binder.BindType(ctx, typ)
+}
+
+func (this rawEnumBinder[V, R]) ToRaw(ctx context.Context) Codec[any, any] {
+	if ctx.Err() != nil {
+		return nil
+	}
+	return this
 }
 
 // Only actual enums expose Enum[any]. Collection choices use a separate

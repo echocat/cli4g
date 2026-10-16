@@ -10,7 +10,11 @@ import (
 // consumption. Codec overrides cannot change inherited arity, so the final
 // command path can select its decoder after this single pass.
 func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, vs []string) (input parseInput, err error) {
-	input = parseInput{positions: make([][]string, 1)}
+	capacity := min(int(this.definition.commandDepth)+1, len(vs)+1)
+	input = parseInput{positions: make([][]string, 1, capacity), scopes: make([]selectedContainer, 0, capacity)}
+	if capacity > 1 {
+		input.commands = make([]CommandLike, 0, capacity-1)
+	}
 	// Help and failed scans also retain the final command path's codec overrides.
 	defer func() {
 		if len(input.scopes) == 0 {

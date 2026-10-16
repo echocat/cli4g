@@ -1,6 +1,6 @@
 # CLI benchmark results
 
-Measured 2026-10-15 with `go1.27.2`, `linux/amd64`, `-cpu=1`, 200 ms per sample, seven samples.
+Measured 2026-10-16 with `go1.27.2`, `linux/amd64`, `-cpu=1`, 200 ms per sample, seven samples.
 
 CPU: AMD Ryzen 9 7950X3D 16-Core Processor. Values below are sample medians. [Source and methodology](../_benchmarks) · [Raw results](../_benchmarks/results.txt).
 
@@ -33,10 +33,10 @@ Invocation: `bench [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [678](../_benchmarks/cli4g_test.go) | 1 | 8.02 | 1.20 | 1.13 | 13744 / 176 | 801.3 / 16.68 |
-| urfave | [368](../_benchmarks/urfave_test.go) | 0 | 5.98 | 4.25 | 4.25 | 8184 / 214 | 4400.4 / 162.67 |
-| cobra | [748](../_benchmarks/cobra_test.go) | 14 | 2.94 | 1.55 | 1.59 | 5642 / 49 | 2159.2 / 16.34 |
-| flag | [665](../_benchmarks/flag_test.go) | 11 | 0.37 | 0.17 | 0.17 | 842 / 12 | 24.1 / 1.00 |
+| cli4g | [667](../_benchmarks/cli4g_test.go) | 1 | 6.93 | 1.55 | 1.49 | 8632 / 119 | 1088.8 / 20.68 |
+| urfave | [368](../_benchmarks/urfave_test.go) | 0 | 6.08 | 4.29 | 4.48 | 8184 / 214 | 4400.4 / 162.67 |
+| cobra | [748](../_benchmarks/cobra_test.go) | 14 | 3.00 | 1.65 | 1.66 | 5642 / 49 | 2159.2 / 16.34 |
+| flag | [665](../_benchmarks/flag_test.go) | 11 | 0.38 | 0.17 | 0.17 | 842 / 12 | 24.1 / 1.00 |
 | kong | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 
 ## Root / StructTags
@@ -45,11 +45,11 @@ Invocation: `bench [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [328](../_benchmarks/cli4g_test.go) | 1 | 10.21 | 1.29 | 1.17 | 14212 / 200 | 876.1 / 19.35 |
+| cli4g | [317](../_benchmarks/cli4g_test.go) | 1 | 8.69 | 1.62 | 1.54 | 9243 / 135 | 1163.6 / 23.35 |
 | urfave | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | cobra | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | flag | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
-| kong | [320](../_benchmarks/kong_test.go) | 3 | 20.46 | 9.31 | 8.94 | 20631 / 359 | 6771.7 / 176.37 |
+| kong | [320](../_benchmarks/kong_test.go) | 3 | 21.39 | 9.26 | 8.98 | 20631 / 359 | 6771.7 / 176.37 |
 
 ## Subcommand / Direct
 
@@ -57,10 +57,10 @@ Invocation: `bench a b [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [788](../_benchmarks/cli4g_test.go) | 1 | 13.28 | 1.93 | 1.76 | 20730 / 266 | 1506.1 / 25.69 |
-| urfave | [473](../_benchmarks/urfave_test.go) | 0 | 14.95 | 10.84 | 11.04 | 21792 / 561 | 12905.0 / 429.35 |
-| cobra | [851](../_benchmarks/cobra_test.go) | 14 | 8.49 | 2.28 | 2.17 | 18590 / 136 | 1589.9 / 26.68 |
-| flag | [734](../_benchmarks/flag_test.go) | 14 | 0.39 | 0.17 | 0.17 | 842 / 12 | 24.1 / 1.00 |
+| cli4g | [755](../_benchmarks/cli4g_test.go) | 1 | 12.85 | 2.42 | 2.31 | 18656 / 226 | 1932.6 / 26.69 |
+| urfave | [473](../_benchmarks/urfave_test.go) | 0 | 15.36 | 11.25 | 11.09 | 21792 / 561 | 12905.0 / 429.35 |
+| cobra | [851](../_benchmarks/cobra_test.go) | 14 | 8.93 | 2.29 | 2.22 | 18590 / 136 | 1589.9 / 26.68 |
+| flag | [734](../_benchmarks/flag_test.go) | 14 | 0.40 | 0.18 | 0.17 | 842 / 12 | 24.1 / 1.00 |
 | kong | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 
 ## Subcommand / StructTags
@@ -69,11 +69,11 @@ Invocation: `bench a b [flags]`.
 
 | Library | Code chars | Cognitive complexity ↓ | OneShot ⌀µs/op | Reuse/100 ⌀µs/op | Reuse/10000 ⌀µs/op | OneShot B / allocs | Reuse/10000 B / allocs per invocation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| cli4g | [438](../_benchmarks/cli4g_test.go) | 1 | 15.05 | 1.99 | 1.83 | 21198 / 290 | 1580.9 / 28.36 |
+| cli4g | [405](../_benchmarks/cli4g_test.go) | 1 | 14.72 | 2.50 | 2.39 | 19267 / 242 | 2007.3 / 29.36 |
 | urfave | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | cobra | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | flag | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
-| kong | [324](../_benchmarks/kong_test.go) | 3 | 33.09 | 17.11 | 16.63 | 33917 / 558 | 15005.8 / 315.73 |
+| kong | [324](../_benchmarks/kong_test.go) | 3 | 34.46 | 17.98 | 17.46 | 33917 / 558 | 15005.8 / 315.73 |
 
 ## Scope
 

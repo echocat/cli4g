@@ -10,6 +10,7 @@ import (
 )
 
 func compilePaths(node *compileNode, parents []*compileNode, path string, owner *definitionLifecycle) error {
+	owner.commandDepth = max(owner.commandDepth, uint8(len(parents)))
 	// Subcommands are recognized only before the first positional value. A
 	// required parent argument therefore cannot be supplied on a subcommand path.
 	if len(node.children) > 0 {
@@ -174,9 +175,6 @@ func resolveDraftCodec(stack []*compileNode, explicit codec.Codec[any, any], typ
 	}
 	if name != "" {
 		return nil, fmt.Errorf("no codec for type %s with name %q", typ, name)
-	}
-	if resolved := fileCodecForType(typ, codec.NewFile()); resolved != nil {
-		return resolved, nil
 	}
 	if resolved, found, err := codec.AutomaticFlagValue(context.Background(), typ); found || err != nil {
 		return resolved, err

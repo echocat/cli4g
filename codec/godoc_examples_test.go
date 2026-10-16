@@ -3,6 +3,7 @@ package codec_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/echocat/cli4g/codec"
@@ -51,4 +52,46 @@ func ExampleNewFile() {
 	}
 	fmt.Println(requirement.Path, requirement.Create, requirement.Truncate)
 	// Output: report.txt true false
+}
+
+func ExampleCombinedDefaults() {
+	registry, err := codec.NewRegistry(context.Background(), nil)
+	if err != nil {
+		panic(err)
+	}
+	if err := registry.AddDefaults(context.Background()); err != nil {
+		panic(err)
+	}
+	bound, found, err := registry.Find(context.Background(), reflect.TypeFor[uint8](), "")
+	if err != nil || !found {
+		panic("no uint8 codec")
+	}
+	value, err := bound.ParseRequirement(context.Background(), codec.UsageFlag, "42")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%T: %v\n", value, value)
+	// Output: uint8: 42
+}
+
+func ExampleDefaults() {
+	original := codec.Defaults
+	defer func() { codec.Defaults = original }()
+	// Configure before creating applications, without concurrent modification.
+	codec.Defaults = func(ctx context.Context) []codec.Codec[any, any] {
+		return []codec.Codec[any, any]{codec.NewString().ToRaw(ctx)}
+	}
+	registry, err := codec.NewRegistry(context.Background(), nil)
+	if err != nil {
+		panic(err)
+	}
+	if err := registry.AddDefaults(context.Background()); err != nil {
+		panic(err)
+	}
+	_, found, err := registry.Find(context.Background(), reflect.TypeFor[string](), "")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(found)
+	// Output: true
 }

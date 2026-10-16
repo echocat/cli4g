@@ -15,6 +15,5 @@ func InvocationFromContext(ctx context.Context) (InvocationLike, bool) {
 }
 
 func withInvocationContext(ctx context.Context, invocation InvocationLike) context.Context {
-	ctx = withProfilesContext(ctx, invocation)
-	return context.WithValue(ctx, invocationContextKey{}, invocation)
+	return withProfilesContext(ctx, invocation)
 }

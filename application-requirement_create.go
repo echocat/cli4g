@@ -17,7 +17,7 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	if r == nil || r.Name == "" {
 		return nil, errSchema("application needs a name")
 	}
-	definition := &definitionLifecycle{fallbackToStdio: r.FallbackToStdio}
+	definition := &definitionLifecycle{fallbackToStdio: r.FallbackToStdio, maxCommandDepth: r.MaxCommandDepth}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, definition.Close())
@@ -69,8 +69,11 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	root := &compileNode{draft: draft, container: app}
 	active := make(map[commandRequirementIdentity]bool)
 	for _, requirement := range r.Commands {
-		child, err := createRequirementNode(requirement, app.commands, []containerSchema{draft.schema}, active)
+		child, err := createRequirementNode(requirement, app.commands, []containerSchema{draft.schema}, active, r.MaxCommandDepth)
 		if err != nil {
+			if depth, ok := err.(*commandDepthError); ok {
+				depth.path = r.Name + " " + depth.path
+			}
 			return nil, err
 		}
 		root.children = append(root.children, child)
@@ -115,13 +118,9 @@ func (r *ApplicationRequirement[O]) CreateParseAndExecute(ctx context.Context, o
 		err = joinErrors(err, app.Close())
 	}()
 
-	i, err := app.Parse(ctx, opts, vs...)
-	if err != nil {
-		return err
-	}
 	// Definitions own no runtime resources. Keep them open while responding so
 	// input-error help can still display defaults; the defer closes on return.
-	return i.executeAndClose(ctx)
+	return app.ParseAndExecute(ctx, opts, vs...)
 }
 
 // MustCreateParseAndExecute is the panic-on-returned-error variant. Standard

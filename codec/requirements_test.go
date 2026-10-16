@@ -17,7 +17,18 @@ import (
 
 func TestRequirementRoundtripsAndIndependentSlices(t *testing.T) {
 	ctx := context.Background()
-	for _, source := range codec.Defaults(ctx) {
+	registry, err := codec.NewRegistry(ctx, nil)
+	require.NoError(t, err)
+	require.NoError(t, registry.AddDefaults(ctx))
+	for _, typ := range []reflect.Type{
+		reflect.TypeFor[bool](), reflect.TypeFor[string](), reflect.TypeFor[time.Duration](), reflect.TypeFor[time.Time](),
+		reflect.TypeFor[int](), reflect.TypeFor[int8](), reflect.TypeFor[int16](), reflect.TypeFor[int32](), reflect.TypeFor[int64](),
+		reflect.TypeFor[uint](), reflect.TypeFor[uint8](), reflect.TypeFor[uint16](), reflect.TypeFor[uint32](), reflect.TypeFor[uint64](), reflect.TypeFor[uintptr](),
+		reflect.TypeFor[float32](), reflect.TypeFor[float64](), reflect.TypeFor[complex64](), reflect.TypeFor[complex128](),
+	} {
+		source, found, err := registry.Find(ctx, typ, "")
+		require.NoError(t, err)
+		require.True(t, found)
 		min, max := source.ExpectMinMax(ctx, codec.UsageDefault)
 		if min == 0 && max == -1 {
 			continue

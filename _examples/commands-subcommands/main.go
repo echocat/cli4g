@@ -14,6 +14,7 @@ type numbersOptions struct {
 
 func main() {
 	cli.NewSimpleApplication("commands-subcommands", "Commands organized under a command group.").
+		WithMaxCommandDepth(2).
 		WithCommand(cli.NewSimpleCommand("math", "Arithmetic commands.").
 			WithCommand(
 				cli.NewCommand[numbersOptions]("sum", "Add integers.").

@@ -149,6 +149,7 @@ func TestDeepFrameLifecycleStateAndRetainedContexts(t *testing.T) {
 			var closed []string
 			var contexts []context.Context
 			root := NewSimpleApplication("app").
+				WithMaxCommandDepth(depth).
 				WithInitializeHandler(func(ctx context.Context, _ NoOptions) error {
 					initialized = append(initialized, "app")
 					contexts = append(contexts, ctx)

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,6 +110,8 @@ func TestProfilesContextThroughoutLifecycle(t *testing.T) {
 	assert.NoError(t, invocation.Execute(context.Background()))
 	assert.NoError(t, invocation.Close())
 	check(factoryContext, "retained factory context")
+	_, published := InvocationFromContext(factoryContext)
+	assert.False(t, published, "a retained early context must never acquire a later invocation")
 	assert.Equal(t, []string{"A", "B"}, slices.Collect(invocation.Profiles()), "metadata survives Close")
 	assert.Equal(t, []string{"factory", "command factory", "decode", "environment", "resolve", "validate", "initialize", "execute", "command execute", "close", "retained factory context"}, events)
 	_, found := ProfilesFromContext(callerContext)
@@ -119,6 +122,28 @@ func TestProfilesContextThroughoutLifecycle(t *testing.T) {
 		break
 	}
 	assert.Equal(t, 1, seen)
+}
+
+func TestInvocationMetadataContextPreservesCancellationDeadlineAndOtherValues(t *testing.T) {
+	type markerKey struct{}
+	deadline := time.Now().Add(time.Hour)
+	parent, cancel := context.WithDeadline(context.WithValue(context.Background(), markerKey{}, "value"), deadline)
+	defer cancel()
+	metadata := withProfilesContext(parent, selectedProfiles{"A"})
+	actual, found := metadata.Deadline()
+	assert.True(t, found)
+	assert.Equal(t, deadline, actual)
+	assert.Equal(t, "value", metadata.Value(markerKey{}))
+	assert.True(t, ContextContainsProfile(metadata, "A"))
+	derived, cancelDerived := context.WithCancel(metadata)
+	defer cancelDerived()
+	cancel()
+	select {
+	case <-derived.Done():
+		assert.ErrorIs(t, derived.Err(), context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("metadata overlay did not propagate cancellation")
+	}
 }
 
 func TestProfilesContextHelpAndErrors(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -166,4 +167,33 @@ func TestApplicationStdioConcurrentInvocationsAreIsolated(t *testing.T) {
 		})
 	}
 	workers.Wait()
+}
+
+func TestManagedInvocationPreparesFallbackStreamsOnce(t *testing.T) {
+	for _, managedCreate := range []bool{false, true} {
+		t.Run(fmt.Sprint(managedCreate), func(t *testing.T) {
+			original := os.Stdout
+			replacement, err := os.CreateTemp(t.TempDir(), "replacement-stdout")
+			require.NoError(t, err)
+			defer func() { os.Stdout = original; assert.NoError(t, replacement.Close()) }()
+			called := false
+			root := NewSimpleApplication("app").WithCreateOptionsHandler(func(ctx context.Context) (NoOptions, error) {
+				assert.Same(t, original, codec.StdoutOfContext(ctx))
+				os.Stdout = replacement
+				return NoOptions{}, nil
+			}).WithHandler(func(ctx context.Context, _ NoOptions) error {
+				called = true
+				assert.Same(t, original, codec.StdoutOfContext(ctx), "managed execution must reuse the stream snapshot made before parsing")
+				return nil
+			})
+			if managedCreate {
+				assert.NoError(t, root.CreateParseAndExecute(nil, nil))
+			} else {
+				app := root.MustCreate()
+				defer func() { assert.NoError(t, app.Close()) }()
+				assert.NoError(t, app.ParseAndExecute(nil, nil))
+			}
+			assert.True(t, called)
+		})
+	}
 }

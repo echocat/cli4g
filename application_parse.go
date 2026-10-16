@@ -23,13 +23,26 @@ import (
 // Context streams are available throughout parsing and the options lifecycle.
 // File aliases resolve now; pass the same stream context to Execute.
 func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...string) (_ *Invocation[O], err error) {
+	ctx, err = this.prepareParseContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return this.parsePrepared(ctx, opts, vs...)
+}
+
+func (this *Application[O]) prepareParseContext(ctx context.Context) (context.Context, error) {
 	if this == nil {
 		return nil, fmt.Errorf("nil application")
 	}
 	if this.definition.closed.Load() {
 		return nil, ErrApplicationClosed
 	}
-	ctx = this.definition.prepareContext(ctx)
+	return this.definition.prepareContext(ctx), nil
+}
+
+// The operation boundary prepares streams exactly once, before parsing or
+// managed execution. The incoming error-boundary marker remains unchanged.
+func (this *Application[O]) parsePrepared(ctx context.Context, opts *ParseOpts, vs ...string) (_ *Invocation[O], err error) {
 	var input parseInput
 	var profiles selectedProfiles
 	if opts != nil {
@@ -229,7 +242,11 @@ func (this *Application[O]) MustParse(ctx context.Context, opts *ParseOpts, vs .
 // ParseAndExecute parses, executes, and closes an invocation.
 // The application remains reusable until [Application.Close].
 func (this *Application[O]) ParseAndExecute(ctx context.Context, opts *ParseOpts, vs ...string) (err error) {
-	i, err := this.Parse(ctx, opts, vs...)
+	ctx, err = this.prepareParseContext(ctx)
+	if err != nil {
+		return err
+	}
+	i, err := this.parsePrepared(ctx, opts, vs...)
 	if err != nil {
 		return err
 	}

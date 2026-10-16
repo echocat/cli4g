@@ -11,13 +11,13 @@ import (
 // NewApplication starts a CLI builder with automatic --help/-h enabled.
 // O must be a struct or pointer to a struct; exported tags define inputs.
 // By default, input and execution errors use [DefaultErrorHandler], and missing
-// context streams fall back to process stdin/stdout/stderr.
+// context streams fall back to process stdin/stdout/stderr. MaxCommandDepth is 7.
 // The first optional string sets the name; further strings form the description,
 // joined with spaces. With no strings, configure the name later; Create validates
 // the completed builder.
 func NewApplication[O any](nameAndDescription ...string) *ApplicationRequirement[O] {
 	name, description := parseNameAndDescription(nameAndDescription)
-	return &ApplicationRequirement[O]{Name: name, Description: description, Help: true, FallbackToStdio: true}
+	return &ApplicationRequirement[O]{Name: name, Description: description, Help: true, FallbackToStdio: true, MaxCommandDepth: 7}
 }
 
 // NewSimpleApplication starts a builder without an options struct.
@@ -44,6 +44,10 @@ type ApplicationRequirement[O any] struct {
 	// configuration exists in the operation's context. Constructors enable it by default;
 	// a zero-valued requirement has it disabled.
 	FallbackToStdio bool
+	// MaxCommandDepth limits subcommand levels below the application (depth 0).
+	// Zero permits only the application; constructors default to 7. Create checks
+	// every definition, including inactive profiles, and snapshots the limit.
+	MaxCommandDepth uint8
 
 	Commands  []CommandRequirementLike
 	Codecs    []codec.Registration
@@ -93,6 +97,15 @@ func (this *ApplicationRequirement[O]) WithFallbackToStdio(v bool) *ApplicationR
 }
 
 func (this *ApplicationRequirement[O]) SetFallbackToStdio(v bool) { this.FallbackToStdio = v }
+
+// WithMaxCommandDepth limits subcommand nesting. Zero allows only the application.
+// The number of sibling commands is not limited. Create rejects deeper paths.
+func (this *ApplicationRequirement[O]) WithMaxCommandDepth(v uint8) *ApplicationRequirement[O] {
+	this.SetMaxCommandDepth(v)
+	return this
+}
+
+func (this *ApplicationRequirement[O]) SetMaxCommandDepth(v uint8) { this.MaxCommandDepth = v }
 
 // WithHelpHandler replaces DefaultHelpHandler. Execute invokes it only for a
 // help invocation; normal handlers and the options lifecycle are skipped.

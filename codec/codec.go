@@ -54,6 +54,14 @@ type RequirementCloner[R any] interface {
 	CloneRequirement(context.Context, R) (R, error)
 }
 
+// TypeBinder optionally specializes a registry codec for one concrete value type
+// during compilation. Unsupported types return nil, false, nil. A successful
+// binding must return an immutable, independently usable codec; it must not
+// change the resolver's behavior for other bindings or subsequent calls.
+type TypeBinder interface {
+	BindType(context.Context, reflect.Type) (Codec[any, any], bool, error)
+}
+
 // EnsureArgumentsMatching checks token counts against [Codec.ExpectMinMax].
 // Count errors match [ErrValidation]; cancellation and invalid metadata do not.
 func EnsureArgumentsMatching[V, R any](ctx context.Context, usage Usage, source Codec[V, R], args ...string) error {
