@@ -60,7 +60,7 @@ func mapKeyCase[K codec.MapKey](input, other string, expected K, alias, invalid,
 			}
 			_, err := source.ParseRequirement(ctx, codec.UsageArgument, input+"=one", duplicate+"=two")
 			require.ErrorIs(t, err, codec.ErrIllegalArgument)
-			assert.ErrorContains(t, err, "duplicate map key")
+			assert.ErrorContains(t, err, "map keys must be unique")
 		}
 		for _, bad := range []string{invalid, overflow} {
 			if bad == "" {
@@ -110,7 +110,8 @@ func TestMapParsingArityAndAccumulation(t *testing.T) {
 	assert.Equal(t, map[string]string{"a": "first"}, previous)
 	_, err = codec.NewInt32Map().ParseRequirement(ctx, codec.UsageFlag, "port=invalid")
 	require.ErrorIs(t, err, codec.ErrIllegalArgument)
-	assert.ErrorContains(t, err, `map value for key "port"`)
+	assert.ErrorContains(t, err, "map value: an integer expected")
+	assert.NotContains(t, err.Error(), "port")
 }
 
 func TestMapLosslessDefaultsAndIndependentValues(t *testing.T) {

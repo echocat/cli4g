@@ -10,12 +10,13 @@ import (
 )
 
 type expected struct {
-	code           int
-	stdout         *string
-	stderr         *string
-	stderrContains string
-	help           *bool
-	helpStdout     bool
+	code              int
+	stdout            *string
+	stderr            *string
+	stderrContains    string
+	stderrNotContains []string
+	help              *bool
+	helpStdout        bool
 }
 
 func text(value string) *string { return &value }
@@ -45,6 +46,11 @@ func checkOutput(result testexec.Result, want expected) error {
 	if want.code != 0 && !errorHeader.MatchString(result.Stderr) {
 		return fmt.Errorf("missing error diagnostic on stderr")
 	}
+	for _, forbidden := range want.stderrNotContains {
+		if strings.Contains(result.Stderr, forbidden) {
+			return fmt.Errorf("stderr unexpectedly contains %q", forbidden)
+		}
+	}
 	if want.help != nil {
 		selected, other := result.Stderr, result.Stdout
 		if want.helpStdout {
@@ -70,6 +76,7 @@ func TestOutputRejectsFalsePositives(t *testing.T) {
 		{"unexpected stderr", testexec.Result{Stdout: "ok\n", Stderr: "unexpected\n"}, expected{stdout: text("ok\n")}},
 		{"wrong help channel", testexec.Result{Stderr: "Run: app\n"}, expected{help: boolean(true), helpStdout: true}},
 		{"help marker in error", testexec.Result{Code: 2, Stderr: "Error: failed to render Usage: template\n"}, expected{code: 2, help: boolean(true)}},
+		{"echoed input", testexec.Result{Code: 2, Stderr: "Error: private-value\n"}, expected{code: 2, stderrNotContains: []string{"private-value"}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if err := checkOutput(test.got, test.want); err == nil {

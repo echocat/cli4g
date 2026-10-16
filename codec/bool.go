@@ -2,8 +2,8 @@ package codec
 
 import (
 	"context"
-	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -42,7 +42,8 @@ func (this boolean) ParseRequirement(ctx context.Context, usg Usage, args ...str
 		case "false", "0", "off", "no", "":
 			return false, nil
 		default:
-			return false, fmt.Errorf("%w: %s", ErrIllegalArgument, args[0])
+			_, cause := strconv.ParseBool(args[0])
+			return false, NewValidationError("one of true, false, 1, 0, on, off, yes, no or an empty value expected", ErrIllegalArgument, cause)
 		}
 	}
 }

@@ -8,39 +8,43 @@ import (
 // ErrValidation identifies invalid input, independently of the failing operation.
 var ErrValidation = errors.New("validation failed")
 
-// ValidationError marks an input failure without changing its message or cause.
+// ValidationError marks invalid input with a user-facing message and diagnostic
+// causes. Its Error method never appends the cause messages.
 type ValidationError struct {
-	Err error
+	*MessageError
 }
 
 func (this *ValidationError) Error() string {
-	if this == nil || this.Err == nil {
+	if this == nil || this.MessageError == nil {
 		return ErrValidation.Error()
 	}
-	return this.Err.Error()
+	return this.MessageError.Error()
 }
 
-func (this *ValidationError) Unwrap() error {
+func (this *ValidationError) Unwrap() []error {
 	if this == nil {
 		return nil
 	}
-	return this.Err
+	return this.MessageError.Unwrap()
 }
 
 func (this *ValidationError) Is(target error) bool { return this != nil && target == ErrValidation }
 
-// NewValidationError marks an input failure. Nil stays nil and already marked
-// errors are returned unchanged. Operational failures should be returned directly.
-func NewValidationError(err error) error {
-	if err == nil || IsValidationError(err) {
-		return err
-	}
-	return &ValidationError{Err: err}
+// NewValidationError marks invalid input, displaying message without appending
+// the causes. Causes remain available through errors.Is and errors.As.
+// Warning: message is displayed verbatim. Never include passwords, supplied input
+// values, or other confidential data in it; authors are responsible for its safety.
+func NewValidationError(message string, causes ...error) error {
+	return &ValidationError{MessageError: NewMessageError(message, causes...)}
 }
 
 // NewValidationErrorf formats an input failure using fmt.Errorf, including %w.
+// Warning: formatting %v, %s, or %w includes the argument's text in the displayed
+// message. To retain a cause without displaying it, use NewValidationError with
+// a separate message and causes. Authors are responsible for message safety.
 func NewValidationErrorf(format string, args ...any) error {
-	return NewValidationError(fmt.Errorf(format, args...))
+	err := fmt.Errorf(format, args...)
+	return NewValidationError(err.Error(), err)
 }
 
 // IsValidationError recognizes marked errors through wrapping and errors.Join.

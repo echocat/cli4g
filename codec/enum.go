@@ -48,7 +48,7 @@ func DisplayEnum[V, R any](ctx context.Context, source Codec[V, R]) ([]EnumChoic
 	if enumeration, ok := source.(Enum[R]); ok {
 		variants, err := enumeration.EnumVariants(ctx)
 		if err != nil {
-			return nil, err
+			return nil, SanitizeError(err, "enum choices could not be read")
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -67,7 +67,7 @@ func DisplayEnum[V, R any](ctx context.Context, source Codec[V, R]) ([]EnumChoic
 			}
 			plain, err := source.FormatRequirement(ctx, variant.Value)
 			if err != nil {
-				return nil, err
+				return nil, SanitizeError(err, "enum choice could not be formatted")
 			}
 			key := enumKey(plain)
 			if seen[key] {
@@ -85,7 +85,7 @@ func DisplayEnum[V, R any](ctx context.Context, source Codec[V, R]) ([]EnumChoic
 	if projection, ok := source.(EnumChoices); ok {
 		choices, err := projection.EnumChoices(ctx)
 		if err != nil {
-			return nil, err
+			return nil, SanitizeError(err, "enum choices could not be read")
 		}
 		result := slices.Clone(choices)
 		for i := range result {
@@ -100,6 +100,8 @@ func DisplayEnum[V, R any](ctx context.Context, source Codec[V, R]) ([]EnumChoic
 // retains the source codec's normalization rules. Unknown requirements fail
 // before Resolve. Use NewSlice/NewMap around an enum for repeated elements;
 // an enum itself selects one variant and is not cumulative.
+// Warning: custom ValidationError messages from the source codec are trusted
+// and displayed verbatim. Authors must keep input and confidential data out.
 func NewEnum[V, R any](source Codec[V, R], values ...R) (Codec[V, R], error) {
 	return NewEnumVariants(source, enumVariants(values)...)
 }
@@ -137,7 +139,7 @@ func NewEnumVariants[V, R any](source Codec[V, R], variants ...EnumVariant[R]) (
 		}
 		plain, err := source.FormatRequirement(ctx, value)
 		if err != nil {
-			return nil, err
+			return nil, SanitizeError(err, "enum choice could not be formatted")
 		}
 		key := enumKey(plain)
 		if result.allowed[key] {
@@ -196,7 +198,7 @@ func (this enumCodec[V, R]) check(ctx context.Context, value R) error {
 	}
 	plain, err := this.source.FormatRequirement(ctx, value)
 	if err != nil {
-		return err
+		return SanitizeError(err, "enum value could not be formatted")
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -204,19 +206,15 @@ func (this enumCodec[V, R]) check(ctx context.Context, value R) error {
 	if this.allowed[enumKey(plain)] {
 		return nil
 	}
-	display, err := DisplayRequirement(ctx, this.source, value)
-	if err != nil {
-		return err
-	}
-	return fmt.Errorf("%w: invalid enum value %s; expected one of: %s", ErrIllegalArgument, enumLabel(display), this.expected)
+	return NewValidationError("expected one of: "+this.expected, ErrIllegalArgument)
 }
 func (this enumCodec[V, R]) ParseRequirement(ctx context.Context, usage Usage, args ...string) (R, error) {
 	value, err := this.source.ParseRequirement(ctx, usage, args...)
 	if err != nil {
 		if IsValidationError(err) {
-			return value, fmt.Errorf("%w; expected one of: %s", err, this.expected)
+			return value, NewValidationError(err.Error()+"; expected one of: "+this.expected, err)
 		}
-		return value, err
+		return value, SanitizeError(err, "enum value could not be decoded")
 	}
 	if err := this.check(ctx, value); err != nil {
 		return value, err
@@ -227,7 +225,8 @@ func (this enumCodec[V, R]) FormatRequirement(ctx context.Context, value R) ([]s
 	if err := this.check(ctx, value); err != nil {
 		return nil, err
 	}
-	return this.source.FormatRequirement(ctx, value)
+	result, err := this.source.FormatRequirement(ctx, value)
+	return result, SanitizeError(err, "enum value could not be formatted")
 }
 func (this enumCodec[V, R]) DisplayRequirement(ctx context.Context, value R) ([]string, error) {
 	if err := this.check(ctx, value); err != nil {
@@ -247,7 +246,8 @@ func (this enumCodec[V, R]) Resolve(ctx context.Context, scope Scope, value R) (
 		var zero V
 		return zero, err
 	}
-	return this.source.Resolve(ctx, scope, value)
+	result, err := this.source.Resolve(ctx, scope, value)
+	return result, SanitizeError(err, "enum value could not be resolved")
 }
 
 // Length-prefixed tokens preserve boundaries, nil/empty distinctions and opaque

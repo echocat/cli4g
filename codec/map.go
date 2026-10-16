@@ -3,7 +3,6 @@ package codec
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -25,6 +24,8 @@ type MapKey interface {
 // keys are input errors, including across repeated flags. Flags take one pair
 // per occurrence; arguments/defaults take zero or more. Map arguments must be
 // last. Nil value codecs panic; nil/empty defaults stay distinct.
+// Warning: custom ValidationError messages from the value codec are trusted
+// and displayed verbatim. Authors must keep input and confidential data out.
 func NewMap[K MapKey, V, R any](element Codec[V, R]) Codec[map[K]V, map[K]R] {
 	if isNil(element) {
 		panic("map codec requires a value codec")
@@ -71,7 +72,7 @@ func (this mapCodec[K, V, R]) ParseRequirementInto(ctx context.Context, usage Us
 			return previous, err
 		}
 		if _, exists := previous[key]; exists {
-			return previous, duplicateMapKey(key)
+			return previous, duplicateMapKey()
 		}
 	}
 	if previous == nil {
@@ -101,7 +102,7 @@ func (this mapCodec[K, V, R]) ParseRequirement(ctx context.Context, usage Usage,
 	if usage == UsageDefault && len(args) == 1 && strings.HasPrefix(args[0], mapRequirementPrefix) {
 		var entries []mapRequirementEntry
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(args[0], mapRequirementPrefix)), &entries); err != nil {
-			return nil, fmt.Errorf("%w: map requirement: %w", ErrIllegalArgument, err)
+			return nil, NewValidationError("a valid map configuration expected", ErrIllegalArgument, err)
 		}
 		if entries == nil {
 			return nil, ctx.Err()
@@ -125,7 +126,7 @@ func (this mapCodec[K, V, R]) ParseRequirement(ctx context.Context, usage Usage,
 	for _, arg := range args {
 		key, value, ok := strings.Cut(arg, "=")
 		if !ok {
-			return nil, fmt.Errorf("%w: map entry must be key=value", ErrIllegalArgument)
+			return nil, NewValidationError("map entry must be key=value", ErrIllegalArgument)
 		}
 		if err := this.parseEntry(ctx, usage, result, key, []string{value}); err != nil {
 			return nil, err
@@ -140,14 +141,14 @@ func (this mapCodec[K, V, R]) parseEntry(ctx context.Context, usage Usage, resul
 	}
 	key, err := parseMapKey[K](input)
 	if err != nil {
-		return fmt.Errorf("%w: map key %q: %w", ErrIllegalArgument, input, err)
+		return prefixError("map key", err)
 	}
 	if _, exists := result[key]; exists {
-		return duplicateMapKey(key)
+		return duplicateMapKey()
 	}
 	value, err := this.element.ParseRequirement(ctx, usage, values...)
 	if err != nil {
-		return fmt.Errorf("map value for key %q: %w", input, err)
+		return prefixError("map value", err)
 	}
 	result[key] = value
 	return ctx.Err()
@@ -169,7 +170,7 @@ func (this mapCodec[K, V, R]) FormatRequirement(ctx context.Context, values map[
 		}
 		plain, err := this.element.FormatRequirement(ctx, values[key])
 		if err != nil {
-			return nil, fmt.Errorf("map value for key %q: %w", formatMapKey(key), err)
+			return nil, prefixError("map value", err)
 		}
 		name := formatMapKey(key)
 		entry := mapRequirementEntry{Key: []byte(name)}
@@ -213,7 +214,7 @@ func (this mapCodec[K, V, R]) DisplayRequirement(ctx context.Context, values map
 		}
 		plain, err := DisplayRequirement(ctx, this.element, values[key])
 		if err != nil {
-			return nil, fmt.Errorf("map value for key %q: %w", formatMapKey(key), err)
+			return nil, prefixError("map value", err)
 		}
 		result = append(result, formatMapKey(key)+"="+strings.Join(plain, " "))
 	}
@@ -234,7 +235,7 @@ func (this mapCodec[K, V, R]) CloneRequirement(ctx context.Context, values map[K
 		}
 		cloned, err := CloneRequirement(ctx, this.element, values[key])
 		if err != nil {
-			return nil, fmt.Errorf("map value for key %q: %w", formatMapKey(key), err)
+			return nil, prefixError("map value", err)
 		}
 		result[key] = cloned
 	}
@@ -255,7 +256,7 @@ func (this mapCodec[K, V, R]) Resolve(ctx context.Context, scope Scope, requirem
 		}
 		value, err := this.element.Resolve(ctx, scope, requirements[key])
 		if err != nil {
-			return nil, fmt.Errorf("map value for key %q: %w", formatMapKey(key), err)
+			return nil, prefixError("map value", err)
 		}
 		result[key] = value
 	}
@@ -271,19 +272,19 @@ func parseMapKey[K MapKey](input string) (K, error) {
 	case reflect.Bool:
 		parsed, err := strconv.ParseBool(input)
 		if err != nil {
-			return key, err
+			return key, NewValidationError("a boolean (true, false, 1, 0, t or f) expected", ErrIllegalArgument, err)
 		}
 		value.SetBool(parsed)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		parsed, err := strconv.ParseInt(input, 0, value.Type().Bits())
 		if err != nil {
-			return key, err
+			return key, signedParseError(input, value.Type().Bits(), err)
 		}
 		value.SetInt(parsed)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		parsed, err := strconv.ParseUint(input, 0, value.Type().Bits())
 		if err != nil {
-			return key, err
+			return key, unsignedParseError(value.Type().Bits(), err)
 		}
 		value.SetUint(parsed)
 	}
@@ -310,6 +311,6 @@ func sortedMapKeys[K MapKey, V any](values map[K]V) []K {
 	return keys
 }
 
-func duplicateMapKey[K MapKey](key K) error {
-	return fmt.Errorf("%w: duplicate map key %q", ErrIllegalArgument, formatMapKey(key))
+func duplicateMapKey() error {
+	return NewValidationError("map keys must be unique", ErrIllegalArgument)
 }

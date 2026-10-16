@@ -1,6 +1,6 @@
 # Custom codec
 
-`colorCodec` implements `codec.Codec[color, uint32]` and is registered with `WithCodec`. `ParseRequirement` validates `#RRGGBB` input and produces a packed 24-bit requirement; `Resolve` turns it into the handler's RGB struct. `FormatRequirement` preserves the requirement for roundtrips, `DisplayRequirement` formats help defaults, and `ToRaw` supplies the registry adapter. Invalid input uses `codec.NewValidationErrorf` so the application reports a validation error with help.
+`colorCodec` implements `codec.Codec[color, uint32]` and is registered with `WithCodec`. `ParseRequirement` validates `#RRGGBB` input and produces a packed 24-bit requirement; `Resolve` turns it into the handler's RGB struct. `FormatRequirement` preserves the requirement for roundtrips, `DisplayRequirement` formats help defaults, and `ToRaw` supplies the registry adapter. Invalid input uses `codec.NewValidationError(message, cause)` so the application reports the requirement with help without displaying the input or native parser error. The original cause remains available through `errors.Is` and `errors.As`.
 
 Run from the repository root:
 

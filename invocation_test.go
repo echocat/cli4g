@@ -125,6 +125,7 @@ func (o *lifecycleOptions) Close() error {
 
 func TestLifecycle(t *testing.T) {
 	var events []string
+	appFailure, childFailure := errors.New("app error"), errors.New("child error")
 	a := NewSimpleApplication("app").
 		WithInitializeHandler(func(context.Context, NoOptions) error { events = append(events, "init app"); return nil }).
 		WithHandler(func(context.Context, NoOptions) error {
@@ -133,7 +134,7 @@ func TestLifecycle(t *testing.T) {
 		}).
 		WithCloseHandler(func(NoOptions) error {
 			events = append(events, "close app")
-			return errors.New("app error")
+			return appFailure
 		}).
 		WithCommand(NewSimpleCommand("child").
 			WithInitializeHandler(func(context.Context, NoOptions) error { events = append(events, "init child"); return nil }).
@@ -143,14 +144,16 @@ func TestLifecycle(t *testing.T) {
 			}).
 			WithCloseHandler(func(NoOptions) error {
 				events = append(events, "close child")
-				return errors.New("child error")
+				return childFailure
 			})).
 		MustCreate()
 	i := a.MustParse(context.Background(), nil, "child")
 	require.NoError(t, i.Execute(context.Background()))
 	err := i.Close()
-	assert.ErrorContains(t, err, "app error")
-	assert.ErrorContains(t, err, "child error")
+	assert.ErrorIs(t, err, appFailure)
+	assert.ErrorIs(t, err, childFailure)
+	assert.NotContains(t, err.Error(), "app error")
+	assert.NotContains(t, err.Error(), "child error")
 	want := []string{"init app", "init child", "exec app", "exec child", "close child", "close app"}
 	assert.Equal(t, want, events)
 }

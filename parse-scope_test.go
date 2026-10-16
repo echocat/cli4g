@@ -370,8 +370,10 @@ type untouchedOptions struct {
 	Count int `flag:"count"`
 }
 
+var errUntouchedOptionsClosed = errors.New("untouched options closed")
+
 func (*untouchedOptions) Close() error {
-	return errors.New("untouched options closed")
+	return errUntouchedOptionsClosed
 }
 
 func TestParseClosesOptionsBeforeTheirDecodingStarts(t *testing.T) {
@@ -387,7 +389,7 @@ func TestParseClosesOptionsBeforeTheirDecodingStarts(t *testing.T) {
 	invocation, err := app.Parse(context.Background(), nil, "--value=invalid", "child")
 	assert.Nil(t, invocation)
 	assert.ErrorIs(t, err, codec.ErrIllegalArgument)
-	assert.ErrorContains(t, err, "untouched options closed")
+	assert.ErrorIs(t, err, errUntouchedOptionsClosed)
 }
 
 type cancellationControl struct {
@@ -548,7 +550,7 @@ func TestParseCancellationSkipsLaterScopeInitialization(t *testing.T) {
 	invocation, err := app.Parse(ctx, nil, "child")
 	assert.Nil(t, invocation)
 	assert.ErrorIs(t, err, context.Canceled)
-	assert.ErrorContains(t, err, "untouched options closed")
+	assert.ErrorIs(t, err, errUntouchedOptionsClosed)
 	assert.True(t, rootClosed)
 }
 

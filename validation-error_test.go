@@ -20,18 +20,18 @@ import (
 
 func TestValidationErrorPreservesMessageCauseAndClassification(t *testing.T) {
 	cause := &strconv.NumError{Func: "Atoi", Num: "bad", Err: strconv.ErrSyntax}
-	err := NewValidationError(cause)
-	assert.Equal(t, cause.Error(), err.Error())
+	err := NewValidationError("an integer expected", cause)
+	assert.Equal(t, "an integer expected", err.Error())
 	assert.ErrorIs(t, err, ErrValidation)
 	assert.ErrorIs(t, err, strconv.ErrSyntax)
 	var typed *ValidationError
 	require.ErrorAs(t, err, &typed)
-	assert.Same(t, cause, typed.Err)
+	assert.Equal(t, []error{cause}, typed.Unwrap())
 	var number *strconv.NumError
 	require.ErrorAs(t, err, &number)
 	assert.Same(t, cause, number)
-	assert.Same(t, err, NewValidationError(err))
-	assert.Nil(t, NewValidationError(nil))
+	assert.Same(t, err, codec.SanitizeError(err, "fallback"))
+	assert.Nil(t, codec.SanitizeError(nil, "fallback"))
 	assert.Equal(t, ErrValidation.Error(), (&ValidationError{}).Error())
 }
 
@@ -39,8 +39,8 @@ func TestCliValidationAPIUsesCodecIdentity(t *testing.T) {
 	assert.Same(t, codec.ErrValidation, ErrValidation)
 	cause := io.ErrUnexpectedEOF
 	for _, err := range []error{
-		NewValidationError(cause), NewValidationErrorf("invalid input: %w", cause),
-		codec.NewValidationError(cause), codec.NewValidationErrorf("invalid input: %w", cause),
+		NewValidationError("invalid input", cause), NewValidationErrorf("invalid input: %w", cause),
+		codec.NewValidationError("invalid input", cause), codec.NewValidationErrorf("invalid input: %w", cause),
 	} {
 		assert.True(t, IsValidationError(err))
 		assert.True(t, codec.IsValidationError(err))
@@ -208,7 +208,10 @@ type inputSetValue string
 func (v *inputSetValue) Set(value string) error {
 	_, err := strconv.Atoi(value)
 	*v = inputSetValue(value)
-	return NewValidationError(err)
+	if err != nil {
+		return NewValidationError("an integer expected", err)
+	}
+	return nil
 }
 func (v *inputSetValue) String() string { return string(*v) }
 
@@ -220,7 +223,10 @@ func (v inputUnmarshalValue) MarshalText() ([]byte, error) {
 func (v *inputUnmarshalValue) UnmarshalText(input []byte) error {
 	parsed, err := strconv.Atoi(string(input))
 	*v = inputUnmarshalValue(parsed)
-	return NewValidationError(err)
+	if err != nil {
+		return NewValidationError("an integer expected", err)
+	}
+	return nil
 }
 
 func TestUnmarshalContentFailureIsInputDespiteResolvePhase(t *testing.T) {
@@ -309,7 +315,7 @@ func TestValidationAndOperationalFailuresRemainDistinctAfterCleanup(t *testing.T
 		t.Run(stage, func(t *testing.T) {
 			cause := errors.New("failed " + stage)
 			if stage == "validate" {
-				cause = NewValidationError(cause)
+				cause = NewValidationError("failed validate", cause)
 			} else if stage == "validate read error" {
 				cause = io.ErrUnexpectedEOF
 			} else if stage == "validate OS error" {
@@ -377,7 +383,7 @@ func TestUnifiedResponderChoosesHelpAndPreservesOutputFailure(t *testing.T) {
 			response.SetExecutionExitCode(8)
 			cause := errors.New("failure")
 			if validation {
-				cause = NewValidationError(cause)
+				cause = NewValidationError("failure", cause)
 			}
 			assert.Same(t, cause, handler(nil, nil, cause))
 			assert.Contains(t, output.String(), "Error: failure\n")

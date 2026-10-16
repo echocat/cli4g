@@ -34,7 +34,7 @@ func (value *format) UnmarshalText(input []byte) error {
 	case "yaml":
 		*value = yamlFormat
 	default:
-		return codec.NewValidationErrorf("unknown format %q", input)
+		return codec.NewValidationError("expected one of: json, yaml")
 	}
 	return nil
 }

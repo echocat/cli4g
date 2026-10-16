@@ -59,7 +59,8 @@ func TestMapFlagSpellingsAndDuplicateKeys(t *testing.T) {
 				}
 				invocation, err := app.Parse(nil, nil, append(args, duplicate)...)
 				require.ErrorIs(t, err, ErrValidation)
-				assert.ErrorContains(t, err, `duplicate map key "env"`)
+				assert.ErrorContains(t, err, "map keys must be unique")
+				assert.NotContains(t, err.Error(), "env")
 				assert.Nil(t, invocation)
 			}
 		})

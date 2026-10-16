@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	ErrArgumentRequired    = NewValidationError(errors.New("argument is required"))
-	ErrNoArgumentExpected  = NewValidationError(errors.New("no argument expected"))
-	ErrTooManyArguments    = NewValidationError(errors.New("too many arguments provided"))
-	ErrTooFewArguments     = NewValidationError(errors.New("too few arguments provided"))
-	ErrIllegalArgument     = NewValidationError(errors.New("illegal argument"))
+	ErrArgumentRequired    = NewValidationError("argument is required")
+	ErrNoArgumentExpected  = NewValidationError("no argument expected")
+	ErrTooManyArguments    = NewValidationError("too many arguments provided")
+	ErrTooFewArguments     = NewValidationError("too few arguments provided")
+	ErrIllegalArgument     = NewValidationError("illegal argument")
 	ErrInvalid             = errors.New("invalid codec")
 	ErrResourceRequirement = errors.New("requirements must not hold resources")
 )
@@ -26,6 +26,9 @@ var (
 //     including nil/empty distinctions and independent mutable data.
 //   - Register acquired resources with [Scope.OnClose] immediately, even on failure.
 //   - Mark user input errors with [NewValidationError]; leave technical errors unmarked.
+//   - Describe requirements in error messages, never supplied input values.
+//     ValidationError messages are trusted author-controlled output. Unmarked
+//     runtime errors receive neutral messages at codec/CLI boundaries, retaining causes.
 type Codec[V, R any] interface {
 	// CanHandleType reports supported runtime types; support must not vary by context.
 	CanHandleType(context.Context, reflect.Type) (bool, error)

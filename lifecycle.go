@@ -9,6 +9,8 @@ type Validatable interface {
 	// It must not acquire resources or mutate the options.
 	// Mark invalid input with NewValidationError or NewValidationErrorf; unmarked
 	// failures remain operational and retain their original causes.
+	// Warning: marked messages are displayed verbatim and must not include input
+	// values or confidential data. Unmarked failures receive a neutral message.
 	Validate(context.Context) error
 }
 

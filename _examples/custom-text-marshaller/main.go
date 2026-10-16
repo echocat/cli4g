@@ -18,7 +18,7 @@ func (v date) MarshalText() ([]byte, error) {
 func (v *date) UnmarshalText(input []byte) error {
 	parsed, err := time.Parse(time.DateOnly, string(input))
 	if err != nil {
-		return codec.NewValidationErrorf("date must be YYYY-MM-DD: %w", err)
+		return codec.NewValidationError("a valid date in YYYY-MM-DD format expected", err)
 	}
 	*v = date(parsed)
 	return nil

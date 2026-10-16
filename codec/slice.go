@@ -11,6 +11,8 @@ import (
 // NewSlice composes an element codec into a repeatable []V codec with []R defaults.
 // A flag occurrence takes one element; arguments/defaults take zero or more.
 // Slice arguments must be last. Nil element codecs panic; nil/empty defaults stay distinct.
+// Warning: custom ValidationError messages from the element codec are trusted
+// and displayed verbatim. Authors must keep input and confidential data out.
 func NewSlice[V, R any](element Codec[V, R]) Codec[[]V, []R] {
 	if isNil(element) {
 		panic("slice codec requires an element codec")
@@ -66,7 +68,7 @@ func (this slice[V, R]) ParseRequirement(ctx context.Context, usage Usage, args 
 	if usage == UsageDefault && len(args) == 1 && strings.HasPrefix(args[0], "slice+json:") {
 		var groups [][][]byte
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(args[0], "slice+json:")), &groups); err != nil {
-			return nil, fmt.Errorf("%w: slice requirement: %w", ErrIllegalArgument, err)
+			return nil, NewValidationError("a valid list configuration expected", ErrIllegalArgument, err)
 		}
 		if groups == nil {
 			return nil, ctx.Err()
@@ -85,7 +87,7 @@ func (this slice[V, R]) ParseRequirement(ctx context.Context, usage Usage, args 
 			}
 			value, err := this.element.ParseRequirement(ctx, UsageDefault, inputs...)
 			if err != nil {
-				return nil, fmt.Errorf("slice element %d: %w", i, err)
+				return nil, prefixError(fmt.Sprintf("slice element %d", i), err)
 			}
 			result[i] = value
 		}
@@ -98,7 +100,7 @@ func (this slice[V, R]) ParseRequirement(ctx context.Context, usage Usage, args 
 		}
 		value, err := this.element.ParseRequirement(ctx, usage, arg)
 		if err != nil {
-			return nil, fmt.Errorf("slice element %d: %w", i, err)
+			return nil, prefixError(fmt.Sprintf("slice element %d", i), err)
 		}
 		result[i] = value
 	}
@@ -118,7 +120,7 @@ func (this slice[V, R]) FormatRequirement(ctx context.Context, values []R) ([]st
 		}
 		plain, err := this.element.FormatRequirement(ctx, value)
 		if err != nil {
-			return nil, fmt.Errorf("slice element %d: %w", i, err)
+			return nil, prefixError(fmt.Sprintf("slice element %d", i), err)
 		}
 		if plain != nil {
 			groups[i] = make([][]byte, len(plain))
@@ -177,7 +179,7 @@ func (this slice[V, R]) CloneRequirement(ctx context.Context, values []R) ([]R, 
 		}
 		cloned, err := CloneRequirement(ctx, this.element, value)
 		if err != nil {
-			return nil, fmt.Errorf("slice element %d: %w", i, err)
+			return nil, prefixError(fmt.Sprintf("slice element %d", i), err)
 		}
 		result[i] = cloned
 	}
@@ -195,7 +197,7 @@ func (this slice[V, R]) Resolve(ctx context.Context, scope Scope, requirements [
 		}
 		value, err := this.element.Resolve(ctx, scope, requirement)
 		if err != nil {
-			return nil, fmt.Errorf("slice element %d: %w", i, err)
+			return nil, prefixError(fmt.Sprintf("slice element %d", i), err)
 		}
 		values[i] = value
 	}

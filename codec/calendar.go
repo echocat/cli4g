@@ -3,6 +3,7 @@ package codec
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -89,14 +90,30 @@ func (this calendarCodec) parse(ctx context.Context, usage Usage, input string) 
 		}
 		return value, ctx.Err()
 	}
-	var last error
+	causes := []error{ErrIllegalArgument}
+	var reason string
 	for _, layout := range this.layouts() {
 		if err := ctx.Err(); err != nil {
 			return time.Time{}, err
 		}
 		value, err := time.ParseInLocation(layout, input, this.zone())
 		if err != nil {
-			last = err
+			causes = append(causes, err)
+			var detail *time.ParseError
+			if errors.As(err, &detail) {
+				switch detail.Message {
+				case ": month out of range":
+					reason = "month should be between 1 and 12"
+				case ": day out of range":
+					reason = "day must exist in the selected month"
+				case ": hour out of range":
+					reason = "hour should be between 0 and 23"
+				case ": minute out of range":
+					reason = "minute should be between 0 and 59"
+				case ": second out of range":
+					reason = "second should be between 0 and 59"
+				}
+			}
 			continue
 		}
 		// time.Parse invents a zero-offset location for unknown abbreviations.
@@ -104,19 +121,41 @@ func (this calendarCodec) parse(ctx context.Context, usage Usage, input string) 
 		name, offset := value.Zone()
 		hasZoneOffset := strings.Contains(layout, "-07") || strings.Contains(layout, "Z07")
 		if strings.Contains(layout, "MST") && !hasZoneOffset && offset == 0 && name != "UTC" && name != "GMT" && value.Location() != this.zone() {
-			last = fmt.Errorf("time zone abbreviation %q is unknown in %s", name, this.zone())
+			reason = "time zone abbreviation must be known in the configured location"
+			causes = append(causes, fmt.Errorf("time zone abbreviation %q is unknown in %s", name, this.zone()))
 			continue
 		}
 		if this.dateOnly {
 			hour, minute, second := value.Clock()
 			if hour != 0 || minute != 0 || second != 0 || value.Nanosecond() != 0 {
-				last = fmt.Errorf("date inputs must not include a nonzero time of day")
+				reason = "date inputs must not include a nonzero time of day"
 				continue
 			}
 		}
 		return this.normalize(value), ctx.Err()
 	}
-	return time.Time{}, fmt.Errorf("%w: cannot parse %q using layouts %q: %w", ErrIllegalArgument, input, this.layouts(), last)
+	message := "a valid date and time expected"
+	if this.dateOnly {
+		message = "a valid date expected"
+	}
+	if reason != "" {
+		message += "; " + reason
+	}
+	// Examples are derived solely from configured layouts, never from input.
+	hour := 14
+	if this.dateOnly {
+		hour = 0
+	}
+	reference := time.Date(2026, time.July, 15, hour, 0, 0, 0, this.zone())
+	var examples []string
+	for _, layout := range this.layouts() {
+		example := reference.Format(layout)
+		if !slices.Contains(examples, example) {
+			examples = append(examples, example)
+		}
+	}
+	message += "; accepted formats (examples): " + strings.Join(examples, ", ")
+	return time.Time{}, NewValidationError(message, causes...)
 }
 
 // Default serialization is independent of display layouts. In particular it
@@ -142,7 +181,7 @@ func (this calendarCodec) requirementZone(value time.Time) (calendarWire, error)
 		start, end := value.ZoneBounds()
 		name, offset := value.Zone()
 		if !start.IsZero() || !end.IsZero() || value.Location().String() != name {
-			return wire, fmt.Errorf("%w: requirement location %q must be configured with WithLocation", ErrInvalid, value.Location())
+			return wire, NewMessageError("date/time location must be configured with WithLocation", ErrInvalid)
 		}
 		wire.Zone = "fixed"
 		wire.Name, wire.Offset = []byte(name), offset
@@ -164,11 +203,11 @@ func (this calendarCodec) format(ctx context.Context, value time.Time) ([]string
 	}
 	wire.Time, err = value.UTC().MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, NewMessageError("date/time zone offset is outside the supported range", err)
 	}
 	encoded, err := json.Marshal(wire)
 	if err != nil {
-		return nil, err
+		return nil, NewMessageError("date/time configuration could not be encoded", err)
 	}
 	return []string{this.prefix() + string(encoded)}, ctx.Err()
 }
@@ -178,15 +217,15 @@ func (this calendarCodec) parseWire(input string) (time.Time, error) {
 	decoder := json.NewDecoder(strings.NewReader(strings.TrimPrefix(input, this.prefix())))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&wire); err != nil {
-		return time.Time{}, fmt.Errorf("%w: date/time requirement: %w", ErrIllegalArgument, err)
+		return time.Time{}, NewValidationError("a valid date/time configuration expected", ErrIllegalArgument, err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		return time.Time{}, fmt.Errorf("%w: trailing date/time requirement data", ErrIllegalArgument)
+		return time.Time{}, NewValidationError("date/time configuration must contain exactly one value", ErrIllegalArgument, err)
 	}
 	var value time.Time
 	if err := value.UnmarshalBinary(wire.Time); err != nil {
-		return time.Time{}, fmt.Errorf("%w: date/time requirement: %w", ErrIllegalArgument, err)
+		return time.Time{}, NewValidationError("a valid date/time configuration expected", ErrIllegalArgument, err)
 	}
 	switch wire.Zone {
 	case "utc":
@@ -198,7 +237,7 @@ func (this calendarCodec) parseWire(input string) (time.Time, error) {
 	case "fixed":
 		value = value.In(time.FixedZone(string(wire.Name), wire.Offset))
 	default:
-		return time.Time{}, fmt.Errorf("%w: unknown requirement zone %q", ErrIllegalArgument, wire.Zone)
+		return time.Time{}, NewValidationError("a supported date/time configuration zone expected", ErrIllegalArgument)
 	}
 	return this.normalize(value), nil
 }

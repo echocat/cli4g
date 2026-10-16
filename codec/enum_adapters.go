@@ -8,6 +8,7 @@ import (
 // NewMarshallerEnum restricts a text adapter using typed runtime alternatives.
 // MarshalText is called once per supplied value during construction, never
 // during help or parsing. UnmarshalText still runs on fresh targets in Resolve.
+// Warning: custom ValidationError messages are trusted; see NewMarshaller.
 func NewMarshallerEnum[T encoding.TextMarshaler, TP interface {
 	*T
 	encoding.TextUnmarshaler
@@ -16,6 +17,7 @@ func NewMarshallerEnum[T encoding.TextMarshaler, TP interface {
 }
 
 // NewMarshallerEnumVariants adds descriptions to typed text alternatives.
+// Warning: custom ValidationError messages are trusted; see NewMarshaller.
 func NewMarshallerEnumVariants[T encoding.TextMarshaler, TP interface {
 	*T
 	encoding.TextUnmarshaler
@@ -37,6 +39,7 @@ func NewMarshallerEnumVariants[T encoding.TextMarshaler, TP interface {
 
 // NewMarshallerPEnum is NewMarshallerEnum for pointer targets created by a
 // caller-supplied factory. The factory is not called during construction/help.
+// Warning: custom ValidationError messages are trusted; see NewMarshallerP.
 func NewMarshallerPEnum[T interface {
 	encoding.TextMarshaler
 	encoding.TextUnmarshaler
@@ -59,7 +62,7 @@ func enumTextRequirements[T encoding.TextMarshaler](values []T) ([]string, error
 		}
 		text, err := value.MarshalText()
 		if err != nil {
-			return nil, fmt.Errorf("enum variant %d: marshal text: %w", i, err)
+			return nil, prefixError(fmt.Sprintf("enum variant %d", i), SanitizeError(err, "enum choice could not be formatted"))
 		}
 		result[i] = string(text)
 	}
@@ -70,6 +73,7 @@ func enumTextRequirements[T encoding.TextMarshaler](values []T) ([]string, error
 // For this opt-in adapter, String must produce a canonical input accepted by
 // Set. Distinct alternatives must have distinct strings. Runtime String is not
 // used as serialization: only the declared strings are retained as requirements.
+// Warning: custom ValidationError messages are trusted; see NewValue.
 func NewValueEnum[T any, TP interface {
 	*T
 	Value
@@ -78,6 +82,7 @@ func NewValueEnum[T any, TP interface {
 }
 
 // NewValueEnumVariants adds descriptions to typed Set/String alternatives.
+// Warning: custom ValidationError messages are trusted; see NewValue.
 func NewValueEnumVariants[T any, TP interface {
 	*T
 	Value
@@ -96,6 +101,7 @@ func NewValueEnumVariants[T any, TP interface {
 
 // NewValuePEnum is NewValueEnum for factory-created pointers. Supplied values
 // are borrowed configuration inputs; the adapter never retains or closes them.
+// Warning: custom ValidationError messages are trusted; see NewValueP.
 func NewValuePEnum[T Value](factory func() T, values ...T) (Codec[T, []string], error) {
 	source, err := NewValueP(factory)
 	if err != nil {

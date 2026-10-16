@@ -23,7 +23,10 @@ type FlagValueConfig[T any] = ValueConfig[T]
 // NewFlagValue creates a Set/String adapter to keep resource-free input tokens
 // as their requirements. String is a display method, not a lossless serialization
 // of arbitrary T.
-// Set must explicitly mark invalid input; the adapter preserves returned errors.
+// Set must explicitly mark invalid input. Unmarked errors receive a neutral
+// message while retaining their cause and classification.
+// Warning: ValidationError messages are displayed verbatim. Authors must not
+// include input values, passwords, or other confidential data in them.
 func NewFlagValue[T any, TP interface {
 	*T
 	Value
@@ -50,6 +53,8 @@ func NewFlagValue[T any, TP interface {
 // NewPointerFlagValue adapts a fallible, concurrent-safe factory of fresh pointer values.
 // Resources in non-nil partial results are registered for cleanup even on error.
 // Requirements are Set input tokens; see [NewValueP] for an infallible factory.
+// Warning: as with NewFlagValue, authors are responsible for the safety of
+// explicitly marked ValidationError messages returned by their factory or Set.
 func NewPointerFlagValue[T Value](factory func() (T, error), configs ...ValueConfig[T]) (Codec[T, []string], error) {
 	if factory == nil {
 		return nil, fmt.Errorf("%w: nil value factory", ErrInvalid)
@@ -148,7 +153,8 @@ func (this tokenValue[T]) Resolve(ctx context.Context, scope Scope, args []strin
 		var zero T
 		return zero, err
 	}
-	return this.resolve(ctx, scope, args)
+	value, err := this.resolve(ctx, scope, args)
+	return value, SanitizeError(err, "value could not be decoded")
 }
 
 func configuredValueTraits[T any](probe Value, configs []ValueConfig[T]) (traits ValueTraits, err error) {

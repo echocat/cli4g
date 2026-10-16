@@ -221,7 +221,7 @@ func TestRespondWithHelpUsesApplicationOrExplicitHandlerAndContextFallback(t *te
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, helpInvocation.Close()) }()
 	ctx := withInvocationContext(context.Background(), helpInvocation)
-	validationError := NewValidationError(errors.New("bad input"))
+	validationError := NewValidationError("bad input")
 	var typedNil *Invocation[NoOptions]
 	assert.Same(t, validationError, handler(ctx, typedNil, validationError))
 	assert.Equal(t, "Error: bad input\n\nHELP app\n", output.String())
@@ -237,7 +237,7 @@ func TestRespondWithHelpUsesApplicationOrExplicitHandlerAndContextFallback(t *te
 }
 
 func TestRespondWithHelpReturnsOriginalAndResponseFailuresWithoutExiting(t *testing.T) {
-	validationError := NewValidationError(errors.New("bad input"))
+	validationError := NewValidationError("bad input")
 	responseError := errors.New("response failed")
 	var calls int
 	for _, writer := range []helpTestWriter{{err: responseError}, {short: true}} {

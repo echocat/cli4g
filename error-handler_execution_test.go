@@ -97,7 +97,8 @@ func TestManagedExecutionReportsHandlerAndCompletionCleanupErrorsOnce(t *testing
 			assert.Equal(t, 1, calls)
 			assert.Equal(t, 1, closes)
 			assert.True(t, reportedApp.definition.closed.Load(), "managed application closes when the returning response completes")
-			assert.Equal(t, 1, strings.Count(err.Error(), cleanup.Error()), "cleanup error must not be joined repeatedly")
+			assert.Equal(t, 1, strings.Count(err.Error(), "options could not be closed"), "cleanup error must not be joined repeatedly")
+			assert.NotContains(t, err.Error(), cleanup.Error())
 		})
 	}
 }

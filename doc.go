@@ -136,6 +136,14 @@
 // Other errors remain operational. [DefaultErrorHandler] writes to context stderr and
 // exits with 2 for invalid input, 130 for cancellation, or 1 for other errors.
 // Disable responses when embedding the library: os.Exit does not run caller defers.
+// Built-in codec failures describe the required value without echoing the input.
+// Use NewValidationError("an integer expected", cause) to retain a diagnostic
+// cause without appending its text. Error displays only the message; errors.Is
+// and errors.As still traverse the causes. Unmarked codec/validation failures
+// receive neutral messages and retain their original classification.
+// Warning: author-supplied ValidationError messages are displayed verbatim and
+// must not contain input or confidential data. NewValidationErrorf with %w does
+// include the cause text; prefer separate messages and causes for sensitive input.
 //
 // # Context streams
 //

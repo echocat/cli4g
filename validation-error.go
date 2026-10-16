@@ -8,10 +8,17 @@ var ErrValidation = codec.ErrValidation
 // ValidationError is the codec package's input-error wrapper.
 type ValidationError = codec.ValidationError
 
-// NewValidationError marks an input failure without changing its message or cause.
-func NewValidationError(err error) error { return codec.NewValidationError(err) }
+// NewValidationError marks invalid input with a message and diagnostic causes.
+// Error displays only message; errors.Is and errors.As can inspect the causes.
+// Warning: message is displayed verbatim. Authors must not include passwords,
+// supplied input values, or other confidential data.
+func NewValidationError(message string, causes ...error) error {
+	return codec.NewValidationError(message, causes...)
+}
 
 // NewValidationErrorf formats an input failure, preserving causes supplied with %w.
+// Warning: %w also displays the cause text. Use NewValidationError with a separate
+// message and causes to avoid exposing input or other confidential data.
 func NewValidationErrorf(format string, args ...any) error {
 	return codec.NewValidationErrorf(format, args...)
 }
