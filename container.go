@@ -14,9 +14,12 @@ type Container interface {
 	Description() string
 	Commands() iter.Seq[CommandLike]
 	Command(string) (CommandLike, bool)
+	CommandOfProfile(string, string) (CommandLike, bool)
 	Flags() iter.Seq[*Flag[any, any]]
 	Flag(string) (*Flag[any, any], bool)
+	FlagOfProfile(string, string) (*Flag[any, any], bool)
 	ShortFlag(rune) (*Flag[any, any], bool)
+	ShortFlagOfProfile(rune, string) (*Flag[any, any], bool)
 	Arguments() iter.Seq[*Argument[any, any]]
 	Argument(int) (*Argument[any, any], bool)
 	OptionsType() reflect.Type

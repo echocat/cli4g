@@ -17,6 +17,8 @@ type InvocationLike interface {
 	ErrorHandler() ErrorHandler
 	Stack() []InvocationStackFrame
 	NameStack() []string
+	Profiles() iter.Seq[string]
+	ContainsProfile(string) bool
 	Flags() iter.Seq2[*Flag[any, any], any]
 	Flag(string) (*Flag[any, any], any)
 	ShortFlag(rune) (*Flag[any, any], any)
@@ -34,6 +36,8 @@ type Invocation[O any] struct {
 	application *Application[O]
 	frames      []invocationFrame // fixed storage: root application followed by selected commands
 	lifecycle   *invocationLifecycle
+	selected    []selectedContainer // retained active schema, including help/error invocations
+	profiles    selectedProfiles
 }
 
 var _ io.Closer = (*Invocation[NoOptions])(nil)
@@ -54,6 +58,17 @@ func (this Invocation[O]) Application() (*Application[O], O) {
 // unknown to a command handler obtaining the invocation from its context.
 func (this Invocation[O]) Root() Container {
 	return this.application
+}
+
+// Profiles lists this invocation's selected profiles exactly once in alphabetical
+// order. Unlike Application.Profiles, it does not list every known profile.
+// The snapshot remains readable after Close and on help/error invocations.
+func (this Invocation[O]) Profiles() iter.Seq[string] { return this.profiles.Profiles() }
+
+// ContainsProfile reports whether an exact, case-sensitive profile was selected
+// for this invocation, independently of whether the command path uses it.
+func (this Invocation[O]) ContainsProfile(profile string) bool {
+	return this.profiles.ContainsProfile(profile)
 }
 
 // InvocationStackFrame contains a selected command and its current options.

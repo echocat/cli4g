@@ -28,7 +28,10 @@ func NewArgument[V, R any](codec codec.Codec[V, R]) *ArgumentRequirement[V, R] {
 // Explicit arguments retain registration order; field bindings replacing tags
 // keep their tagged slots in mixed definitions. Other builder arguments come first.
 type ArgumentRequirement[V, R any] struct {
-	Name        string
+	Name string
+	// Profiles activates this definition when any listed profile is selected.
+	// An empty list makes it active for every parse.
+	Profiles    []string
 	Description string
 	Required    bool
 	Placeholder string
@@ -55,6 +58,7 @@ func (this ArgumentRequirement[V, R]) createRaw() (*Argument[any, any], error) {
 	}
 	return &Argument[any, any]{
 		name:         this.Name,
+		profiles:     slices.Clone(this.Profiles),
 		description:  this.Description,
 		required:     this.Required,
 		placeholder:  this.Placeholder,
@@ -63,6 +67,16 @@ func (this ArgumentRequirement[V, R]) createRaw() (*Argument[any, any], error) {
 		fieldPath:    slices.Clone(this.Field),
 		defaultValue: rawDefault(this.defaultValue),
 	}, nil
+}
+
+// WithProfiles replaces the profile selection. No profiles means always active.
+func (this *ArgumentRequirement[V, R]) WithProfiles(v ...string) *ArgumentRequirement[V, R] {
+	this.SetProfiles(v)
+	return this
+}
+
+func (this *ArgumentRequirement[V, R]) SetProfiles(v []string) {
+	this.Profiles = slices.Clone(v)
 }
 
 // WithDefault sets a resource-free typed default R for an omitted optional argument.

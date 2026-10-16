@@ -5,7 +5,7 @@ import "reflect"
 // CommandRequirementLike accepts value and pointer builders with independent
 // options types. Each builder compiles its own typed handler adapters.
 type CommandRequirementLike interface {
-	createNode(map[string]CommandLike, []containerSchema, map[commandRequirementIdentity]bool) (*compileNode, error)
+	createNode([]CommandLike, []containerSchema, map[commandRequirementIdentity]bool) (*compileNode, error)
 	commandsIdentity() commandRequirementIdentity
 }
 
@@ -29,7 +29,7 @@ func (r CommandRequirement[O]) commandsIdentity() commandRequirementIdentity {
 	}
 }
 
-func createRequirementNode(requirement CommandRequirementLike, siblings map[string]CommandLike, parents []containerSchema, active map[commandRequirementIdentity]bool) (*compileNode, error) {
+func createRequirementNode(requirement CommandRequirementLike, siblings []CommandLike, parents []containerSchema, active map[commandRequirementIdentity]bool) (*compileNode, error) {
 	if requirement == nil {
 		return nil, errSchema("nil command requirement")
 	}

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"reflect"
+	"slices"
 
 	"github.com/echocat/cli4g/codec"
 )
@@ -11,6 +12,7 @@ import (
 // and [Argument.Default] for its resource-free default R.
 type Argument[V, R any] struct {
 	name         string
+	profiles     []string
 	description  string
 	required     bool
 	placeholder  string
@@ -22,6 +24,9 @@ type Argument[V, R any] struct {
 	defaultValue *valueDefault[R]
 	index        int // position in the compiled container's argument definitions
 }
+
+// Profiles returns a copy of the explicit profile assignments; empty means always active.
+func (this *Argument[V, R]) Profiles() []string { return slices.Clone(this.profiles) }
 
 func (this *Argument[V, R]) Name() string {
 	return this.name

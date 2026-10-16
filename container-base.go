@@ -52,6 +52,18 @@ func (this *containerBase) Commands() iter.Seq[CommandLike] {
 	return slices.Values(this.commands)
 }
 
+// CommandOfProfile finds a command explicitly assigned to profile, by name or
+// alias. It does not fall back to commands without profile assignments.
+func (this *containerBase) CommandOfProfile(name, profile string) (CommandLike, bool) {
+	for _, command := range this.commands {
+		if slices.Contains(command.Profiles(), profile) && slices.Contains(command.Names(), name) {
+			return command, true
+		}
+	}
+	return nil, false
+}
+
+// Command finds only commands without profile assignments.
 func (this *containerBase) Command(name string) (CommandLike, bool) {
 	command, found := this.commandsByName[name]
 	return command, found
@@ -61,11 +73,33 @@ func (this *containerBase) Flags() iter.Seq[*Flag[any, any]] {
 	return slices.Values(this.flags)
 }
 
+// Flag finds only flags without profile assignments, by name or alias.
 func (this *containerBase) Flag(name string) (*Flag[any, any], bool) {
 	flag, found := this.flagByName[name]
 	return flag, found
 }
 
+// FlagOfProfile finds an explicitly assigned flag, with no profile-free fallback.
+func (this *containerBase) FlagOfProfile(name, profile string) (*Flag[any, any], bool) {
+	for _, flag := range this.flagVariants[name] {
+		if slices.Contains(flag.profiles, profile) {
+			return flag, true
+		}
+	}
+	return nil, false
+}
+
+// ShortFlagOfProfile finds an explicitly assigned flag by its short alias.
+func (this *containerBase) ShortFlagOfProfile(short rune, profile string) (*Flag[any, any], bool) {
+	for _, flag := range this.shortVariants[short] {
+		if slices.Contains(flag.profiles, profile) {
+			return flag, true
+		}
+	}
+	return nil, false
+}
+
+// ShortFlag finds only flags without profile assignments.
 func (this *containerBase) ShortFlag(short rune) (*Flag[any, any], bool) {
 	flag, found := this.flagByShort[short]
 	return flag, found

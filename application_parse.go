@@ -28,6 +28,13 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 	}
 	ctx = this.definition.prepareContext(ctx)
 	var input parseInput
+	var profiles selectedProfiles
+	if opts != nil {
+		profiles = slices.Clone(opts.Profiles)
+		slices.Sort(profiles)
+		profiles = slices.Compact(profiles)
+	}
+	ctx = withProfilesContext(ctx, profiles)
 	var result *Invocation[O]
 	failureTarget := Container(this)
 	if this.errorHandler != nil {
@@ -43,6 +50,12 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 			}
 			if result == nil {
 				result = this.newMetadataInvocation(input.commands)
+				result.profiles = profiles
+				result.selected = input.scopes
+				if len(result.selected) == 0 && len(this.definition.profiles) > 0 {
+					view, _ := selectContainer(this, nil, profiles)
+					result.selected = []selectedContainer{view}
+				}
 				_ = result.Close() // no options; retain the usual failed/closed state
 			}
 			target := failureTarget
@@ -58,12 +71,15 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	input, err = this.scanTokens(ctx, vs)
+	input, err = this.scanTokens(ctx, profiles, vs)
 	if err != nil {
 		return nil, err
 	}
 	if input.helpRequested {
-		return this.newHelpInvocation(input.commands), nil
+		invocation := this.newHelpInvocation(input.commands)
+		invocation.profiles = profiles
+		invocation.selected = input.scopes
+		return invocation, nil
 	}
 	plan := this.plan
 	if len(input.commands) > 0 {
@@ -110,8 +126,8 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 			err = errors.Join(err, state.close())
 		}
 	}()
-	result = &Invocation[O]{application: this, frames: frames, lifecycle: state}
-	scopes[0], err = newParseScope(ctx, this, plan.schemas[0], &frames[0])
+	result = &Invocation[O]{application: this, frames: frames, lifecycle: state, selected: input.scopes, profiles: profiles}
+	scopes[0], err = newParseScope(ctx, this, input.scopes[0].schema, &frames[0])
 	hasPooledScopes = scopes[0].pooled
 	if err != nil {
 		return nil, wrapContainerError(this.Name(), "create options", err)
@@ -121,7 +137,7 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 			return nil, err
 		}
 		failureTarget = command
-		scopes[i+1], err = newParseScope(ctx, command, plan.schemas[i+1], &frames[i+1])
+		scopes[i+1], err = newParseScope(ctx, command, input.scopes[i+1].schema, &frames[i+1])
 		hasPooledScopes = hasPooledScopes || scopes[i+1].pooled
 		if plan.parents != nil {
 			err = errors.Join(err, plan.parents.inject(ctx, i+1, frames))

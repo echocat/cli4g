@@ -6,17 +6,25 @@ import (
 )
 
 func (r CommandRequirement[O]) createNode(
-	siblings map[string]CommandLike,
+	siblings []CommandLike,
 	parents []containerSchema,
 	active map[commandRequirementIdentity]bool,
 ) (*compileNode, error) {
 	if len(r.Names) == 0 || r.Names[0] == "" {
 		return nil, errSchema("command needs a name")
 	}
+	if err := validateProfiles(r.Profiles); err != nil {
+		return nil, err
+	}
 	seen := make(map[string]bool)
 	for _, name := range r.Names {
-		if name == "" || name[0] == '-' || siblings[name] != nil || seen[name] {
+		if name == "" || name[0] == '-' || seen[name] {
 			return nil, errSchema("duplicate or invalid command name %q", name)
+		}
+		for _, sibling := range siblings {
+			if slices.Contains(sibling.Names(), name) && profilesOverlap(sibling.Profiles(), r.Profiles) {
+				return nil, errSchema("duplicate or invalid command name %q (profiles %v and %v)", name, sibling.Profiles(), r.Profiles)
+			}
 		}
 		seen[name] = true
 	}
@@ -25,19 +33,19 @@ func (r CommandRequirement[O]) createNode(
 		return nil, fmt.Errorf("command %q: %w", r.Names[0], err)
 	}
 	for _, parent := range parents {
-		for name := range draft.schema.flagByName {
-			if parent.flagByName[name] != nil {
-				return nil, errSchema("command %q: inherited flag %q is duplicated", r.Names[0], name)
-			}
-		}
-		for short := range draft.schema.flagByShort {
-			if parent.flagByShort[short] != nil {
-				return nil, errSchema("command %q: inherited short flag %q is duplicated", r.Names[0], short)
+		for _, flag := range draft.schema.flags {
+			for _, inherited := range parent.flags {
+				if profilesOverlap(flag.profiles, inherited.profiles) {
+					if err := conflictingFlags(inherited, flag); err != nil {
+						return nil, errSchema("command %q: inherited %v", r.Names[0], err)
+					}
+				}
 			}
 		}
 	}
 	command := &Command[O]{
 		names:       slices.Clone(r.Names),
+		profiles:    slices.Clone(r.Profiles),
 		description: r.Description,
 		visible:     r.Visible,
 		containerBase: newContainerBase(
@@ -50,15 +58,17 @@ func (r CommandRequirement[O]) createNode(
 	}
 	node := &compileNode{draft: draft, container: command}
 	for _, requirement := range r.Commands {
-		child, err := createRequirementNode(requirement, command.commandsByName, append(slices.Clone(parents), draft.schema), active)
+		child, err := createRequirementNode(requirement, command.commands, append(slices.Clone(parents), draft.schema), active)
 		if err != nil {
 			return nil, err
 		}
 		node.children = append(node.children, child)
 		childCommand := child.container.(CommandLike)
 		command.commands = append(command.commands, childCommand)
-		for _, name := range childCommand.Names() {
-			command.commandsByName[name] = childCommand
+		if len(childCommand.Profiles()) == 0 {
+			for _, name := range childCommand.Names() {
+				command.commandsByName[name] = childCommand
+			}
 		}
 	}
 	return node, nil

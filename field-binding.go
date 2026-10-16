@@ -50,42 +50,6 @@ func bindField(typ reflect.Type, path []string, valueType reflect.Type, index *[
 	return nil
 }
 
-func bindUniqueField(typ reflect.Type, path []string, valueType reflect.Type, bound map[string]bool) ([]int, error) {
-	var index []int
-	if err := bindField(typ, path, valueType, &index); err != nil {
-		return nil, err
-	}
-	if len(path) == 0 {
-		return nil, nil
-	}
-	if err := registerFieldBinding(index, strings.Join(path, "."), bound); err != nil {
-		return nil, err
-	}
-	return index, nil
-}
-
-// Exact keys preserve explicit-over-tag precedence. Descendant markers allow
-// prefix checks in either registration order without scanning every binding.
-func registerFieldBinding(index []int, name string, bound map[string]bool) error {
-	key := fmt.Sprint(index)
-	if bound[key] {
-		return errSchema("options field %s is bound more than once", name)
-	}
-	if bound["descendant:"+key] {
-		return errSchema("overlapping options field binding for %s: a descendant is already bound", name)
-	}
-	for depth := 1; depth < len(index); depth++ {
-		if bound[fmt.Sprint(index[:depth])] {
-			return errSchema("overlapping options field binding for %s: an ancestor is already bound", name)
-		}
-	}
-	bound[key] = true
-	for depth := 1; depth < len(index); depth++ {
-		bound["descendant:"+fmt.Sprint(index[:depth])] = true
-	}
-	return nil
-}
-
 func compileFieldBinding(optionsType reflect.Type, index []int, expected reflect.Type) (*fieldBinding, error) {
 	if len(index) == 0 {
 		return nil, nil

@@ -16,6 +16,7 @@ type definitionLifecycle struct {
 	closed          atomic.Bool
 	errorHandler    ErrorHandler
 	fallbackToStdio bool
+	profiles        []string
 }
 
 func (this *definitionLifecycle) prepareContext(ctx context.Context) context.Context {

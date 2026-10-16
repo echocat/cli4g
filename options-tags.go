@@ -31,7 +31,7 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 				(field.Tag.Get("argument") != "" || field.Tag.Get("arg") != "") {
 				// Record only slots actually reachable through tag collection.
 				// Named subobjects are explicit bindings, not implicit tag slots.
-				s.taggedArguments = append(s.taggedArguments, replacement)
+				s.taggedArguments = append(s.taggedArguments, replacement...)
 			}
 			// A codec bound to the whole field owns its contents. Do not collect
 			// descendant tags or recurse into an explicitly bound value type.
@@ -62,7 +62,11 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 		if !field.IsExported() {
 			return errSchema("tagged field %s must be exported", field.Name)
 		}
-		if err := registerFieldBinding(idx, field.Name, bound); err != nil {
+		profiles := splitTag(field.Tag.Get("profile"))
+		if err := validateProfiles(profiles); err != nil {
+			return fmt.Errorf("field %s: %w", field.Name, err)
+		}
+		if err := s.registerBinding(idx, field.Name, profiles); err != nil {
 			return err
 		}
 		codecName := field.Tag.Get("type")
@@ -92,7 +96,7 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 				}
 				shorts = append(shorts, r[0])
 			}
-			f := &Flag[any, any]{names: splitTag(flagName), shorts: shorts, envVars: splitTag(field.Tag.Get("env")),
+			f := &Flag[any, any]{names: splitTag(flagName), profiles: profiles, shorts: shorts, envVars: splitTag(field.Tag.Get("env")),
 				description: field.Tag.Get("description"), placeholder: field.Tag.Get("placeholder"),
 				required: required, visible: visible, valueType: field.Type, codec: fieldCodec}
 			if value, exists := field.Tag.Lookup("default"); exists {
@@ -104,7 +108,7 @@ func collectEmbeddedFields(typ reflect.Type, prefix []int, s *schemaDraft, bound
 			s.flagNames[f] = codecName
 			s.flagFields[f] = idx
 		} else {
-			a := &Argument[any, any]{name: argName, description: field.Tag.Get("description"),
+			a := &Argument[any, any]{name: argName, profiles: profiles, description: field.Tag.Get("description"),
 				placeholder: field.Tag.Get("placeholder"), required: required,
 				valueType: field.Type, codec: fieldCodec}
 			if value, exists := field.Tag.Lookup("default"); exists {

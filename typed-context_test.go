@@ -179,3 +179,119 @@ func TestTypedContextHelpersReturnFalseWithoutInvocationOrHelpOptions(t *testing
 	defer func() { require.NoError(t, invocation.Close()) }()
 	require.NoError(t, invocation.Execute(nil))
 }
+
+func TestCommandFromContextFindsSelectedProfileVariant(t *testing.T) {
+	type textOptions struct {
+		Value string `flag:"value" default:"hello"`
+	}
+	type numberOptions struct {
+		Value int32 `flag:"value"`
+	}
+	textChecks, numberChecks := 0, 0
+	checkText := func(ctx context.Context, options *textOptions) error {
+		textChecks++
+		for _, path := range [][]string{nil, {"convert"}, {"c"}} {
+			actual, found := CommandFromContext[*textOptions](ctx, path...)
+			assert.True(t, found)
+			assert.Same(t, options, actual)
+		}
+		_, found := CommandFromContext[*numberOptions](ctx, "convert")
+		assert.False(t, found, "a same-name variant with a different options type is not selected")
+		return nil
+	}
+	checkNumber := func(ctx context.Context, options *numberOptions) error {
+		numberChecks++
+		for _, path := range [][]string{nil, {"convert"}, {"c"}} {
+			actual, found := CommandFromContext[*numberOptions](ctx, path...)
+			assert.True(t, found)
+			assert.Same(t, options, actual)
+		}
+		_, found := CommandFromContext[*textOptions](ctx, "convert")
+		assert.False(t, found)
+		return nil
+	}
+	app := NewSimpleApplication().WithName("app").WithCommand(
+		NewCommand[*textOptions]().WithName("convert", "c").WithProfiles("A").
+			WithValidateHandler(checkText).WithInitializeHandler(checkText).WithHandler(checkText),
+		NewCommand[*numberOptions]().WithName("convert", "c").WithProfiles("B").
+			WithValidateHandler(checkNumber).WithInitializeHandler(checkNumber).WithHandler(checkNumber),
+	).MustCreate()
+	defer func() { assert.NoError(t, app.Close()) }()
+	for _, profile := range []string{"A", "B"} {
+		invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{profile}}, "c", "--value", "42")
+		require.NoError(t, err)
+		require.NoError(t, invocation.Execute(nil))
+		require.NoError(t, invocation.Close())
+	}
+	assert.Equal(t, 3, textChecks)
+	assert.Equal(t, 3, numberChecks)
+}
+
+func TestCommandFromContextResolvesMixedProfileCommandPath(t *testing.T) {
+	type parentOptions struct{ Name string }
+	type childOptions struct {
+		Value string `flag:"value" default:"child"`
+	}
+	parentCalls, childCalls, helpCalls := 0, 0, 0
+	app := NewSimpleApplication().WithName("app").WithCommand(
+		NewCommand[*parentOptions]().WithName("admin", "a").WithProfiles("A").
+			WithCreateOptionsHandler(func(context.Context) (*parentOptions, error) {
+				return &parentOptions{Name: "parent"}, nil
+			}).WithHandler(func(ctx context.Context, options *parentOptions) error {
+			parentCalls++
+			parent, found := CommandFromContext[*parentOptions](ctx, "a")
+			assert.True(t, found)
+			assert.Same(t, options, parent)
+			child, found := CommandFromContext[*childOptions](ctx, "admin", "g", "cleanup")
+			require.True(t, found, "the complete selected path is available to ancestor handlers")
+			assert.Equal(t, "child", child.Value)
+			return nil
+		}).WithCommand(NewSimpleCommand().WithName("group", "g").WithCommand(
+			NewCommand[*childOptions]().WithName("cleanup", "c").WithProfiles("B").
+				WithHandler(func(ctx context.Context, options *childOptions) error {
+					childCalls++
+					actual, found := CommandFromContext[*childOptions](ctx, "a", "group", "c")
+					assert.True(t, found)
+					assert.Same(t, options, actual)
+					parent, found := CommandFromContext[*parentOptions](ctx, "admin")
+					require.True(t, found)
+					assert.Equal(t, "parent", parent.Name)
+					_, found = CommandFromContext[NoOptions](ctx, "admin", "group")
+					assert.True(t, found, "profile-free intermediate commands remain addressable")
+					for _, path := range [][]string{
+						{"admin", "group", "unselected"},
+						{"admin", "group", "missing"},
+						{"admin", "group", "cleanup", "extra"},
+						{"other", "group", "cleanup"},
+						{"cleanup"},
+					} {
+						_, found := CommandFromContext[*childOptions](ctx, path...)
+						assert.False(t, found, "path %v must match the selected stack from the root", path)
+					}
+					return nil
+				}),
+			NewCommand[*childOptions]().WithName("unselected").WithProfiles("B").
+				WithCreateOptionsHandler(func(context.Context) (*childOptions, error) {
+					t.Error("lookup must not create options for an unselected sibling")
+					return &childOptions{}, nil
+				}),
+		)),
+	).WithHelpHandler(func(ctx context.Context, _ InvocationLike) error {
+		helpCalls++
+		_, found := CommandFromContext[*childOptions](ctx, "a", "g", "c")
+		assert.False(t, found, "help does not create command options")
+		_, found = CommandFromContext[any](ctx, "admin", "group", "cleanup")
+		assert.False(t, found, "missing help options must not become a present nil interface")
+		return nil
+	}).MustCreate()
+	defer func() { assert.NoError(t, app.Close()) }()
+	for _, args := range [][]string{{"a", "g", "c"}, {"admin", "group", "cleanup", "--help"}} {
+		invocation, err := app.Parse(nil, &ParseOpts{Profiles: []string{"A", "B"}}, args...)
+		require.NoError(t, err)
+		require.NoError(t, invocation.Execute(nil))
+		require.NoError(t, invocation.Close())
+	}
+	assert.Equal(t, 1, parentCalls)
+	assert.Equal(t, 1, childCalls)
+	assert.Equal(t, 1, helpCalls)
+}

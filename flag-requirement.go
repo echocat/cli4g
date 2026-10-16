@@ -29,6 +29,9 @@ func NewFlag[V, R any](codec codec.Codec[V, R]) *FlagRequirement[V, R] {
 type FlagRequirement[V, R any] struct {
 	// Names contains the primary name followed by aliases.
 	Names []string
+	// Profiles activates this definition when any listed profile is selected.
+	// An empty list makes it active for every parse.
+	Profiles []string
 	// Shorts contains optional single-rune aliases.
 	Shorts []rune
 
@@ -61,6 +64,7 @@ func (this FlagRequirement[V, R]) createRaw() (*Flag[any, any], error) {
 	}
 	return &Flag[any, any]{
 		names:        slices.Clone(this.Names),
+		profiles:     slices.Clone(this.Profiles),
 		shorts:       slices.Clone(this.Shorts),
 		envVars:      slices.Clone(this.EnvVars),
 		description:  this.Description,
@@ -72,6 +76,16 @@ func (this FlagRequirement[V, R]) createRaw() (*Flag[any, any], error) {
 		fieldPath:    slices.Clone(this.Field),
 		defaultValue: rawDefault(this.defaultValue),
 	}, nil
+}
+
+// WithProfiles replaces the profile selection. No profiles means always active.
+func (this *FlagRequirement[V, R]) WithProfiles(v ...string) *FlagRequirement[V, R] {
+	this.SetProfiles(v)
+	return this
+}
+
+func (this *FlagRequirement[V, R]) SetProfiles(v []string) {
+	this.Profiles = slices.Clone(v)
 }
 
 // WithDefault sets a resource-free typed default R, independently copied for each parse.

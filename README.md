@@ -60,6 +60,7 @@ The default error handler exits with `2` for input errors, `130` for cancellatio
 - **Ordered lifecycle:** parsing resolves and validates all selected options before initialization; handlers follow successful initialization.
 - **Owned resources and cleanup:** `ParseAndExecute` closes invocation-owned resources from child to parent, on success and returned errors—including partial initialization failures.
 - **Reusable definitions:** compile once, then parse independent invocations repeatedly or concurrently.
+- **Profiles:** select compatible flag, argument, and command variants for each parse.
 - **Consistent inputs:** explicit CLI/environment/default precedence and validation rules.
 - **Extensible values:** custom codecs support application-specific types and resources.
 - **Efficient reuse:** competitive runtime and allocation costs in the measured workloads.
@@ -70,6 +71,7 @@ code size, and cognitive complexity.
 ## Documentation
 
 - [Struct-tag/Annotations reference](docs/annotations.md)
+- [Profiles and schema variants](docs/profiles.md)
 - [CLI API and usage](https://pkg.go.dev/github.com/echocat/cli4g)
 - [Codecs and custom values](https://pkg.go.dev/github.com/echocat/cli4g/codec)
 - [CLI benchmark results](docs/benchmarks.md)

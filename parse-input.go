@@ -3,6 +3,7 @@ package cli
 // parseInput contains invocation-local tokens, before decoding any values.
 type parseInput struct {
 	commands      []CommandLike
+	scopes        []selectedContainer
 	flags         []flagInput
 	positions     [][]string
 	helpRequested bool

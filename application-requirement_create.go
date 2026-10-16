@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/echocat/cli4g/codec"
 )
@@ -69,17 +70,25 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	root := &compileNode{draft: draft, container: app}
 	active := make(map[commandRequirementIdentity]bool)
 	for _, requirement := range r.Commands {
-		child, err := createRequirementNode(requirement, app.commandsByName, []containerSchema{draft.schema}, active)
+		child, err := createRequirementNode(requirement, app.commands, []containerSchema{draft.schema}, active)
 		if err != nil {
 			return nil, err
 		}
 		root.children = append(root.children, child)
 		command := child.container.(CommandLike)
 		app.commands = append(app.commands, command)
-		for _, name := range command.Names() {
-			app.commandsByName[name] = command
+		if len(command.Profiles()) == 0 {
+			for _, name := range command.Names() {
+				app.commandsByName[name] = command
+			}
 		}
 	}
+	known := make(map[string]bool)
+	collectProfiles(root, known)
+	for profile := range known {
+		definition.profiles = append(definition.profiles, profile)
+	}
+	slices.Sort(definition.profiles)
 	if err := compilePaths(root, nil, r.Name, definition); err != nil {
 		return nil, err
 	}
