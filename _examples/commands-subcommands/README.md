@@ -1,6 +1,9 @@
 # Sub-commands
 
 The `math` command groups two sub-commands. Only the leaf commands have handlers.
+The application explicitly sets `WithMaxCommandDepth(2)`: `math` has depth 1 and
+its leaves have depth 2. The constructor default is 7; zero permits no commands.
+The limit is checked during `Create`, independently of the number of siblings.
 
 Run from the repository root:
 

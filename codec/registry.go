@@ -41,8 +41,20 @@ func (this *Registry) AddDefaults(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, builtin := range Defaults(ctx) {
-		this.entries = append(this.entries, entry{codec: builtin})
+	if Defaults == nil {
+		return nil
+	}
+	defaults := Defaults(ctx)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	this.entries = slices.Grow(this.entries, len(defaults))
+	for _, builtin := range defaults {
+		snapshot, err := Snapshot(ctx, builtin)
+		if err != nil {
+			return err
+		}
+		this.entries = append(this.entries, entry{codec: snapshot})
 	}
 	return ctx.Err()
 }
@@ -53,6 +65,20 @@ func (this Registry) Find(ctx context.Context, typ reflect.Type, name string) (C
 	}
 	for _, candidate := range this.entries {
 		if len(candidate.names) == 0 && name != "" || len(candidate.names) != 0 && !slices.Contains(candidate.names, name) {
+			continue
+		}
+		if binder, ok := candidate.codec.(TypeBinder); ok {
+			bound, matched, err := binder.BindType(ctx, typ)
+			if err == nil {
+				err = ctx.Err()
+			}
+			if err != nil {
+				return nil, false, err
+			}
+			if matched {
+				snapshot, err := Snapshot(ctx, bound)
+				return snapshot, err == nil, err
+			}
 			continue
 		}
 		matches, err := candidate.codec.CanHandleType(ctx, typ)

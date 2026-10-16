@@ -13,6 +13,25 @@ type profileSource interface {
 	ContainsProfile(string) bool
 }
 
+// A single immutable overlay carries either the early parse selection or the
+// complete invocation. Retained contexts never observe a later replacement.
+type invocationMetadataContext struct {
+	context.Context
+	source profileSource
+}
+
+func (this *invocationMetadataContext) Value(key any) any {
+	switch key.(type) {
+	case profilesContextKey:
+		return this.source
+	case invocationContextKey:
+		if invocation, ok := this.source.(InvocationLike); ok {
+			return invocation
+		}
+	}
+	return this.Context.Value(key)
+}
+
 // selectedProfiles is a sorted, deduplicated snapshot owned by the parse and its
 // invocation. No getter exposes its mutable backing array.
 type selectedProfiles []string
@@ -49,5 +68,5 @@ func withProfilesContext(ctx context.Context, profiles profileSource) context.Co
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithValue(ctx, profilesContextKey{}, profiles)
+	return &invocationMetadataContext{Context: ctx, source: profiles}
 }

@@ -8,6 +8,14 @@
 // Dates use [DateTimeCodec] by default;
 // select [NewDate] for date-only inputs. Named registrations override automatic
 // selection. See [NewDuration], [NewDateTime], [NewSlice], [NewMap], and [NewFile].
+// [Defaults] is an overridable factory whose initial value supplies one
+// [CombinedDefaults]. Its hard-coded type dispatch binds an existing concrete
+// codec during Create; parsing does not repeat registry lookup or type dispatch.
+// It also resolves *os.File and []*os.File. Defined types do not match merely by
+// their underlying kind, preserving custom Value and text-adapter behavior.
+// Configure Defaults before Create without concurrent modification; nil disables
+// fallback codecs. Already compiled applications retain their selected codecs.
+// Custom registry codecs can implement [TypeBinder] for immutable specialization.
 //
 // # Maps
 //

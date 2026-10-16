@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/echocat/cli4g/codec"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,22 @@ func TestStdioContextRetainsCancellationAndValues(t *testing.T) {
 	// Nested streams replace all three, including clearing an inherited stderr.
 	ctx = codec.ContextWithStdio(ctx, nil, nil, nil)
 	assert.Nil(t, codec.StderrOfContext(codec.ContextWithFallbackToStdio(ctx, true)))
+}
+
+func TestStdioContextRetainsDeadlineAndCancellationCause(t *testing.T) {
+	deadline := time.Now().Add(time.Hour)
+	parent, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+	parent, cancelCause := context.WithCancelCause(parent)
+	defer cancelCause(nil)
+	ctx := codec.ContextWithStdio(parent, nil, nil, nil)
+	got, present := ctx.Deadline()
+	assert.True(t, present)
+	assert.Equal(t, deadline, got)
+	assert.Equal(t, parent.Done(), ctx.Done())
+	cancelCause(io.ErrClosedPipe)
+	assert.ErrorIs(t, ctx.Err(), context.Canceled)
+	assert.ErrorIs(t, context.Cause(ctx), io.ErrClosedPipe)
 }
 
 func BenchmarkStdioOfContext(b *testing.B) {

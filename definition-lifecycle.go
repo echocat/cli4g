@@ -17,6 +17,8 @@ type definitionLifecycle struct {
 	errorHandler    ErrorHandler
 	fallbackToStdio bool
 	profiles        []string
+	maxCommandDepth uint8
+	commandDepth    uint8 // deepest compiled subcommand level, application excluded
 }
 
 func (this *definitionLifecycle) prepareContext(ctx context.Context) context.Context {

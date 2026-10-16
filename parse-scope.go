@@ -9,7 +9,7 @@ import (
 // live in the invocationFrame and must remain independent of scope reuse.
 type parseScope struct {
 	*invocationFrame
-	schema    containerSchema
+	schema    *containerSchema
 	positions []string
 	provided  map[*Flag[any, any]]int // index in frame.flags plus one
 	pooled    bool
@@ -18,7 +18,7 @@ type parseScope struct {
 var parseScopes = sync.Pool{New: func() any { return new(parseScope) }}
 
 // frame points into the invocation's fixed backing array, not pooled storage.
-func newParseScope(ctx context.Context, c Container, schema containerSchema, frame *invocationFrame) (*parseScope, error) {
+func newParseScope(ctx context.Context, c Container, schema *containerSchema, frame *invocationFrame) (*parseScope, error) {
 	var s *parseScope
 	if len(schema.flags) > 0 {
 		s = parseScopes.Get().(*parseScope)

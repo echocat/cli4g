@@ -92,6 +92,11 @@
 // Anonymous parent fields must not promote Validate, Initialize, or Close methods.
 // Use [ApplicationFromContext], [CommandFromContext], or [Command.OptionsFrom]
 // to read the current typed options.
+// NewApplication defaults to seven subcommand levels. WithMaxCommandDepth sets
+// an explicit uint8 limit; zero permits only the application. Create checks all
+// definitions, including inactive profiles. Sibling counts are not limited.
+// Parse scratch capacity follows the actual compiled depth and token count,
+// rather than reserving the configured maximum for every invocation.
 //
 // # Profiles
 //
@@ -144,6 +149,9 @@
 // Warning: author-supplied ValidationError messages are displayed verbatim and
 // must not contain input or confidential data. NewValidationErrorf with %w does
 // include the cause text; prefer separate messages and causes for sensitive input.
+// ParseAndExecute prepares standard streams once for the entire managed
+// operation. The invocation and profile metadata share one immutable context
+// overlay; early parse contexts retain their own profile snapshot.
 //
 // # Context streams
 //

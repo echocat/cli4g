@@ -14,6 +14,7 @@ type containerBase struct {
 	commands             []CommandLike
 	commandsByName       map[string]CommandLike
 	plan                 *parsePlan
+	unprofiled           selectedContainer
 	newOptions           func() reflect.Value
 	createOptionsHandler func(context.Context) (reflect.Value, error)
 

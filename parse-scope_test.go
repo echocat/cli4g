@@ -727,12 +727,12 @@ func TestScopeResetDetachesFrameAndClearsCachedIndexes(t *testing.T) {
 			index[&Flag[any, any]{names: []string{fmt.Sprint(i)}}] = i + 1
 		}
 		scope := &parseScope{
-			invocationFrame: frame, schema: app.containerSchema,
+			invocationFrame: frame, schema: &app.containerSchema,
 			positions: []string{"caller data"}, provided: index, pooled: true,
 		}
 		scope.reset()
 		assert.Nil(t, scope.invocationFrame)
-		assert.Equal(t, containerSchema{}, scope.schema)
+		assert.Nil(t, scope.schema)
 		assert.Nil(t, scope.positions)
 		assert.False(t, scope.pooled)
 		if count > 128 {

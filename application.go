@@ -34,6 +34,10 @@ func (this *Application[O]) Description() string {
 	return this.description
 }
 
+// MaxCommandDepth returns the captured subcommand nesting limit; the application
+// itself has depth 0. The metadata remains available after Close.
+func (this *Application[O]) MaxCommandDepth() uint8 { return this.definition.maxCommandDepth }
+
 // Validate runs the options' Validate method followed by the configured callback.
 func (this *Application[O]) Validate(ctx context.Context, options O) error {
 	if err := this.containerBase.requireOpen(); err != nil {

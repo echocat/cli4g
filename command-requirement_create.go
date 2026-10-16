@@ -5,13 +5,26 @@ import (
 	"slices"
 )
 
+type commandDepthError struct {
+	path    string
+	maximum uint8
+}
+
+func (e *commandDepthError) Error() string {
+	return fmt.Sprintf("maximum command depth %d exceeded at %q", e.maximum, e.path)
+}
+
 func (r CommandRequirement[O]) createNode(
 	siblings []CommandLike,
 	parents []containerSchema,
 	active map[commandRequirementIdentity]bool,
+	maxDepth uint8,
 ) (*compileNode, error) {
 	if len(r.Names) == 0 || r.Names[0] == "" {
 		return nil, errSchema("command needs a name")
+	}
+	if len(parents) > int(maxDepth) {
+		return nil, &commandDepthError{path: r.Names[0], maximum: maxDepth}
 	}
 	if err := validateProfiles(r.Profiles); err != nil {
 		return nil, err
@@ -58,8 +71,11 @@ func (r CommandRequirement[O]) createNode(
 	}
 	node := &compileNode{draft: draft, container: command}
 	for _, requirement := range r.Commands {
-		child, err := createRequirementNode(requirement, command.commands, append(slices.Clone(parents), draft.schema), active)
+		child, err := createRequirementNode(requirement, command.commands, append(slices.Clone(parents), draft.schema), active, maxDepth)
 		if err != nil {
+			if depth, ok := err.(*commandDepthError); ok {
+				depth.path = r.Names[0] + " " + depth.path
+			}
 			return nil, err
 		}
 		node.children = append(node.children, child)

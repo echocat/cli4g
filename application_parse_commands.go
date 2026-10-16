@@ -10,15 +10,19 @@ import (
 // consumption. Codec overrides cannot change inherited arity, so the final
 // command path can select its decoder after this single pass.
 func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, vs []string) (input parseInput, err error) {
-	input = parseInput{positions: make([][]string, 1)}
+	capacity := min(int(this.definition.commandDepth)+1, len(vs)+1)
+	input = parseInput{positions: make([][]string, 1, capacity), scopes: make([]selectedContainer, 0, capacity)}
+	if capacity > 1 {
+		input.commands = make([]CommandLike, 0, capacity-1)
+	}
 	// Help and failed scans also retain the final command path's codec overrides.
 	defer func() {
 		if len(input.scopes) == 0 {
 			return
 		}
 		plan := input.scopes[len(input.scopes)-1].container.base().plan
-		for i, source := range plan.schemas {
-			selected, selectionErr := selectSchema(source, profiles)
+		for i := range plan.schemas {
+			selected, selectionErr := selectSchema(&plan.schemas[i], profiles)
 			if selectionErr != nil {
 				if err == nil {
 					err = fmt.Errorf("selected schema: %w", selectionErr)
@@ -39,7 +43,6 @@ func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, v
 		return input, NewValidationErrorf("%s: selected profiles %v: %v", this.Name(), profiles, err)
 	}
 	path := input.scopes
-	namePath := this.Name()
 	endOfOptions := false
 	for i := 0; i < len(vs); i++ {
 		if err := ctx.Err(); err != nil {
@@ -88,11 +91,10 @@ func (this *Application[O]) scanTokens(ctx context.Context, profiles []string, v
 				input.commands = append(input.commands, command)
 				input.positions = append(input.positions, nil)
 				current, err = selectContainer(command, path, profiles)
-				namePath += " " + command.Name()
 				path = append(path, current)
 				input.scopes = path
 				if err != nil {
-					return input, NewValidationErrorf("%s: selected profiles %v: %v", namePath, profiles, err)
+					return input, NewValidationErrorf("%s: selected profiles %v: %v", input.namePath(this.Name()), profiles, err)
 				}
 				continue
 			}

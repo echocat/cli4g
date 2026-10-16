@@ -203,7 +203,6 @@ func (this Invocation[O]) ErrorHandler() ErrorHandler {
 }
 
 func (this *Invocation[O]) executeAndClose(ctx context.Context) (err error) {
-	ctx = this.application.definition.prepareContext(ctx)
 	handler := this.ErrorHandler()
 	target := Container(this.application)
 	closed := false

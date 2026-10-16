@@ -1,5 +1,7 @@
 package cli
 
+import "strings"
+
 // parseInput contains invocation-local tokens, before decoding any values.
 type parseInput struct {
 	commands      []CommandLike
@@ -7,6 +9,20 @@ type parseInput struct {
 	flags         []flagInput
 	positions     [][]string
 	helpRequested bool
+}
+
+// Construct the canonical command path only when a diagnostic needs it.
+func (this *parseInput) namePath(application string) string {
+	if len(this.commands) == 0 {
+		return application
+	}
+	var result strings.Builder
+	result.WriteString(application)
+	for _, command := range this.commands {
+		result.WriteByte(' ')
+		result.WriteString(command.Name())
+	}
+	return result.String()
 }
 
 // appendFlags reserves space for a bounded prefix of adjacent option-looking
