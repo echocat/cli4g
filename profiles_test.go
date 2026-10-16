@@ -349,7 +349,7 @@ func TestProfilesCommandsAndAncestorGates(t *testing.T) {
 		assert.NoError(t, invocation.Close())
 	}
 	_, err := tree.Parse(nil, &ParseOpts{Profiles: []string{"A"}}, "admin", "cleanup")
-	assert.ErrorContains(t, err, "unexpected values")
+	assert.EqualError(t, err, `a subcommand is required for "tree admin"`)
 }
 
 func TestProfilesInactiveInputsHaveNoRuntimeEffects(t *testing.T) {

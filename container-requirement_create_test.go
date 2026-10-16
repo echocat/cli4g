@@ -21,6 +21,7 @@ func TestPrimitiveDefaultsAndCommandOverride(t *testing.T) {
 		Values  []string   `argument:"values"`
 	}
 	a := NewApplication[*options]("numeric").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithCommand(NewSimpleCommand("override").
 			WithCodec(&constantOneCodec{}),
 		).

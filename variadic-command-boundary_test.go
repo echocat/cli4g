@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 func TestVariadicFlagCommandBoundaryTracksSelectionState(t *testing.T) {
 	app, err := NewSimpleApplication("app").
+		WithHandler(func(context.Context, NoOptions) error { return nil }).
 		WithHelp(false).
 		WithErrorHandlerEnabled(false).
 		WithFlag(NewFlag(grammarString{min: 1, max: -1}, "items").

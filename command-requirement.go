@@ -31,6 +31,9 @@ func NewSimpleCommand(nameAndDescription ...string) *CommandRequirement[NoOption
 
 // CommandRequirement configures a command's names, options, inputs, and handlers.
 // Struct callbacks receive copies; use pointer options to retain assignments.
+// Without a Handler, active subcommands make this a command group: direct CLI
+// invocation requires a subcommand or --help. An ancestor's handler does not
+// satisfy this requirement.
 type CommandRequirement[O any] struct {
 	// Names contains the primary name followed by aliases.
 	Names []string

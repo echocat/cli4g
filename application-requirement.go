@@ -30,6 +30,7 @@ func NewSimpleApplication(nameAndDescription ...string) *ApplicationRequirement[
 // ApplicationRequirement configures options, inputs, commands, and handlers.
 // Call [ApplicationRequirement.Create] to obtain an independent [Application].
 // Use pointer options when callbacks need to retain field assignments.
+// Without a Handler, active commands require selecting a command or --help.
 type ApplicationRequirement[O any] struct {
 	Name        string
 	Description string

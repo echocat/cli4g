@@ -15,10 +15,18 @@ func exampleCases() map[string][]smokeCase {
 			success("injected streams", nil, "Injected input.\n"),
 			success("uppercase", []string{"--uppercase"}, "INJECTED INPUT.\n"),
 		},
-		"argument-syntax":        {success("terminator", []string{"--", "-report.txt", "--help"}, "file=-report.txt more=[--help]\n")},
-		"builder-fields":         {success("override", []string{"-g", "Hey", "Carl"}, "Hey, Carl!\n")},
-		"commands":               {success("sum", []string{"sum", "2", "3", "4"}, "Sum: 9\n")},
-		"commands-subcommands":   {success("product", []string{"math", "product", "2", "3", "4"}, "Product: 24\n")},
+		"argument-syntax": {success("terminator", []string{"--", "-report.txt", "--help"}, "file=-report.txt more=[--help]\n")},
+		"builder-fields":  {success("override", []string{"-g", "Hey", "Carl"}, "Hey, Carl!\n")},
+		"commands": {
+			success("sum", []string{"sum", "2", "3", "4"}, "Sum: 9\n"),
+			failure("missing command", nil, 2, `a subcommand is required for "commands"`, true),
+		},
+		"commands-subcommands": {
+			success("product", []string{"math", "product", "2", "3", "4"}, "Product: 24\n"),
+			failure("missing root command", nil, 2, `a subcommand is required for "commands-subcommands"`, true),
+			failure("missing nested command", []string{"math"}, 2, `a subcommand is required for "commands-subcommands math"`, true),
+			{name: "nested help", args: []string{"math", "--help"}, want: expected{stdout: text(""), stderrContains: "commands-subcommands math", help: boolean(true)}},
+		},
 		"commands-inheritance":   {success("parent options", []string{"message", "greet", "Carl", "--greeting", "Hey", "--punctuation", "?"}, "Hey, Carl?\n")},
 		"commands-introspection": {{name: "canonical alias", args: []string{"-v", "math", "add", "2", "3", "4"}, want: expected{stdout: text("Sum: 9\n"), stderr: text("Executing: math sum\n")}}},
 		"custom-codec": {

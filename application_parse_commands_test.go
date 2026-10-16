@@ -70,6 +70,7 @@ func TestCommandNamesAfterPositionalValues(t *testing.T) {
 		Values  []string `argument:"values"`
 	}
 	app, err := NewApplication[*options]("app").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithCommand(NewSimpleCommand("run")).
 		Create()
 	require.NoError(t, err)
@@ -100,6 +101,7 @@ func TestMultiValueFlagsAndCommandNames(t *testing.T) {
 		Pair string `flag:"pair" short:"p"`
 	}
 	app := NewApplication[*options]("app").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithCodec(grammarString{min: 2, max: 2}).
 		WithCommand(NewSimpleCommand("run")).
 		MustCreate()

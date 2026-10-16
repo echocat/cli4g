@@ -20,6 +20,7 @@ func TestMapFlagSpellingsAndDuplicateKeys(t *testing.T) {
 	for _, scope := range []string{"application", "command", "inherited"} {
 		t.Run(scope, func(t *testing.T) {
 			root := NewApplication[options]("app").
+				WithHandler(func(context.Context, options) error { return nil }).
 				WithHelp(false)
 			child := NewCommand[options]("run")
 			configure := func(f *FlagRequirement[map[string]string, map[string]string]) {

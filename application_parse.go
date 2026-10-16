@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Parse decodes vs, resolves values, validates options, and initializes them.
@@ -13,6 +14,8 @@ import (
 // Use [ApplicationRequirement.WithErrorHandlerEnabled] for caller-managed errors.
 //
 // A true --help/-h stops scanning and skips options creation and initialization.
+// A handlerless target with active subcommands requires a subcommand; otherwise
+// Parse returns a validation error before creating options or resolving inputs.
 // Nil opts uses the OS environment; nil ctx uses context.Background.
 // Callbacks must honor cancellation. The definition supports repeated and
 // concurrent parsing; each invocation owns its options and resources.
@@ -80,6 +83,14 @@ func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...st
 		invocation.profiles = profiles
 		invocation.selected = input.scopes
 		return invocation, nil
+	}
+	target := input.scopes[len(input.scopes)-1]
+	if target.container.base().handler == nil && len(target.commands) > 0 {
+		path := []string{this.Name()}
+		for _, command := range input.commands {
+			path = append(path, command.Name())
+		}
+		return nil, NewValidationErrorf("a subcommand is required for %q", strings.Join(path, " "))
 	}
 	plan := this.plan
 	if len(input.commands) > 0 {

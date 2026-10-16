@@ -52,10 +52,12 @@ func TestCodecRegistryDeepestWinsForAncestorOptionsAndNamedAliases(t *testing.T)
 		Unnamed registryValue `flag:"unnamed"`
 	}
 	app := cli.NewApplication[*options]("app").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithErrorHandlerEnabled(false).
 		WithCodec(registryCodec{from: "root"}, "moo", "other").
 		WithCodec(registryCodec{from: "unnamed"}).
 		WithCommand(cli.NewSimpleCommand("parent").
+			WithHandler(func(context.Context, cli.NoOptions) error { return nil }).
 			WithCodec(registryCodec{from: "parent"}, "moo").
 			WithCommand(cli.NewSimpleCommand("leaf").
 				WithCodec(registryCodec{from: "leaf"}, "moo"),

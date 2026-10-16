@@ -113,6 +113,7 @@ func TestHelpScannerStopsAtCurrentContainerAndRespectsValueAndTerminatorGrammar(
 		Values  []string `argument:"values"`
 	}
 	app := NewApplication[options]("app").
+		WithHandler(func(context.Context, options) error { return nil }).
 		WithCommand(NewSimpleCommand("run").
 			WithAliases("r"),
 		).
@@ -172,6 +173,7 @@ func TestHelpCanBeDisabledAndHelpNamesBecomeOrdinaryFlags(t *testing.T) {
 	requirement := NewSimpleApplication("app")
 	requirement.SetHelp(false)
 	app := requirement.
+		WithHandler(func(context.Context, NoOptions) error { return nil }).
 		WithFlag(NewFlag(codec.NewString(), "help").
 			WithShort('h'),
 		).

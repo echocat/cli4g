@@ -105,7 +105,9 @@ func TestCreateAllowsOptionalParentArgumentsAndRequiredFlags(t *testing.T) {
 		Value string `argument:"leaf-value" required:"true"`
 	}
 	app := NewApplication[rootOptions]("app").
+		WithHandler(func(context.Context, rootOptions) error { return nil }).
 		WithCommand(NewCommand[*parentOptions]("parent").
+			WithHandler(func(context.Context, *parentOptions) error { return nil }).
 			WithCommand(NewCommand[leafOptions]("leaf")),
 		).
 		MustCreate()

@@ -107,6 +107,7 @@ func TestRepeatedSliceFlags(t *testing.T) {
 		Single  int      `flag:"single"`
 	}
 	a := NewApplication[*options]("repeat").
+		WithHandler(func(context.Context, *options) error { return nil }).
 		WithCommand(NewSimpleCommand("child")).
 		MustCreate()
 	ctx := context.Background()

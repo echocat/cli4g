@@ -81,6 +81,11 @@
 // # Commands and parent options
 //
 // Add typed commands with [NewCommand] and [ApplicationRequirement.WithCommand].
+// An application or command without its own handler requires a subcommand when
+// it has active children. An incomplete path is a validation error before options
+// creation; the default error handler shows the target's help and exits with 2.
+// Explicit --help exits successfully. A node with its own handler can be invoked
+// directly, and a node without active children can be used for parsing alone.
 // A child can borrow an exported struct pointer using parent:"application" or
 // parent:"matchingType". MatchingType picks the nearest selected ancestor of the
 // exact Go type. Borrowed options remain parent-owned; never close them in the child.

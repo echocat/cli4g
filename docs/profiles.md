@@ -64,6 +64,12 @@ ancestors must also be active. A B-only child under an A-only parent therefore
 requires A+B. A profile-free child only requires its parent to be active. Selecting
 a child profile never implicitly selects its parent's profiles.
 
+A handlerless application or command requires a subcommand only when it has
+active children for the selected profiles. Incomplete command paths fail before
+options creation; the default error handler shows the group's help and exits
+with code 2. If every child is inactive, no subcommand is required. An explicit
+`--help` remains a successful help request.
+
 ## Conflict detection
 
 There are no overrides, priorities, or implicit merges. `Create` rejects:
