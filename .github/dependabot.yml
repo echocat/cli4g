@@ -5,9 +5,15 @@ updates:
     schedule:
       interval: "daily"
     groups:
+      # CodeQL sub-actions must use the same version.
       codeql-actions:
+        applies-to: "version-updates"
         patterns:
-          - "github/codeql-action"
+          - "github/codeql-action/*"
+      codeql-actions-security:
+        applies-to: "security-updates"
+        patterns:
+          - "github/codeql-action/*"
 
   - package-ecosystem: "gomod"
     directories:
