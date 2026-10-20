@@ -86,6 +86,13 @@ depends = [
 description = "Check that all packages compile"
 run = "go build ./..."
 
+[tasks."test:go:darwin-arm64"]
+description = "Cross-build all root-module packages for Darwin ARM64"
+env.GOOS = "darwin"
+env.GOARCH = "arm64"
+env.CGO_ENABLED = "0"
+run = "go build ./..."
+
 [tasks."test:go:code"]
 extends = "go_test"
 description = "Test all Go packages"

@@ -18,6 +18,7 @@ mise run check:full
 | `mise run test:go --race` | Go tests with race detection |
 | `mise run test --coverage` | Go and example coverage |
 | `mise run test:matrix` | Minimum and stable Go versions |
+| `mise run test:go:darwin-arm64` | Cross-build the root module for Darwin ARM64 |
 | `mise run test:module` | Test the distributable module archive without nested modules or Git metadata |
 | `mise run test:shells` | Mandatory interactive Bash/Fish/Nushell/PowerShell/Zsh E2E tests in Linux containers |
 | `mise run test:fuzz` | Bounded parser fuzzing |
@@ -110,8 +111,9 @@ complete repository.
 
 ## CI
 
-- Go linting: Linux, macOS, Windows.
-- Runtime tests: minimum/stable Go on each OS, including example binaries.
+- Go linting: Linux, macOS Intel, Windows.
+- Runtime tests: minimum/stable Go on each OS, including example binaries; macOS uses `macos-26-intel`.
+- Darwin ARM64: an additional cross-build in both macOS Go-version jobs; native ARM64 execution is outside this matrix.
 - Shell E2E: a required Linux job using rootless Podman and pinned Bash/Fish/Nushell/PowerShell/Zsh versions.
 - Shared checks: once on Linux; formats, module archives, workflows, example code,
   benchmark-adapter correctness, fuzzing, and vulnerabilities. Timing measurements
