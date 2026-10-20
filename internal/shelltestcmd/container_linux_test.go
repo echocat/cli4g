@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-//go:embed bash.sh config.nu powershell.ps1 zsh.zsh
+//go:embed bash.sh config.fish config.nu powershell.ps1 zsh.zsh
 var shellAssets embed.FS
 
 type shellEnvironment struct {
@@ -26,6 +26,9 @@ type shellEnvironment struct {
 
 func newShellEnvironment(t *testing.T) *shellEnvironment {
 	t.Helper()
+	if coverage := os.Getenv("GOCOVERDIR"); coverage != "" {
+		must(t, os.MkdirAll(coverage, 0700))
+	}
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
 	must(t, os.MkdirAll(bin, 0700))
@@ -106,6 +109,20 @@ func (environment *shellEnvironment) start(shell string) *terminal {
 		terminal.prompt()
 		return terminal
 	}
+	if shell == "fish" {
+		setup, err := shellAssets.ReadFile("config.fish")
+		must(environment.t, err)
+		profile := filepath.Join(environment.root, "config", "fish", "config.fish")
+		file, err := os.OpenFile(profile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		must(environment.t, err)
+		_, err = file.Write(setup)
+		must(environment.t, err)
+		must(environment.t, file.Close())
+		terminal := startTerminal(environment.t, "fish", []string{"--interactive", "--private"}, environment.env, environment.root)
+		terminal.expect("__CLI4G_READY__\r?\n")
+		terminal.prompt()
+		return terminal
+	}
 	path := filepath.Join(environment.root, "config", "nushell", "config.nu")
 	must(environment.t, os.MkdirAll(filepath.Dir(path), 0700))
 	config, err := shellAssets.ReadFile("config.nu")
@@ -131,10 +148,12 @@ func TestContainerShellCompletion(t *testing.T) {
 	must(t, err)
 	zsh, err := exec.Command("zsh", "--version").CombinedOutput()
 	must(t, err)
-	if !strings.Contains(string(bash), "version 5.2.37") || strings.TrimSpace(string(nu)) != "0.114.1" || !strings.HasPrefix(string(zsh), "zsh 5.9 ") {
-		t.Fatalf("unexpected shell versions: %q, %q, %q", bash, nu, zsh)
+	fish, err := exec.Command("fish", "--version").CombinedOutput()
+	must(t, err)
+	if !strings.Contains(string(bash), "version 5.2.37") || strings.TrimSpace(string(nu)) != "0.114.1" || !strings.HasPrefix(string(zsh), "zsh 5.9 ") || strings.TrimSpace(string(fish)) != "fish, version 4.0.2" {
+		t.Fatalf("unexpected shell versions: %q, %q, %q, %q", bash, nu, zsh, fish)
 	}
-	t.Log("Testing Bash 5.2.37, Nushell 0.114.1 and Zsh 5.9 in actual terminals")
+	t.Log("Testing Bash 5.2.37, Fish 4.0.2, Nushell 0.114.1 and Zsh 5.9 in actual terminals")
 	t.Run("bash_readline", func(t *testing.T) {
 		environment := newShellEnvironment(t)
 		terminal := environment.start("bash")
@@ -210,4 +229,5 @@ func TestContainerShellCompletion(t *testing.T) {
 	})
 	t.Run("zsh_zle", testZshCompletion)
 	t.Run("zsh_custom_zdotdir", testZshCustomStartup)
+	t.Run("fish_reader", testFishCompletion)
 }

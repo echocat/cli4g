@@ -134,8 +134,16 @@ jobs:
       - name: Set up rootless Podman
         uses: ./.github/actions/setup-rootless-podman
 
-      - name: Test Bash, Nushell, PowerShell and Zsh in real terminals
-        run: mise run test:shells --engine podman
+      - name: Test Bash, Fish, Nushell, PowerShell and Zsh in real terminals
+        run: mise run test:shells --engine podman --coverage
+
+      - name: Store shell coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: tests-shells-${{ github.run_number }}
+          path: profile.shells.cov
+          retention-days: 1
+          if-no-files-found: error
 
   quality:
     name: Quality gate
@@ -167,7 +175,7 @@ jobs:
 
   coverage:
     name: Coverage
-    needs: test
+    needs: [ test, shell-e2e ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -176,7 +184,7 @@ jobs:
       - name: Download coverage profiles
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          pattern: tests-go-*
+          pattern: tests-*
           path: coverage
 
       - name: Collect coverage profiles
@@ -200,6 +208,19 @@ jobs:
               fi
               profiles+=("$profile")
             done
+          done
+
+          shell_profiles=(coverage/tests-shells-*/profile.shells.cov)
+          if [[ ${#shell_profiles[@]} -eq 0 ]]; then
+            echo "::error::No shell E2E coverage artifact was downloaded."
+            exit 1
+          fi
+          for profile in "${shell_profiles[@]}"; do
+            if [[ ! -s "$profile" ]] || [[ $(wc -l < "$profile") -le 1 ]]; then
+              echo "::error::Missing or empty shell coverage profile: $profile"
+              exit 1
+            fi
+            profiles+=("$profile")
           done
           printf 'files=%s\n' "${profiles[*]}" >> "$GITHUB_OUTPUT"
 

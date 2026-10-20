@@ -138,6 +138,7 @@
 // Users install a native adapter once, without editing their shell configuration:
 //
 //	tool completion install bash
+//	tool completion install fish
 //	tool completion install nu
 //	tool completion install powershell
 //	tool completion install zsh
@@ -188,6 +189,28 @@
 // provides literal quoting and NoSpace/KeepOrder, and _files handles native paths.
 // ZLE settings control whether completion operates inside a word (COMPLETE_IN_WORD)
 // and how menu selection inserts spaces. The adapter retains those settings.
+//
+// Fish 3.6+ autoloads Name.fish from its user completion directory, normally
+// XDG_CONFIG_HOME/fish/completions or ~/.config/fish/completions. The installer
+// discovers __fish_config_dir with fish --no-config, only during installation.
+// It leaves config.fish and universal variables untouched. Source the returned
+// file to refresh an existing session that already loaded command completions.
+// Explicit directories support packaging and custom fish_complete_path entries.
+// Loading the adapter starts no application process; only Name's completion
+// definitions are replaced, with no changes to global widgets or other commands.
+//
+// Each Fish query transmits the complete current process and its cursor prefix,
+// preserving empty/multiline arguments, simple quotes/escapes, and arguments after
+// the cursor. Variables, globs and substitutions remain literal dependency data;
+// they are never evaluated by the collector. Fish quotes inserted candidates,
+// displays descriptions, completes paths natively, and preserves KeepOrder (the
+// engine sorts other candidate results). Values use NUL-framed records; tabs in
+// candidate values are omitted because Fish reserves the tab for descriptions,
+// and multiline descriptions are displayed on one line. Fish controls whitespace:
+// it omits spaces after punctuation such as "=" and "/", but its public completion
+// API cannot force NoSpace on arbitrary values. Fish also retains native word-
+// suffix matching when completing inside a token. See [Application.CompletionScript]
+// and [CompletionProtocolVersion] for the adapter and transport contracts.
 //
 // ApplicationRequirement.CompletionCommand is an ordinary CommandRequirementLike.
 // Nil means absent. Create compiles it alongside Commands without modifying the

@@ -43,6 +43,13 @@ import (
 //     1 files, 2 directories), NoSpace (0/1), KeepOrder (0/1), FilePrefix, FileInput,
 //     then alternating candidate values and descriptions. Zsh handles quoting and
 //     native paths. Empty words are preserved as native process arguments.
+//   - __complete 1 fish PREFIX LINE: LINE is Fish's complete current process;
+//     PREFIX is its raw portion before the cursor. Both include commandline's
+//     final printing newline, which the receiver removes exactly once. This
+//     preserves actual trailing newlines and derives UTF-8 byte offsets directly.
+//     Simple Fish quotes/escapes are decoded without evaluating expressions.
+//     Output uses the same NUL fields as zsh. Fish omits candidates containing
+//     tabs, which its completion value/description interface cannot represent.
 //
 // New transports may be added without changing existing transports. Query errors
 // become authoritative empty responses with no diagnostics; direct Complete
@@ -68,8 +75,17 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 		output = io.Discard
 	}
 	switch CompletionShell(args[1]) {
-	case CompletionZsh:
-		if len(args) >= 4 {
+	case CompletionZsh, CompletionFish:
+		if CompletionShell(args[1]) == CompletionFish && len(args) == 4 {
+			prefix, line := strings.TrimSuffix(args[2], "\n"), strings.TrimSuffix(args[3], "\n")
+			if strings.HasPrefix(line, prefix) {
+				if request, err := fishCompletionRequest(line, len(prefix)); err == nil {
+					if completed, err := this.Complete(ctx, opts, request); err == nil {
+						result = completed
+					}
+				}
+			}
+		} else if CompletionShell(args[1]) == CompletionZsh && len(args) >= 4 {
 			word, err := strconv.Atoi(args[2])
 			words := args[4:]
 			if err == nil && word >= 0 && word < len(words) && strings.HasPrefix(words[word], args[3]) {
@@ -89,7 +105,7 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 			return err
 		}
 		for _, candidate := range result.Candidates {
-			if strings.ContainsRune(candidate.Value, 0) {
+			if strings.ContainsRune(candidate.Value, 0) || CompletionShell(args[1]) == CompletionFish && strings.ContainsRune(candidate.Value, '\t') {
 				continue
 			}
 			if _, err := fmt.Fprintf(output, "%s%c%s%c", candidate.Value, 0, strings.ReplaceAll(candidate.Description, "\x00", " "), 0); err != nil {

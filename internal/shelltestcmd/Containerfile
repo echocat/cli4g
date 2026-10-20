@@ -1,11 +1,11 @@
-# Bash 5.2.37, Nushell 0.114.1 and Zsh 5.9 / Alpine 3.22; static Go test binaries.
+# Bash 5.2.37, Fish 4.0.2, Nushell 0.114.1 and Zsh 5.9 / Alpine 3.22; static Go tests.
 # Pin image manifests so rebuilding cannot silently change the tested shells.
 FROM ghcr.io/nushell/nushell:0.114.1-alpine@sha256:278ba1af47dfba2754be3f86d395f45a7c850f8a011f8ed921fa4093642257f3 AS nu
 FROM docker.io/library/bash:5.2.37@sha256:a54fb4422b18f05dd3107c36f39d67b26334fda7ec89f4126052b45e228e2f15
 
-RUN apk add --no-cache bash-completion ncurses-terminfo-base zsh=5.9-r5
+RUN apk add --no-cache bash-completion ncurses-terminfo-base fish=4.0.2-r0 zsh=5.9-r5
 COPY --from=nu /usr/bin/nu /usr/local/bin/nu
 COPY fixture-initial fixture-updated /opt/fixtures/
 COPY shell-e2e /opt/tests/shell-e2e
-RUN bash --version && nu --version && zsh --version
+RUN bash --version && fish --version && nu --version && zsh --version
 ENTRYPOINT ["/opt/tests/shell-e2e", "-test.v", "-test.run=^TestContainerShellCompletion$", "-test.timeout=2m"]

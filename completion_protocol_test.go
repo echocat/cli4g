@@ -53,7 +53,7 @@ func TestCompletionProtocolRejectsMalformedRequestsQuietly(t *testing.T) {
 func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T) {
 	app := NewSimpleApplication("tool").WithCompletionRequestCommandName(DefaultCompletionRequestCommandName).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell, CompletionZsh} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionFish, CompletionNushell, CompletionPowerShell, CompletionZsh} {
 		directory := t.TempDir()
 		path, err := app.InstallCompletion(nil, shell, directory)
 		require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T
 	directory, err := completionDirectory(context.Background(), CompletionBash)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(os.Getenv("BASH_COMPLETION_USER_DIR"), "completions"), directory)
-	_, err = app.CompletionScript("fish")
+	_, err = app.CompletionScript("unsupported-shell")
 	require.Error(t, err)
 	_, err = NewSimpleApplication("../bad").MustCreate().InstallCompletion(nil, CompletionBash, t.TempDir())
 	require.Error(t, err)

@@ -96,14 +96,15 @@ env.GOWORK = "off"
 run = 'go test -count=1 -v ./internal/integration -run "^TestModuleArchive$" -args -module-archive'
 
 [tasks."test:shells"]
-description = "Run mandatory Bash/Nushell/PowerShell/Zsh terminal E2E tests in Podman (preferred) or Docker"
+description = "Run mandatory Bash/Fish/Nushell/PowerShell/Zsh terminal E2E tests in Podman (preferred) or Docker"
 usage = '''
 flag "--engine <engine>" help="Container engine: auto, podman or docker" default="auto"
+flag "--coverage" help="Collect real shell fixture coverage in profile.shells.cov" default=#false
 '''
 env.GOWORK = "off"
 shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
 run = '''
-go run ./internal/shelltestcmd --engine {% if os() == 'windows' %}'{{usage.engine | replace(from="'", to="''")}}'{% else %}{{usage.engine | quote}}{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+go run ./internal/shelltestcmd --engine {% if os() == 'windows' %}'{{usage.engine | replace(from="'", to="''")}}'{% else %}{{usage.engine | quote}}{% endif %}{% if usage.coverage %} --coverage{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
 '''
 
 [tasks."test:benchmarks"]

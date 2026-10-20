@@ -58,6 +58,14 @@ ship completion install zsh
 # ship --context production --namespace payments deploy ch<Tab>
 ```
 
+In **Fish 3.6+**:
+
+```fish
+ship completion install fish
+# Start a new Fish session, then type and press Tab:
+# ship --context production --namespace payments deploy ch<Tab>
+```
+
 The standard handler completes `deploy`, flag names, the `development`/`production` context enum, and bool values automatically. The two callbacks in `inventory.go` add domain knowledge:
 
 - Namespace suggestions depend on the context and the selected service.

@@ -5,6 +5,7 @@
 profile.cov
 profile.cov.full
 profile.examples.cov
+profile.shells.cov
 /mise.local.toml
 /mise.local.lock
 /.mise/locks/mise.local/

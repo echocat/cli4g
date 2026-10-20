@@ -38,6 +38,7 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 	flags := flag.NewFlagSet("shell-e2e", flag.ContinueOnError)
 	flags.SetOutput(diagnostics)
 	engine := flags.String("engine", "auto", "container engine: auto (Podman first), podman or docker")
+	coverage := flags.Bool("coverage", false, "collect fixture coverage in profile.shells.cov")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -81,8 +82,14 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 		}
 		ldflags := "-X main.variant=" + variant + " -X main.completionCommand=" + public + " -X main.completionRequestCommand=__suggest"
 		env := append(exampleutil.NativeEnv(), "GOOS=linux", "GOARCH="+runtime.GOARCH, "CGO_ENABLED=0")
-		if err := command(ctx, root, env, output, diagnostics, "go", "build", "-mod=readonly", "-ldflags", ldflags,
-			"-o", filepath.Join(directory, "fixture-"+variant), "./internal/testdata/completion"); err != nil {
+		build := []string{"build", "-mod=readonly", "-ldflags", ldflags}
+		if *coverage {
+			// The main package installs Go's runtime coverage hooks; the exported
+			// report below selects only the actual library packages.
+			build = append(build, "-cover", "-covermode=atomic", "-coverpkg=github.com/echocat/cli4g/internal/testdata/completion,github.com/echocat/cli4g,github.com/echocat/cli4g/codec")
+		}
+		build = append(build, "-o", filepath.Join(directory, "fixture-"+variant), "./internal/testdata/completion")
+		if err := command(ctx, root, env, output, diagnostics, "go", build...); err != nil {
 			return err
 		}
 	}
@@ -91,15 +98,43 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 		"-o", filepath.Join(directory, "shell-e2e"), "./internal/shelltestcmd"); err != nil {
 		return err
 	}
+	var coverageDirectories []string
 	for _, file := range []string{"Containerfile", "Containerfile.powershell"} {
-		if err := runContainer(ctx, selected, directory, file, output, diagnostics); err != nil {
+		coverageDirectory := ""
+		if *coverage {
+			coverageDirectory = filepath.Join(directory, "coverage-"+file)
+			coverageDirectories = append(coverageDirectories, coverageDirectory)
+		}
+		if err := runContainer(ctx, selected, directory, file, coverageDirectory, output, diagnostics); err != nil {
 			return err
 		}
+	}
+	if *coverage {
+		merged := filepath.Join(directory, "coverage-merged")
+		if err := os.Mkdir(merged, 0700); err != nil {
+			return err
+		}
+		env := exampleutil.NativeEnv()
+		if err := command(ctx, root, env, output, diagnostics, "go", "tool", "covdata", "merge", "-pcombine", "-i="+strings.Join(coverageDirectories, ","), "-o="+merged); err != nil {
+			return err
+		}
+		profile := filepath.Join(root, "profile.shells.cov")
+		if err := command(ctx, root, env, output, diagnostics, "go", "tool", "covdata", "textfmt", "-pkg=github.com/echocat/cli4g,github.com/echocat/cli4g/codec", "-i="+merged, "-o="+profile); err != nil {
+			return err
+		}
+		data, err := os.ReadFile(profile)
+		if err != nil {
+			return err
+		}
+		if len(strings.Split(strings.TrimSpace(string(data)), "\n")) < 2 {
+			return fmt.Errorf("shell E2E produced no coverage data")
+		}
+		_, _ = fmt.Fprintln(output, "Shell fixture coverage:", profile)
 	}
 	return nil
 }
 
-func runContainer(ctx context.Context, selected, directory, file string, output, diagnostics io.Writer) error {
+func runContainer(ctx context.Context, selected, directory, file, coverageDirectory string, output, diagnostics io.Writer) error {
 	idFile := filepath.Join(directory, file+".image-id")
 	args := []string{"build", "--platform", "linux/" + runtime.GOARCH, "--file", filepath.Join(directory, file), "--iidfile", idFile}
 	if file == "Containerfile.powershell" && runtime.GOARCH == "arm64" {
@@ -121,7 +156,34 @@ func runContainer(ctx context.Context, selected, directory, file string, output,
 	}()
 	// Run by image ID rather than a mutable tag, so concurrent checkouts cannot
 	// accidentally execute each other's test binaries. Runtime tests need no network.
-	return command(ctx, "", nil, output, diagnostics, selected, "run", "--rm", "--network=none", "--name", name, strings.TrimSpace(string(image)))
+	args = []string{"run", "--network=none", "--name", name}
+	if coverageDirectory != "" {
+		args = append(args, "--env", "GOCOVERDIR=/opt/coverage")
+	} else {
+		args = append(args, "--rm")
+	}
+	args = append(args, strings.TrimSpace(string(image)))
+	if err := command(ctx, "", nil, output, diagnostics, selected, args...); err != nil {
+		return err
+	}
+	if coverageDirectory != "" {
+		if err := command(ctx, "", nil, output, diagnostics, selected, "cp", name+":/opt/coverage", coverageDirectory); err != nil {
+			return err
+		}
+		entries, err := os.ReadDir(coverageDirectory)
+		if err != nil {
+			return err
+		}
+		var metadata, counters bool
+		for _, entry := range entries {
+			metadata = metadata || strings.HasPrefix(entry.Name(), "covmeta.")
+			counters = counters || strings.HasPrefix(entry.Name(), "covcounters.")
+		}
+		if !metadata || !counters {
+			return fmt.Errorf("shell fixtures produced no usable runtime coverage: %s", file)
+		}
+	}
+	return nil
 }
 
 func chooseEngine(value string, lookup func(string) (string, error)) (string, error) {

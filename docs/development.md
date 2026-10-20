@@ -19,7 +19,7 @@ mise run check:full
 | `mise run test --coverage` | Go and example coverage |
 | `mise run test:matrix` | Minimum and stable Go versions |
 | `mise run test:module` | Test the distributable module archive without nested modules or Git metadata |
-| `mise run test:shells` | Mandatory interactive Bash/Nushell/PowerShell/Zsh E2E tests in Linux containers |
+| `mise run test:shells` | Mandatory interactive Bash/Fish/Nushell/PowerShell/Zsh E2E tests in Linux containers |
 | `mise run test:fuzz` | Bounded parser fuzzing |
 | `mise run test:benchmarks` | Check comparison adapters and their module |
 | `mise run bench` | Measure CLI lifecycle comparisons and update the results page |
@@ -39,6 +39,7 @@ Windows, start the runtime's Linux VM first.
 mise run test:shells
 mise run test:shells --engine podman
 mise run test:shells --engine docker
+mise run test:shells --coverage
 ```
 
 The runner cross-builds static Linux fixture binaries with the project's Go
@@ -49,15 +50,16 @@ The test containers have no network access; image building needs registry/packag
 access. Containers and temporary files are cleaned up; image layers remain cached.
 
 The Containerfiles pin Bash **5.2.37**, Nushell **0.114.1**, and PowerShell **7.5.0**
-images by manifest digest and Zsh **5.9** through Alpine package `zsh=5.9-r5`.
+images by manifest digest, Fish **4.0.2** through Alpine package `fish=4.0.2-r0`,
+and Zsh **5.9** through `zsh=5.9-r5`.
 PowerShell runs separately on Ubuntu (amd64) or Azure
 Linux (arm64), keeping its native .NET environment. The runner cross-compiles a Go
 test binary with the `shell_e2e` build tag.
 Its Go PTY driver uses Linux terminal ioctls from the existing `golang.org/x/sys`
 dependency and embedded shell setup scripts. It installs adapters through the
-real CLI command, starts interactive Bash/Readline, Nu/Reedline, PowerShell/PSReadLine, and Zsh/ZLE,
+real CLI command, starts interactive Bash/Readline, Fish, Nu/Reedline, PowerShell/PSReadLine, and Zsh/ZLE,
 presses Tab, and reads the line-editor buffer. It verifies on-demand Bash loading,
-Nu/Zsh autoload, PowerShell profile loading/preservation, quotes, Unicode, paths, context-dependent values, real `compopt`
+Fish/Nu/Zsh autoload, PowerShell profile loading/preservation, quotes, Unicode, paths, context-dependent values, real `compopt`
 NoSpace/KeepOrder behavior, cursor edits, and binary replacement without adapter
 reinstallation. Initialization markers prove that requests bypass normal startup.
 PowerShell tests also execute completed arguments in both Standard and Legacy
@@ -66,7 +68,16 @@ Windows PowerShell 5.1 itself is not part of this Linux E2E suite.
 Zsh tests cover native menus/KeepOrder, NoSpace, mid-word and Unicode cursor edits,
 directory-only completion, preserved startup content/styles, existing compinit,
 non-exported custom ZDOTDIR settings, and sourcing the generated autoload file.
+Fish tests cover descriptions/order in the native completion API and actual pager,
+empty/multiline values, escapes, non-evaluated substitutions, native suffix matching,
+directory-only paths, command decorators, preserved config, and binary replacement.
 Missing/wrong-version shells and missing runtimes are errors, never skips.
+
+`--coverage` instruments the actual fixture binaries, collects their Go runtime
+coverage from both stopped containers using the engine's copy command, and merges
+it into `profile.shells.cov` with Go's `covdata` tooling. CI includes this artifact
+in the same Coveralls upload as the Go matrix and example profiles, so native
+shell execution contributes to the reported library coverage.
 
 The lighter `TestNativeShellCompletion` Go test still uses locally available
 shells and can skip unavailable ones. The separate container suite is the required
@@ -93,6 +104,7 @@ complete repository.
 
 - Go coverage: `profile.cov`.
 - Example-binary coverage: `profile.examples.cov`, including library calls.
+- Shell-fixture coverage: `profile.shells.cov`, including the real adapter queries and installation paths.
 - `CLI4G_CI=1` enables race/verbose/coverage for Go tests and binary coverage
   for examples; Go tests then write `profile.cov.full`.
 
@@ -100,7 +112,7 @@ complete repository.
 
 - Go linting: Linux, macOS, Windows.
 - Runtime tests: minimum/stable Go on each OS, including example binaries.
-- Shell E2E: a required Linux job using rootless Podman and pinned Bash/Nushell/PowerShell/Zsh versions.
+- Shell E2E: a required Linux job using rootless Podman and pinned Bash/Fish/Nushell/PowerShell/Zsh versions.
 - Shared checks: once on Linux; formats, module archives, workflows, example code,
   benchmark-adapter correctness, fuzzing, and vulnerabilities. Timing measurements
   are run separately on an idle machine, not in CI.

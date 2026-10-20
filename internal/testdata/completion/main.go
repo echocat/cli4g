@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -38,6 +39,9 @@ func main() {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			panic(err)
+		}
+		if len(os.Args) > 2 && os.Args[2] == "--trim-newline" {
+			data = bytes.TrimSuffix(data, []byte{'\n'})
 		}
 		if err := json.NewEncoder(os.Stdout).Encode(string(data)); err != nil {
 			panic(err)
