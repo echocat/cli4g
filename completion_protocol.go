@@ -36,6 +36,13 @@ import (
 //     Windows PowerShell 5.1's legacy native-pipeline encoding. The adapter sends
 //     literal AST values, keeps arguments after the cursor, and converts UTF-16
 //     cursor positions to UTF-8 byte offsets without evaluating expressions.
+//   - __complete 1 zsh WORD PREFIX WORDS...: WORD is the zero-based current word
+//     index; WORDS excludes the executable but includes the full current word and
+//     tokens after the cursor. PREFIX is its unquoted cursor prefix, whose UTF-8
+//     byte length is the offset. Output is NUL-delimited: "1", path mode (0 none,
+//     1 files, 2 directories), NoSpace (0/1), KeepOrder (0/1), FilePrefix, FileInput,
+//     then alternating candidate values and descriptions. Zsh handles quoting and
+//     native paths. Empty words are preserved as native process arguments.
 //
 // New transports may be added without changing existing transports. Query errors
 // become authoritative empty responses with no diagnostics; direct Complete
@@ -61,6 +68,35 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 		output = io.Discard
 	}
 	switch CompletionShell(args[1]) {
+	case CompletionZsh:
+		if len(args) >= 4 {
+			word, err := strconv.Atoi(args[2])
+			words := args[4:]
+			if err == nil && word >= 0 && word < len(words) && strings.HasPrefix(words[word], args[3]) {
+				if completed, err := this.Complete(ctx, opts, CompletionRequest{Words: words, Word: word, Offset: len(args[3])}); err == nil {
+					result = completed
+				}
+			}
+		}
+		mode := 0
+		if result.Files {
+			mode = 1
+		}
+		if result.Directories {
+			mode = 2
+		}
+		if _, err := fmt.Fprintf(output, "1%c%d%c%d%c%d%c%s%c%s%c", 0, mode, 0, boolInt(result.NoSpace), 0, boolInt(result.KeepOrder), 0, result.FilePrefix, 0, result.FileInput, 0); err != nil {
+			return err
+		}
+		for _, candidate := range result.Candidates {
+			if strings.ContainsRune(candidate.Value, 0) {
+				continue
+			}
+			if _, err := fmt.Fprintf(output, "%s%c%s%c", candidate.Value, 0, strings.ReplaceAll(candidate.Description, "\x00", " "), 0); err != nil {
+				return err
+			}
+		}
+		return nil
 	case CompletionBash:
 		var request CompletionRequest
 		var err error

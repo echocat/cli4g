@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-//go:embed bash.sh config.nu powershell.ps1
+//go:embed bash.sh config.nu powershell.ps1 zsh.zsh
 var shellAssets embed.FS
 
 type shellEnvironment struct {
@@ -91,6 +91,21 @@ func (environment *shellEnvironment) start(shell string) *terminal {
 		terminal.prompt()
 		return terminal
 	}
+	if shell == "zsh" {
+		setup, err := shellAssets.ReadFile("zsh.zsh")
+		must(environment.t, err)
+		startup := strings.TrimSpace(string(environment.output("zsh", "-c", "print -rn -- ${ZDOTDIR:-$HOME}")))
+		profile := filepath.Join(startup, ".zshrc")
+		file, err := os.OpenFile(profile, os.O_APPEND|os.O_WRONLY, 0600)
+		must(environment.t, err)
+		_, err = file.Write(setup)
+		must(environment.t, err)
+		must(environment.t, file.Close())
+		terminal := startTerminal(environment.t, "zsh", []string{"-d", "-i"}, environment.env, environment.root)
+		terminal.expect("__CLI4G_READY__\r?\n")
+		terminal.prompt()
+		return terminal
+	}
 	path := filepath.Join(environment.root, "config", "nushell", "config.nu")
 	must(environment.t, os.MkdirAll(filepath.Dir(path), 0700))
 	config, err := shellAssets.ReadFile("config.nu")
@@ -114,10 +129,12 @@ func TestContainerShellCompletion(t *testing.T) {
 	must(t, err)
 	nu, err := exec.Command("nu", "--version").CombinedOutput()
 	must(t, err)
-	if !strings.Contains(string(bash), "version 5.2.37") || strings.TrimSpace(string(nu)) != "0.114.1" {
-		t.Fatalf("unexpected shell versions: %q, %q", bash, nu)
+	zsh, err := exec.Command("zsh", "--version").CombinedOutput()
+	must(t, err)
+	if !strings.Contains(string(bash), "version 5.2.37") || strings.TrimSpace(string(nu)) != "0.114.1" || !strings.HasPrefix(string(zsh), "zsh 5.9 ") {
+		t.Fatalf("unexpected shell versions: %q, %q, %q", bash, nu, zsh)
 	}
-	t.Log("Testing Bash 5.2.37 and Nushell 0.114.1 in actual terminals")
+	t.Log("Testing Bash 5.2.37, Nushell 0.114.1 and Zsh 5.9 in actual terminals")
 	t.Run("bash_readline", func(t *testing.T) {
 		environment := newShellEnvironment(t)
 		terminal := environment.start("bash")
@@ -191,4 +208,6 @@ func TestContainerShellCompletion(t *testing.T) {
 		}
 		environment.assertRequestsSkipInitialization()
 	})
+	t.Run("zsh_zle", testZshCompletion)
+	t.Run("zsh_custom_zdotdir", testZshCustomStartup)
 }

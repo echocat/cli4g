@@ -140,6 +140,7 @@
 //	tool completion install bash
 //	tool completion install nu
 //	tool completion install powershell
+//	tool completion install zsh
 //
 // Bash 4.4+ uses the bash-completion package's on-demand loader. Nushell 0.114+
 // uses its user autoload directory on the next interactive startup. PowerShell
@@ -168,6 +169,25 @@
 // colons as drives. Candidate order is preserved. The user's PSReadLine binding
 // determines whitespace insertion; the adapter does not change that binding.
 // See [Application.InstallCompletion] and [CompletionProtocolVersion] for details.
+//
+// Zsh 5.8+ uses its native compinit/fpath autoloading. The default installer writes
+// _Name below XDG_DATA_HOME/zsh/site-functions (otherwise
+// ~/.local/share/zsh/site-functions), and
+// appends a static block to .zshrc in Zsh's startup directory. That directory is
+// discovered from the installed zsh, including non-exported ZDOTDIR settings in
+// .zshenv. Discovery runs only during installation. The block extends fpath,
+// initializes compinit if needed, and registers an autoload function; it starts
+// neither the application nor the adapter at shell startup. Existing user content,
+// widgets and completion styles are preserved. Explicit directories write only
+// the autoload file for packaging. Source that file after compinit for an existing
+// session. Run installation again after relocating the startup directory.
+//
+// The Zsh adapter uses native words and cursor prefix/suffix fragments, including
+// unfinished quotes and arguments after the cursor. It never evaluates expressions
+// while collecting dependency values. Candidates carry descriptions; compadd
+// provides literal quoting and NoSpace/KeepOrder, and _files handles native paths.
+// ZLE settings control whether completion operates inside a word (COMPLETE_IN_WORD)
+// and how menu selection inserts spaces. The adapter retains those settings.
 //
 // ApplicationRequirement.CompletionCommand is an ordinary CommandRequirementLike.
 // Nil means absent. Create compiles it alongside Commands without modifying the

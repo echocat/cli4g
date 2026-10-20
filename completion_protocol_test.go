@@ -53,13 +53,13 @@ func TestCompletionProtocolRejectsMalformedRequestsQuietly(t *testing.T) {
 func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T) {
 	app := NewSimpleApplication("tool").WithCompletionRequestCommandName(DefaultCompletionRequestCommandName).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell, CompletionZsh} {
 		directory := t.TempDir()
 		path, err := app.InstallCompletion(nil, shell, directory)
 		require.NoError(t, err)
 		contents, err := os.ReadFile(path)
 		require.NoError(t, err)
-		assert.True(t, strings.HasPrefix(strings.TrimPrefix(string(contents), "\ufeff"), completionScriptHeader))
+		assert.Contains(t, string(contents), completionScriptHeader)
 		again, err := app.InstallCompletion(nil, shell, directory)
 		require.NoError(t, err)
 		assert.Equal(t, path, again)

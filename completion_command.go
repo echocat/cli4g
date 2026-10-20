@@ -26,20 +26,20 @@ var DefaultCompletionCommand CommandRequirementLike = NewCompletionCommand()
 var DefaultCompletionRequestCommandName = "__complete"
 
 // CompletionInstallOptions configures the standard completion install command.
-// Shell is bash, nu or powershell. Directory overrides the shell's default
-// installation path; for PowerShell, an explicit directory also skips profile setup.
+// Shell is bash, nu, powershell or zsh. Directory overrides the shell's default
+// installation path; for PowerShell and Zsh, it also skips startup-file setup.
 // These are ordinary command options, parsed and validated through the usual CLI
 // lifecycle together with the selected application and command scopes.
 type CompletionInstallOptions struct {
-	Shell     string `argument:"shell" enum:"bash|nu|powershell" required:"true" description:"Shell to configure."`
+	Shell     string `argument:"shell" enum:"bash|nu|powershell|zsh" required:"true" description:"Shell to configure."`
 	Directory string `argument:"directory" type:"completion-directory" description:"Installation directory; omitted uses the shell's default."`
 }
 
 // NewCompletionCommand builds a fresh, ordinary command tree named "completion".
-// It supports "completion bash", "completion nu", "completion powershell", and
-// "completion install <bash|nu|powershell> [directory]". WithName, WithAliases,
-// handlers and all other ordinary
-// CommandRequirement configuration are available. Parent requirements, parsing,
+// It supports "completion <bash|nu|powershell|zsh>" and
+// "completion install <bash|nu|powershell|zsh> [directory]". WithName, WithAliases,
+// handlers and all other ordinary CommandRequirement configuration are available.
+// Parent requirements, parsing,
 // profiles, initialization, execution, cleanup and depth limits apply normally.
 // Only the independently configured request entry bypasses that lifecycle.
 //
@@ -47,7 +47,7 @@ type CompletionInstallOptions struct {
 // CompletionApplicationFromContext, which custom management commands may also use.
 func NewCompletionCommand() *CommandRequirement[NoOptions] {
 	command := NewSimpleCommand("completion", "Manage shell completion.").WithHandler(completionGroupHelp)
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell, CompletionZsh} {
 		command.WithCommand(NewSimpleCommand(string(shell), "Print the "+string(shell)+" adapter.").
 			WithHandler(func(ctx context.Context, _ NoOptions) error {
 				application, found := CompletionApplicationFromContext(ctx)
