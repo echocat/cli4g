@@ -70,18 +70,18 @@ func TestDefaultCompletionCommandIsAnOrdinaryCompiledCommand(t *testing.T) {
 	assert.False(t, found, "request entry is not registered as a command")
 	definition.WithName("changed")
 	assert.Equal(t, "shell-setup", app.CompletionCommandName())
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell} {
 		var output, diagnostics bytes.Buffer
 		require.NoError(t, app.ParseAndExecute(ContextWithStdio(nil, nil, &output, &diagnostics), nil, "shells", string(shell)))
 		assert.Contains(t, output.String(), "__suggest")
 		assert.Empty(t, diagnostics.String(), "ancestor group handler must not print help for a selected child")
 	}
-	assert.Equal(t, []string{"initialize", "close", "initialize", "close"}, events)
+	assert.Equal(t, []string{"initialize", "close", "initialize", "close", "initialize", "close"}, events)
 	var help bytes.Buffer
 	require.NoError(t, app.ParseAndExecute(ContextWithStdio(nil, nil, &help, &help), nil, "shell-setup", "--help"))
 	assert.Contains(t, help.String(), "tool shell-setup")
 	assert.Contains(t, help.String(), "install")
-	assert.Len(t, events, 4, "ordinary --help skips initialization")
+	assert.Len(t, events, 6, "ordinary --help skips initialization")
 	var output bytes.Buffer
 	directory := t.TempDir()
 	require.NoError(t, app.ParseAndExecute(ContextWithStdio(nil, nil, &output, &output), nil, "shell-setup", "install", "bash", directory))
@@ -182,7 +182,7 @@ func TestNormalCompletionCommandCompletesItsOwnSchema(t *testing.T) {
 	}{
 		{[]string{"shell-s"}, []string{"shell-setup"}, false},
 		{[]string{"__s"}, []string{}, false},
-		{[]string{"shell-setup", ""}, []string{"bash", "install", "nu"}, false},
+		{[]string{"shell-setup", ""}, []string{"bash", "install", "nu", "powershell"}, false},
 		{[]string{"shell-setup", "install", "n"}, []string{"nu"}, false},
 		{[]string{"shell-setup", "install", "bash", "dir"}, []string{}, true},
 	} {
@@ -194,7 +194,7 @@ func TestNormalCompletionCommandCompletesItsOwnSchema(t *testing.T) {
 	renamed := NewSimpleApplication("tool").WithCompletion(true).
 		WithCompletionCommand(NewCompletionCommand().WithName("shell-admin")).WithCompletionRequestCommandName("__suggest").MustCreate()
 	defer func() { assert.NoError(t, renamed.Close()) }()
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell} {
 		before, err := app.CompletionScript(shell)
 		require.NoError(t, err)
 		after, err := renamed.CompletionScript(shell)

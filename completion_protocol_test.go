@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -52,13 +53,13 @@ func TestCompletionProtocolRejectsMalformedRequestsQuietly(t *testing.T) {
 func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T) {
 	app := NewSimpleApplication("tool").WithCompletionRequestCommandName(DefaultCompletionRequestCommandName).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()
-	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell} {
+	for _, shell := range []CompletionShell{CompletionBash, CompletionNushell, CompletionPowerShell} {
 		directory := t.TempDir()
 		path, err := app.InstallCompletion(nil, shell, directory)
 		require.NoError(t, err)
 		contents, err := os.ReadFile(path)
 		require.NoError(t, err)
-		assert.True(t, strings.HasPrefix(string(contents), completionScriptHeader))
+		assert.True(t, strings.HasPrefix(strings.TrimPrefix(string(contents), "\ufeff"), completionScriptHeader))
 		again, err := app.InstallCompletion(nil, shell, directory)
 		require.NoError(t, err)
 		assert.Equal(t, path, again)
@@ -77,6 +78,38 @@ func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T
 	require.Error(t, err)
 	_, err = NewSimpleApplication("../bad").MustCreate().InstallCompletion(nil, CompletionBash, t.TempDir())
 	require.Error(t, err)
+}
+
+func TestPowerShellCompletionProtocolPreservesUnicodeAndRejectsMalformedInput(t *testing.T) {
+	app := NewApplication[struct {
+		Format string `flag:"format" enum:"über|two words"`
+	}]("tool").WithCompletion(true).WithInitializeHandler(func(context.Context, struct {
+		Format string `flag:"format" enum:"über|two words"`
+	}) error {
+		panic("completion must skip initialization")
+	}).MustCreate()
+	defer func() { assert.NoError(t, app.Close()) }()
+	for _, test := range []struct {
+		input string
+		want  []string
+	}{
+		{base64.StdEncoding.EncodeToString([]byte(`{"words":["--format","ü"],"word":1,"offset":2}`)), []string{"über"}},
+		{base64.StdEncoding.EncodeToString([]byte(`{"words":["--format","two wo"],"word":1,"offset":6}`)), []string{"two words"}},
+		{"not base64!", []string{}},
+		{base64.StdEncoding.EncodeToString([]byte(`{} {}`)), []string{}},
+		{base64.StdEncoding.EncodeToString([]byte(`{"unexpected":true}`)), []string{}},
+		{base64.StdEncoding.EncodeToString([]byte(`{"words":["--format","ü"],"word":1,"offset":2}` + strings.Repeat(" ", 1<<20))), []string{}},
+	} {
+		var output, diagnostics bytes.Buffer
+		ctx := ContextWithStdio(nil, strings.NewReader(test.input), &output, &diagnostics)
+		require.NoError(t, app.ParseAndExecute(ctx, nil, DefaultCompletionRequestCommandName, "1", "powershell"))
+		decoded, err := base64.StdEncoding.DecodeString(output.String())
+		require.NoError(t, err)
+		var result codec.CompletionResult
+		require.NoError(t, json.Unmarshal(decoded, &result))
+		assert.Equal(t, test.want, completionTexts(result))
+		assert.Empty(t, diagnostics.String())
+	}
 }
 
 func TestCompletionDoesNotReserveTheFormerProtocolFlag(t *testing.T) {

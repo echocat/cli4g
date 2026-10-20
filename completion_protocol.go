@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +30,12 @@ import (
 //     1 MiB. An optional raw=true additionally removes simple Nu literal quoting
 //     from span tokens; it never evaluates expressions. stdout is a JSON
 //     codec.CompletionResult. Input excludes the executable.
+//   - __complete 1 powershell: the same JSON request/result as nu, without raw
+//     token normalization, each wrapped in standard Base64. The decoded request
+//     is limited to 1 MiB. ASCII-only transport preserves Unicode even with
+//     Windows PowerShell 5.1's legacy native-pipeline encoding. The adapter sends
+//     literal AST values, keeps arguments after the cursor, and converts UTF-16
+//     cursor positions to UTF-8 byte offsets without evaluating expressions.
 //
 // New transports may be added without changing existing transports. Query errors
 // become authoritative empty responses with no diagnostics; direct Complete
@@ -100,18 +108,22 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 			}
 		}
 		return nil
-	case CompletionNushell:
+	case CompletionNushell, CompletionPowerShell:
 		var request struct {
 			CompletionRequest
 			Raw bool `json:"raw,omitempty"`
 		}
 		if input := codec.StdinOfContext(ctx); input != nil {
-			decoder := json.NewDecoder(io.LimitReader(input, 1<<20))
+			if CompletionShell(args[1]) == CompletionPowerShell {
+				input = base64.NewDecoder(base64.StdEncoding, input)
+			}
+			data, readErr := io.ReadAll(io.LimitReader(input, (1<<20)+1))
+			decoder := json.NewDecoder(bytes.NewReader(data))
 			decoder.DisallowUnknownFields()
-			if err := decoder.Decode(&request); err == nil {
+			if err := decoder.Decode(&request); err == nil && readErr == nil && len(data) <= 1<<20 {
 				var trailing any
 				if decoder.Decode(&trailing) == io.EOF {
-					if request.Raw {
+					if request.Raw && CompletionShell(args[1]) == CompletionNushell {
 						unquoteNuCompletion(&request.CompletionRequest)
 					}
 					if completed, err := this.Complete(ctx, opts, request.CompletionRequest); err == nil {
@@ -119,6 +131,14 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 					}
 				}
 			}
+		}
+		if CompletionShell(args[1]) == CompletionPowerShell {
+			encoder := base64.NewEncoder(base64.StdEncoding, output)
+			if err := json.NewEncoder(encoder).Encode(result); err != nil {
+				_ = encoder.Close()
+				return err
+			}
+			return encoder.Close()
 		}
 		return json.NewEncoder(output).Encode(result)
 	}

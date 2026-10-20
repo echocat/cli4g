@@ -96,7 +96,7 @@ env.GOWORK = "off"
 run = 'go test -count=1 -v ./internal/integration -run "^TestModuleArchive$" -args -module-archive'
 
 [tasks."test:shells"]
-description = "Run mandatory Bash/Nushell terminal E2E tests in Podman (preferred) or Docker"
+description = "Run mandatory Bash/Nushell/PowerShell terminal E2E tests in Podman (preferred) or Docker"
 usage = '''
 flag "--engine <engine>" help="Container engine: auto, podman or docker" default="auto"
 '''

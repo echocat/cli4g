@@ -22,7 +22,7 @@ import (
 	"github.com/echocat/cli4g/internal/exampleutil"
 )
 
-//go:embed Containerfile
+//go:embed Containerfile Containerfile.powershell
 var assets embed.FS
 
 func main() {
@@ -65,7 +65,7 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 		return err
 	}
 	defer func() { _ = os.RemoveAll(directory) }()
-	for _, name := range []string{"Containerfile"} {
+	for _, name := range []string{"Containerfile", "Containerfile.powershell"} {
 		data, err := assets.ReadFile(name)
 		if err != nil {
 			return err
@@ -91,16 +91,29 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 		"-o", filepath.Join(directory, "shell-e2e"), "./internal/shelltestcmd"); err != nil {
 		return err
 	}
-	idFile := filepath.Join(directory, "image-id")
-	if err := command(ctx, directory, nil, output, diagnostics, selected, "build", "--platform", "linux/"+runtime.GOARCH,
-		"--file", filepath.Join(directory, "Containerfile"), "--iidfile", idFile, "--tag", "localhost/cli4g-shell-e2e:local", directory); err != nil {
+	for _, file := range []string{"Containerfile", "Containerfile.powershell"} {
+		if err := runContainer(ctx, selected, directory, file, output, diagnostics); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runContainer(ctx context.Context, selected, directory, file string, output, diagnostics io.Writer) error {
+	idFile := filepath.Join(directory, file+".image-id")
+	args := []string{"build", "--platform", "linux/" + runtime.GOARCH, "--file", filepath.Join(directory, file), "--iidfile", idFile}
+	if file == "Containerfile.powershell" && runtime.GOARCH == "arm64" {
+		args = append(args, "--build-arg", "POWERSHELL_IMAGE=mcr.microsoft.com/powershell:7.5-azurelinux-3.0-arm64@sha256:60d31793816646c4dd80b719b350ca68c8a53c000cbb2740655ddafe5e127903")
+	}
+	args = append(args, directory)
+	if err := command(ctx, directory, nil, output, diagnostics, selected, args...); err != nil {
 		return err
 	}
 	image, err := os.ReadFile(idFile)
 	if err != nil {
 		return err
 	}
-	name := filepath.Base(directory)
+	name := filepath.Base(directory) + "-" + strings.ToLower(file)
 	defer func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		defer stop()

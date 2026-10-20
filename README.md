@@ -99,12 +99,13 @@ code size, and cognitive complexity.
 
 ## Shell completion
 
-Bash **4.4+** and Nushell **0.114+** adapters query the current binary, so binary
-updates need no completion reinstall. Install once with:
+Bash **4.4+**, Nushell **0.114+**, and PowerShell **5.1+** adapters query the current
+binary, so binary updates need no completion reinstall. Install once with:
 
 ```shell
 your-app completion install bash  # Requires a configured bash-completion loader
 your-app completion install nu    # Autoloaded at the next interactive Nu startup
+your-app completion install powershell  # Loaded through the user profiles on next startup
 ```
 
 `WithCompletion(true)` selects `DefaultCompletionCommand` and

@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-//go:embed bash.sh config.nu
+//go:embed bash.sh config.nu powershell.ps1
 var shellAssets embed.FS
 
 type shellEnvironment struct {
@@ -80,6 +80,14 @@ func (environment *shellEnvironment) start(shell string) *terminal {
 		must(environment.t, err)
 		terminal.send(string(setup))
 		terminal.expect("\r?\n__CLI4G_READY__\r?\n")
+		terminal.prompt()
+		return terminal
+	}
+	if shell == "powershell" {
+		setup, err := shellAssets.ReadFile("powershell.ps1")
+		must(environment.t, err)
+		terminal := startTerminal(environment.t, "pwsh", []string{"-NoLogo", "-NoExit", "-Command", string(setup)}, environment.env, environment.root)
+		terminal.expect("__CLI4G_READY__\r?\n")
 		terminal.prompt()
 		return terminal
 	}

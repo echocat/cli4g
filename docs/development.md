@@ -19,7 +19,7 @@ mise run check:full
 | `mise run test --coverage` | Go and example coverage |
 | `mise run test:matrix` | Minimum and stable Go versions |
 | `mise run test:module` | Test the distributable module archive without nested modules or Git metadata |
-| `mise run test:shells` | Mandatory interactive Bash/Nushell E2E tests in a Linux container |
+| `mise run test:shells` | Mandatory interactive Bash/Nushell/PowerShell E2E tests in Linux containers |
 | `mise run test:fuzz` | Bounded parser fuzzing |
 | `mise run test:benchmarks` | Check comparison adapters and their module |
 | `mise run bench` | Measure CLI lifecycle comparisons and update the results page |
@@ -45,18 +45,23 @@ The runner cross-builds static Linux fixture binaries with the project's Go
 toolchain. Its temporary build context contains only those binaries and the test
 assets, not the repository, Git metadata, or local configuration. No bind mounts,
 daemon socket mounts, privileged containers, or host shell installations are needed.
-The test container has no network access; image building needs registry/package
+The test containers have no network access; image building needs registry/package
 access. Containers and temporary files are cleaned up; image layers remain cached.
 
-The Containerfile pins Bash **5.2.37** and Nushell **0.114.1** images by manifest
-digest. The runner cross-compiles a Go test binary with the `shell_e2e` build tag.
+The Containerfiles pin Bash **5.2.37**, Nushell **0.114.1**, and PowerShell **7.5.0**
+images by manifest digest. PowerShell runs separately on Ubuntu (amd64) or Azure
+Linux (arm64), keeping its native .NET environment. The runner cross-compiles a Go
+test binary with the `shell_e2e` build tag.
 Its Go PTY driver uses Linux terminal ioctls from the existing `golang.org/x/sys`
-dependency and embedded Bash/Nu setup scripts. It installs adapters through the
-real CLI command, starts interactive Bash/Readline and Nu/Reedline,
+dependency and embedded shell setup scripts. It installs adapters through the
+real CLI command, starts interactive Bash/Readline, Nu/Reedline, and PowerShell/PSReadLine,
 presses Tab, and reads the line-editor buffer. It verifies on-demand Bash loading,
-Nu autoload, quotes, Unicode, paths, context-dependent values, real `compopt`
+Nu autoload, PowerShell profile loading/preservation, quotes, Unicode, paths, context-dependent values, real `compopt`
 NoSpace/KeepOrder behavior, cursor edits, and binary replacement without adapter
 reinstallation. Initialization markers prove that requests bypass normal startup.
+PowerShell tests also execute completed arguments in both Standard and Legacy
+native argument modes, with ASCII pipeline encoding. The adapter targets 5.1+;
+Windows PowerShell 5.1 itself is not part of this Linux E2E suite.
 Missing/wrong-version shells and missing runtimes are errors, never skips.
 
 The lighter `TestNativeShellCompletion` Go test still uses locally available
@@ -91,7 +96,7 @@ complete repository.
 
 - Go linting: Linux, macOS, Windows.
 - Runtime tests: minimum/stable Go on each OS, including example binaries.
-- Shell E2E: a required Linux job using rootless Podman and pinned Bash/Nushell images.
+- Shell E2E: a required Linux job using rootless Podman and pinned Bash/Nushell/PowerShell images.
 - Shared checks: once on Linux; formats, module archives, workflows, example code,
   benchmark-adapter correctness, fuzzing, and vulnerabilities. Timing measurements
   are run separately on an idle machine, not in CI.

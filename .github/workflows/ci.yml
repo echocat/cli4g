@@ -134,7 +134,7 @@ jobs:
       - name: Set up rootless Podman
         uses: ./.github/actions/setup-rootless-podman
 
-      - name: Test Bash and Nushell in real terminals
+      - name: Test Bash, Nushell and PowerShell in real terminals
         run: mise run test:shells --engine podman
 
   quality:

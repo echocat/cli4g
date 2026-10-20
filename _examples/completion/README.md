@@ -42,6 +42,14 @@ ship completion install nu
 # ship --context production --namespace payments deploy ch<Tab>
 ```
 
+In **Windows PowerShell 5.1+ or PowerShell 7+**:
+
+```powershell
+ship completion install powershell
+# Start a new PowerShell session, then type and press Tab:
+# ship --context production --namespace payments deploy ch<Tab>
+```
+
 The standard handler completes `deploy`, flag names, the `development`/`production` context enum, and bool values automatically. The two callbacks in `inventory.go` add domain knowledge:
 
 - Namespace suggestions depend on the context and the selected service.

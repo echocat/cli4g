@@ -139,14 +139,35 @@
 //
 //	tool completion install bash
 //	tool completion install nu
+//	tool completion install powershell
 //
 // Bash 4.4+ uses the bash-completion package's on-demand loader. Nushell 0.114+
-// uses its user autoload directory on the next interactive startup. Source the
-// installed file to activate it in an existing session. For packaging, supply a
+// uses its user autoload directory on the next interactive startup. PowerShell
+// 5.1+ registers a native argument completer through static dot-source blocks in
+// the installed pwsh/powershell hosts' CurrentUserAllHosts profiles. The installer
+// discovers those paths without loading profiles, preserves existing profile
+// content and encoding, and writes a UTF-8-with-BOM adapter below the first
+// profile's cli4g-completions directory. Both Windows PowerShell and PowerShell 7
+// are configured when installed; install again after adding another host. Existing
+// execution policies apply. No application process runs when the adapter is loaded.
+// Source the installed file (dot-source it in PowerShell) to activate it in an
+// existing session. For packaging, supply a
 // directory after the shell name or use [Application.CompletionScript] to obtain
 // an adapter without installing it. A shell subcommand also prints it to stdout:
 //
 //	tool completion bash
+//
+// An explicit PowerShell installation directory writes only the adapter and does
+// not edit profiles. PowerShell sends literal AST values and UTF-8 byte cursor
+// offsets through an ASCII-safe Base64/JSON transport, including on Windows
+// PowerShell 5.1's legacy native pipeline. Tokens after the cursor remain available
+// for dependencies. Variables and expressions are not evaluated to collect values.
+// Candidates include descriptions and use literal quoting, including legacy native
+// argument escaping. Paths normally use PowerShell's filename completer; literal
+// Unix colon filenames use filesystem enumeration because the provider interprets
+// colons as drives. Candidate order is preserved. The user's PSReadLine binding
+// determines whitespace insertion; the adapter does not change that binding.
+// See [Application.InstallCompletion] and [CompletionProtocolVersion] for details.
 //
 // ApplicationRequirement.CompletionCommand is an ordinary CommandRequirementLike.
 // Nil means absent. Create compiles it alongside Commands without modifying the
