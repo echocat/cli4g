@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ type invocationLifecycle struct {
 	closed        atomic.Bool
 	once          sync.Once
 	cleanup       func() error
+	operation     func(context.Context) error // request-only protocol invocation
 	err           error
 }
 

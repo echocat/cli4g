@@ -51,6 +51,9 @@ type FlagRequirement[V, R any] struct {
 	Visible     bool
 	Placeholder string
 	Codec       codec.Codec[V, R]
+	// CompletionHandler optionally overrides value suggestions for this flag.
+	// Returning Handled=false delegates to the codec and automatic completion.
+	CompletionHandler CompletionHandler
 	// CodecFactory configures a codec during Create, without acquiring resources.
 	CodecFactory func() (codec.Codec[V, R], error)
 	Field        []string
@@ -71,18 +74,19 @@ func (this FlagRequirement[V, R]) createRaw() (*Flag[any, any], error) {
 		return nil, fmt.Errorf("flag %q: %w", this.Names, err)
 	}
 	return &Flag[any, any]{
-		names:        slices.Clone(this.Names),
-		profiles:     slices.Clone(this.Profiles),
-		shorts:       slices.Clone(this.Shorts),
-		envVars:      slices.Clone(this.EnvVars),
-		description:  this.Description,
-		required:     this.Required,
-		visible:      this.Visible,
-		placeholder:  this.Placeholder,
-		codec:        snapshot,
-		valueType:    reflect.TypeFor[V](),
-		fieldPath:    slices.Clone(this.Field),
-		defaultValue: rawDefault(this.defaultValue),
+		names:             slices.Clone(this.Names),
+		profiles:          slices.Clone(this.Profiles),
+		shorts:            slices.Clone(this.Shorts),
+		envVars:           slices.Clone(this.EnvVars),
+		description:       this.Description,
+		required:          this.Required,
+		visible:           this.Visible,
+		placeholder:       this.Placeholder,
+		codec:             snapshot,
+		completionHandler: this.CompletionHandler,
+		valueType:         reflect.TypeFor[V](),
+		fieldPath:         slices.Clone(this.Field),
+		defaultValue:      rawDefault(this.defaultValue),
 	}, nil
 }
 
@@ -203,6 +207,21 @@ func (this *FlagRequirement[V, R]) WithPlaceholder(v string) *FlagRequirement[V,
 
 func (this *FlagRequirement[V, R]) SetPlaceholder(v string) {
 	this.Placeholder = v
+}
+
+// WithCompletionHandler sets a context-aware value handler for this flag without
+// changing its parsing codec or CLI syntax. It runs before the codec completer;
+// Handled=false delegates, and Handled=true with no candidates suppresses further
+// suggestions. A nil handler restores codec/automatic completion. Name completion
+// never invokes it. Create captures the callback; it must be concurrent-safe.
+func (this *FlagRequirement[V, R]) WithCompletionHandler(v CompletionHandler) *FlagRequirement[V, R] {
+	this.SetCompletionHandler(v)
+	return this
+}
+
+// SetCompletionHandler is the setter counterpart of WithCompletionHandler.
+func (this *FlagRequirement[V, R]) SetCompletionHandler(v CompletionHandler) {
+	this.CompletionHandler = v
 }
 
 // WithCodec replaces the decoder and clears any [FlagRequirement.WithCodecFactory].

@@ -11,22 +11,23 @@ import (
 // Flag describes a CLI flag. Metadata and defaults remain separate from parsed
 // values; use [Invocation.Flag] to read V and [Flag.Default] to read a default R.
 type Flag[V, R any] struct {
-	names        []string
-	profiles     []string
-	shorts       []rune
-	envVars      []string
-	description  string
-	required     bool
-	visible      bool
-	placeholder  string
-	codec        codec.Codec[V, R]
-	valueType    reflect.Type
-	fieldPath    []string
-	binding      *fieldBinding
-	arity        valueArity
-	defaultValue *valueDefault[R]
-	isHelp       bool // framework-owned flag, never set by user requirements
-	cumulative   bool
+	names             []string
+	profiles          []string
+	shorts            []rune
+	envVars           []string
+	description       string
+	required          bool
+	visible           bool
+	placeholder       string
+	codec             codec.Codec[V, R]
+	completionHandler CompletionHandler
+	valueType         reflect.Type
+	fieldPath         []string
+	binding           *fieldBinding
+	arity             valueArity
+	defaultValue      *valueDefault[R]
+	isHelp            bool // framework-owned flag, never set by user requirements
+	cumulative        bool
 }
 
 // Profiles returns a copy of the explicit profile assignments; empty means always active.
@@ -80,6 +81,11 @@ func (this *Flag[V, R]) ValueType() reflect.Type { return this.valueType }
 func (this *Flag[V, R]) Codec() codec.Codec[V, R] {
 	return this.codec
 }
+
+// CompletionHandler returns the explicitly configured flag handler, or nil when
+// value completion uses only the codec and standard handler. Codec returns the
+// effective codec, including the captured flag override.
+func (this *Flag[V, R]) CompletionHandler() CompletionHandler { return this.completionHandler }
 
 func (this *Flag[V, R]) HasDefault() bool { return this.defaultValue != nil }
 

@@ -1,11 +1,27 @@
 package integration
 
+import (
+	"strconv"
+	"strings"
+)
+
 func success(name string, args []string, stdout string) smokeCase {
 	return smokeCase{name: name, args: args, want: expected{stdout: text(stdout)}}
 }
 
 func failure(name string, args []string, code int, diagnostic string, help bool) smokeCase {
 	return smokeCase{name: name, args: args, want: expected{code: code, stdout: text(""), stderrContains: diagnostic, help: boolean(help)}}
+}
+
+// Exercise the same entry point as the Bash adapter, without requiring an
+// interactive shell or adding completion-preview commands to the example CLI.
+func completionCase(name, line string, env []string, candidates ...string) smokeCase {
+	current := line[strings.LastIndexByte(line, ' ')+1:]
+	args := []string{"__complete", "1", "bash", strconv.Itoa(len(line)), line, current}
+	fields := append([]string{"1", "0", "0", "0", "", "", ""}, candidates...)
+	result := success(name, args, strings.Join(fields, "\x00")+"\x00")
+	result.env = env
+	return result
 }
 
 func exampleCases() map[string][]smokeCase {
@@ -30,6 +46,20 @@ func exampleCases() map[string][]smokeCase {
 		},
 		"commands-inheritance":   {success("parent options", []string{"message", "greet", "Carl", "--greeting", "Hey", "--punctuation", "?"}, "Hey, Carl?\n")},
 		"commands-introspection": {{name: "canonical alias", args: []string{"-v", "math", "add", "2", "3", "4"}, want: expected{stdout: text("Sum: 9\n"), stderr: text("Executing: math sum\n")}}},
+		"completion": {
+			{name: "defaults", args: []string{"deploy", "api"}, env: []string{"CLI4G_SHIP_CONTEXT=development"}, want: expected{stdout: text("Plan: api -> development/default (replicas=1, wait=false)\n")}},
+			success("deployment plan", []string{"deploy", "checkout", "--context", "production", "--namespace", "payments", "--replicas", "3", "--wait"}, "Plan: checkout -> production/payments (replicas=3, wait=true)\n"),
+			failure("invalid replicas", []string{"deploy", "api", "--replicas", "0"}, 2, "replicas must be greater than zero", true),
+			completionCase("automatic command names", "ship dep", nil, "deploy"),
+			completionCase("automatic flag names", "ship deploy api --rep", nil, "--replicas"),
+			completionCase("development inventory", "ship --context development deploy worker --namespace ", nil, "default"),
+			completionCase("production inventory", "ship --context production deploy worker --namespace ", nil, "platform"),
+			completionCase("service dependent namespaces", "ship --context production deploy checkout --namespace pa", nil, "payments"),
+			completionCase("namespace dependent services", "ship --context production --namespace payments deploy ch", nil, "checkout"),
+			completionCase("authoritative empty answer", "ship --context production deploy checkout --namespace pl", nil),
+			completionCase("environment dependency", "ship deploy worker --namespace pl", []string{"CLI4G_SHIP_CONTEXT=production"}, "platform"),
+			completionCase("CLI overrides environment", "ship -c development deploy worker -n d", []string{"CLI4G_SHIP_CONTEXT=production"}, "default"),
+		},
 		"custom-codec": {
 			success("RGB", []string{"--color", "#FF8000"}, "red=255 green=128 blue=0\n"),
 			failure("invalid color", []string{"--color", "invalid"}, 2, "color must be #RRGGBB", true),

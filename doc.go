@@ -1,5 +1,5 @@
 // Package cli builds command-line applications with typed options, subcommands,
-// flags, arguments, environment values, and automatic help.
+// flags, arguments, environment values, automatic help, and shell completion.
 //
 // Start with [NewApplication], add a handler with [ApplicationRequirement.WithHandler],
 // and run [ApplicationRequirement.MustCreateParseAndExecute] from main.
@@ -127,6 +127,110 @@
 // selected profiles. [ProfilesFromContext] and [ContextContainsProfile] make
 // this selection available throughout parsing and execution, including factories,
 // decoding, help, and error callbacks.
+//
+// # Shell completion
+//
+// [ApplicationRequirement.WithCompletion] is an opt-in shortcut. True assigns the
+// current [DefaultCompletionCommand] and [DefaultCompletionRequestCommandName];
+// false clears both configuration fields, including custom values. There is no
+// additional enabled state and Create never fills empty values from defaults.
+// The standard engine derives suggestions from the existing CLI definition.
+// Users install a native adapter once, without editing their shell configuration:
+//
+//	tool completion install bash
+//	tool completion install nu
+//
+// Bash 4.4+ uses the bash-completion package's on-demand loader. Nushell 0.114+
+// uses its user autoload directory on the next interactive startup. Source the
+// installed file to activate it in an existing session. For packaging, supply a
+// directory after the shell name or use [Application.CompletionScript] to obtain
+// an adapter without installing it. A shell subcommand also prints it to stdout:
+//
+//	tool completion bash
+//
+// ApplicationRequirement.CompletionCommand is an ordinary CommandRequirementLike.
+// Nil means absent. Create compiles it alongside Commands without modifying the
+// builder list or shared default. It uses the same parsing, inherited inputs,
+// validation, initialization, execution, cleanup, profiles, help and depth limits
+// as every other command. Parent required flags also apply; required positional
+// parent arguments cannot coexist with subcommands. Commands/Command and typed
+// FindCommand expose the actual compiled command, not a metadata substitute.
+//
+// [DefaultCompletionCommand] is a replaceable, preconfigured command requirement.
+// [NewCompletionCommand] creates a fresh version for per-application changes:
+//
+//	WithCompletion(true).
+//	    WithCompletionCommand(NewCompletionCommand().WithName("shells"))
+//
+// Supply any custom CommandRequirement through WithCompletionCommand instead.
+// [CompletionApplicationFromContext] gives ordinary custom handlers access to the
+// renderer, installer and direct completion API without knowing the root options
+// type. Configure global defaults before use, without concurrent modification;
+// already compiled applications keep independent definitions.
+//
+// ApplicationRequirement.CompletionRequestCommandName independently configures
+// the special adapter entry. Empty disables it. WithCompletion(true) assigns the
+// current replaceable DefaultCompletionRequestCommandName (initially "__complete").
+// This name is not registered as a Command and never appears in Commands(), help
+// or suggestions. It must not collide with any root command/alias, including
+// inactive profiles. Keep it stable across upgrades, or regenerate adapters/provide
+// a compatibility entry point when changing it. Public command changes do not
+// affect installed adapters; the wire protocol is independent of either name.
+//
+// Adapters contain no flags, commands, enum snapshots, or version-specific binary
+// paths. At completion time they query the currently selected executable through
+// [CompletionProtocolVersion]; replacing the binary therefore updates suggestions
+// automatically. Sourcing an adapter starts no application process. Each query
+// starts one process; startup code and Go init functions remain the application's
+// responsibility. Query callbacks receive [CompletionQueryTimeout] as a cooperative
+// deadline. cli4g does not maintain a background service or persistent result cache.
+//
+// Commands, aliases, visible flags, enum values, bools, and file inputs are
+// completed automatically. Noncumulative flags already used are omitted from name
+// suggestions. Slice codecs delegate to their element codec, and map codecs
+// delegate the value after key=. codec.Completer adds context-dependent values,
+// such as namespaces selected by --kubeconfig and --context. Its input contains
+// canonical flag occurrence maps, arguments by name and position, command scopes,
+// active profiles, and the current word/cursor target. Neither name completion nor
+// metadata inspection invokes value completers. Providers return unquoted tokens
+// and optional descriptions; shell adapters own quoting and display.
+// The regular options structs and command definitions are the single CLI schema;
+// the built-in shell entry point constructs the completion context automatically.
+// To attach a function to an existing codec, use codec.WithCompletionHandler:
+//
+//	WithCodec(codec.WithCompletionHandler(codec.NewString(), completeNamespaces), "namespace")
+//
+// A type:"namespace" tag selects that codec for the regular field. No custom
+// codec wrapper type or ToRaw implementation is needed. For builder-defined
+// inputs, [FlagRequirement.WithCompletionHandler] and
+// [ArgumentRequirement.WithCompletionHandler] customize one flag/argument without
+// changing its parsing codec. Their handler runs first; Handled=false delegates
+// to the codec, then enum/bool/path defaults. See [CompletionHandler].
+//
+// [Application.Complete] is the direct Go API. It accepts a [CompletionRequest]
+// and [ParseOpts], tolerates unknown and incomplete input, and never constructs
+// options or runs their lifecycle. Raw CLI tokens remain available even if they
+// would not decode. Known flags delimit missing required values for recovery;
+// literal option-looking values can be supplied inline. Other complete arguments
+// after the cursor remain visible when supplied by the adapter/caller.
+// codec.CompletionInput.Effective lazily reads dependencies with CLI > environment
+// > declared-default precedence and identifies their source. Factory-only values
+// are unavailable. Defaults and other inputs are not resolved to runtime resources.
+// Shell expressions/substitutions are not executed to discover dependency values.
+//
+// Direct API errors are returned without invoking the application's error handler.
+// Adapter queries turn failures into empty answers so terminal editing remains
+// usable. Providers doing I/O must honor cancellation and close their own request
+// resources. A provider-side in-memory cache does not span per-query processes;
+// persistent caches must account for all configuration/context dependencies.
+//
+// Only a nonempty configured request name is recognized specially in the first
+// token by Parse and ParseAndExecute. Parse returns a metadata-only invocation;
+// Execute serves the query using context streams, without constructing, validating
+// or initializing ordinary options or running business handlers. Use -- before a
+// literal request-name root argument. Standard --help retains its usual bypass
+// behavior for the ordinary public command. The direct Complete API remains
+// available regardless of either configuration field.
 //
 // # Lifecycle and errors
 //

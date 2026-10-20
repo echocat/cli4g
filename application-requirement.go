@@ -12,6 +12,7 @@ import (
 // O must be a struct or pointer to a struct; exported tags define inputs.
 // By default, input and execution errors use [DefaultErrorHandler], and missing
 // context streams fall back to process stdin/stdout/stderr. MaxCommandDepth is 7.
+// Completion is opt-in through [ApplicationRequirement.WithCompletion].
 // The first optional string sets the name; further strings form the description,
 // joined with spaces. With no strings, configure the name later; Create validates
 // the completed builder.
@@ -36,15 +37,23 @@ type ApplicationRequirement[O any] struct {
 	Description string
 	// Help enables automatic --help/-h throughout the command tree. Constructors
 	// enable it by default; a zero-valued requirement has it disabled.
-	Help                 bool
-	HelpHandler          HelpHandler
-	ErrorHandler         ErrorHandler
-	errorHandlerDisabled bool
+	Help bool
+	// CompletionCommand is an optional ordinary root command, compiled alongside
+	// Commands. Nil means absent; Create never substitutes a default. Configure it
+	// directly or use WithCompletion(true) to select DefaultCompletionCommand.
+	CompletionCommand CommandRequirementLike
+	// CompletionRequestCommandName independently enables the special adapter entry
+	// point. Empty disables it; Create never substitutes a default. Keep a configured
+	// name stable across binary updates. This entry bypasses the options lifecycle.
+	CompletionRequestCommandName string
+	HelpHandler                  HelpHandler
+	ErrorHandler                 ErrorHandler
+	errorHandlerDisabled         bool
 	// FallbackToStdio supplies process stdin/stdout/stderr only when no stream
 	// configuration exists in the operation's context. Constructors enable it by default;
 	// a zero-valued requirement has it disabled.
 	FallbackToStdio bool
-	// MaxCommandDepth limits subcommand levels below the application (depth 0).
+	// MaxCommandDepth limits user-defined subcommand levels below the application (depth 0).
 	// Zero permits only the application; constructors default to 7. Create checks
 	// every definition, including inactive profiles, and snapshots the limit.
 	MaxCommandDepth uint8
@@ -87,6 +96,65 @@ func (this *ApplicationRequirement[O]) WithHelp(v bool) *ApplicationRequirement[
 }
 
 func (this *ApplicationRequirement[O]) SetHelp(v bool) { this.Help = v }
+
+// WithCompletion is a shortcut for configuring the public command and special
+// request entry. True assigns the current DefaultCompletionCommand and
+// DefaultCompletionRequestCommandName; false clears both, including custom values.
+// Call this before individual overrides. There is no separate enabled state, and
+// neither value is implicitly restored during Create. The direct Complete API
+// remains available independently of both settings.
+//
+// The public command is an ordinary command: parent input requirements, lifecycle,
+// profiles, help and depth limits apply normally. Only the request entry bypasses
+// parsing/validation/initialization. The standard handler derives suggestions from
+// the existing CLI schema and optional flag/argument/codec completion handlers.
+func (this *ApplicationRequirement[O]) WithCompletion(v bool) *ApplicationRequirement[O] {
+	this.SetCompletion(v)
+	return this
+}
+
+// SetCompletion is the setter counterpart of WithCompletion.
+func (this *ApplicationRequirement[O]) SetCompletion(v bool) {
+	if v {
+		this.CompletionCommand = DefaultCompletionCommand
+		this.CompletionRequestCommandName = DefaultCompletionRequestCommandName
+	} else {
+		this.CompletionCommand = nil
+		this.CompletionRequestCommandName = ""
+	}
+}
+
+// WithCompletionCommand configures an ordinary public management command.
+// Nil removes it. Use NewCompletionCommand().WithName("shells") to customize the
+// standard command independently, or supply any CommandRequirement with your own
+// options and handlers. Its name belongs to that command, not a separate setting.
+// The request entry is unaffected. Create compiles the command normally without
+// modifying the requirement or adding it permanently to Commands.
+func (this *ApplicationRequirement[O]) WithCompletionCommand(v CommandRequirementLike) *ApplicationRequirement[O] {
+	this.SetCompletionCommand(v)
+	return this
+}
+
+// SetCompletionCommand is the setter counterpart of WithCompletionCommand.
+func (this *ApplicationRequirement[O]) SetCompletionCommand(v CommandRequirementLike) {
+	this.CompletionCommand = v
+}
+
+// WithCompletionRequestCommandName names the hidden adapter request command.
+// Empty disables it. True in WithCompletion selects the current default variable.
+// Generated adapters use the captured name, so choose it before installation and
+// retain it across upgrades. It must be a single command word, distinct from all
+// root commands/aliases, including inactive profiles. This out-of-band entry is
+// not registered as a command and is absent from Commands(), help and suggestions.
+func (this *ApplicationRequirement[O]) WithCompletionRequestCommandName(v string) *ApplicationRequirement[O] {
+	this.SetCompletionRequestCommandName(v)
+	return this
+}
+
+// SetCompletionRequestCommandName is the setter counterpart of WithCompletionRequestCommandName.
+func (this *ApplicationRequirement[O]) SetCompletionRequestCommandName(v string) {
+	this.CompletionRequestCommandName = v
+}
 
 // WithFallbackToStdio controls fallback to process stdin/stdout/stderr when the
 // context has no streams. NewApplication enables it by default. Explicit streams

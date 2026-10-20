@@ -1,0 +1,18 @@
+name: Set up rootless Podman
+description: Prepare an unprivileged Podman runner for mandatory shell E2E tests
+runs:
+  using: composite
+  steps:
+    - name: Install Podman prerequisites
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install --yes podman uidmap slirp4netns
+        if [[ -z "$(getsubids "$USER" 2>/dev/null)" ]]; then
+          sudo usermod --add-subuids 1000000-1065535 "$USER"
+        fi
+        if [[ -z "$(getsubids -g "$USER" 2>/dev/null)" ]]; then
+          sudo usermod --add-subgids 1000000-1065535 "$USER"
+        fi
+        [[ "$(podman info --format '{{.Host.Security.Rootless}}')" == true ]]

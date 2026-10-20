@@ -111,6 +111,12 @@ func resolveSchema(draft schemaDraft, stack []*compileNode, owner *definitionLif
 		if err != nil {
 			return result, fmt.Errorf("flag --%s: %w", source.Name(), err)
 		}
+		if source.completionHandler != nil {
+			resolved, err = codec.Snapshot(context.Background(), codec.WithCompletionHandler(resolved, source.completionHandler))
+			if err != nil {
+				return result, fmt.Errorf("flag --%s completion: %w", source.Name(), err)
+			}
+		}
 		flag.codec = resolved
 		flag.cumulative = codec.IsCumulative(resolved)
 		flag.defaultValue, err = snapshotDefault(source.defaultValue, resolved, source.valueType, owner)
@@ -142,6 +148,12 @@ func resolveSchema(draft schemaDraft, stack []*compileNode, owner *definitionLif
 		resolved, err := resolveDraftCodec(stack, source.codec, source.valueType, draft.argumentNames[source])
 		if err != nil {
 			return result, fmt.Errorf("argument %s: %w", source.Name(), err)
+		}
+		if source.completionHandler != nil {
+			resolved, err = codec.Snapshot(context.Background(), codec.WithCompletionHandler(resolved, source.completionHandler))
+			if err != nil {
+				return result, fmt.Errorf("argument %s completion: %w", source.Name(), err)
+			}
 		}
 		argument.codec = resolved
 		argument.defaultValue, err = snapshotDefault(source.defaultValue, resolved, source.valueType, owner)

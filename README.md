@@ -5,7 +5,7 @@
 # cli4g
 
 Typed command-line applications for Go: flags, arguments, subcommands,
-environment values, automatic help, and invocation-owned resources.
+environment values, automatic help, shell completion, and invocation-owned resources.
 
 ## Install
 
@@ -78,7 +78,7 @@ Qualitative ratings for the [compared versions](_benchmarks):
 | Lifecycle and resource cleanup | ★★★ | ★★☆ | ★★☆ | ★★☆ | — |
 | Compile once, isolated concurrent parses | ★★★ | — | — | — | — |
 | Per-parse schema profiles | ★★★ | — | — | — | — |
-| Shell completion | — | ★★★ | ★★★ | — | — |
+| Shell completion | ★★☆ | ★★★ | ★★★ | — | — |
 | Setup/compile + first invocation speed[^performance] | ★★☆ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
 | Parse/execute speed on reuse[^performance] | ★★★ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
 
@@ -96,6 +96,29 @@ includes rollback after partial initialization failures; hooks alone need applic
 
 See [benchmarks and methodology](docs/benchmarks.md) for timings, allocations,
 code size, and cognitive complexity.
+
+## Shell completion
+
+Bash **4.4+** and Nushell **0.114+** adapters query the current binary, so binary
+updates need no completion reinstall. Install once with:
+
+```shell
+your-app completion install bash  # Requires a configured bash-completion loader
+your-app completion install nu    # Autoloaded at the next interactive Nu startup
+```
+
+`WithCompletion(true)` selects `DefaultCompletionCommand` and
+`DefaultCompletionRequestCommandName`. The public command is a normal command;
+replace it with `WithCompletionCommand(...)`, or rename a fresh
+`NewCompletionCommand().WithName(...)`. The special adapter entry is configured
+independently with `WithCompletionRequestCommandName(...)`. Nil/empty disables
+the respective part; `WithCompletion(false)` clears both.
+Commands, flags, enums, and files work automatically. Use
+[`codec.WithCompletionHandler`](https://pkg.go.dev/github.com/echocat/cli4g/codec#WithCompletionHandler)
+for domain-specific values, or set a handler on an individual flag/argument.
+See the [GoDoc guide](https://pkg.go.dev/github.com/echocat/cli4g#hdr-Shell_completion)
+for API, installation, protocol, lifecycle, and performance details.
+The [completion example](_examples/completion) shows this on the `ship` deployment tool's CLI.
 
 ## Documentation
 

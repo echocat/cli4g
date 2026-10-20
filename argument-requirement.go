@@ -38,6 +38,9 @@ type ArgumentRequirement[V, R any] struct {
 	Required    bool
 	Placeholder string
 	Codec       codec.Codec[V, R]
+	// CompletionHandler optionally overrides value suggestions for this argument.
+	// Returning Handled=false delegates to the codec and automatic completion.
+	CompletionHandler CompletionHandler
 	// CodecFactory supplies a codec at Create when Codec is nil. It configures
 	// schema only; it must not acquire invocation resources.
 	CodecFactory func() (codec.Codec[V, R], error)
@@ -59,15 +62,16 @@ func (this ArgumentRequirement[V, R]) createRaw() (*Argument[any, any], error) {
 		return nil, fmt.Errorf("argument %q: %w", this.Name, err)
 	}
 	return &Argument[any, any]{
-		name:         this.Name,
-		profiles:     slices.Clone(this.Profiles),
-		description:  this.Description,
-		required:     this.Required,
-		placeholder:  this.Placeholder,
-		codec:        snapshot,
-		valueType:    reflect.TypeFor[V](),
-		fieldPath:    slices.Clone(this.Field),
-		defaultValue: rawDefault(this.defaultValue),
+		name:              this.Name,
+		profiles:          slices.Clone(this.Profiles),
+		description:       this.Description,
+		required:          this.Required,
+		placeholder:       this.Placeholder,
+		codec:             snapshot,
+		completionHandler: this.CompletionHandler,
+		valueType:         reflect.TypeFor[V](),
+		fieldPath:         slices.Clone(this.Field),
+		defaultValue:      rawDefault(this.defaultValue),
 	}, nil
 }
 
@@ -154,6 +158,20 @@ func (this *ArgumentRequirement[V, R]) WithPlaceholder(v string) *ArgumentRequir
 
 func (this *ArgumentRequirement[V, R]) SetPlaceholder(v string) {
 	this.Placeholder = v
+}
+
+// WithCompletionHandler sets a context-aware value handler for this argument
+// without changing its parsing codec or CLI syntax. It takes precedence over the
+// codec completer; Handled=false delegates. A nil handler restores codec/automatic
+// completion. Create captures the callback; it must be concurrent-safe.
+func (this *ArgumentRequirement[V, R]) WithCompletionHandler(v CompletionHandler) *ArgumentRequirement[V, R] {
+	this.SetCompletionHandler(v)
+	return this
+}
+
+// SetCompletionHandler is the setter counterpart of WithCompletionHandler.
+func (this *ArgumentRequirement[V, R]) SetCompletionHandler(v CompletionHandler) {
+	this.CompletionHandler = v
 }
 
 // WithCodec replaces the decoder and clears [ArgumentRequirement.WithCodecFactory].

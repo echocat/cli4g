@@ -19,6 +19,7 @@ mise run check:full
 | `mise run test --coverage` | Go and example coverage |
 | `mise run test:matrix` | Minimum and stable Go versions |
 | `mise run test:module` | Test the distributable module archive without nested modules or Git metadata |
+| `mise run test:shells` | Mandatory interactive Bash/Nushell E2E tests in a Linux container |
 | `mise run test:fuzz` | Bounded parser fuzzing |
 | `mise run test:benchmarks` | Check comparison adapters and their module |
 | `mise run bench` | Measure CLI lifecycle comparisons and update the results page |
@@ -27,6 +28,40 @@ mise run check:full
 
 List all tasks with `mise tasks`. Race detection needs a C toolchain:
 GCC on Linux, Xcode Command Line Tools on macOS, or MinGW-w64 on Windows.
+
+## Shell E2E tests
+
+`check:full` includes a mandatory container suite. Install Podman (recommended:
+rootless) or Docker; the runner prefers Podman when both are present. On macOS or
+Windows, start the runtime's Linux VM first.
+
+```shell
+mise run test:shells
+mise run test:shells --engine podman
+mise run test:shells --engine docker
+```
+
+The runner cross-builds static Linux fixture binaries with the project's Go
+toolchain. Its temporary build context contains only those binaries and the test
+assets, not the repository, Git metadata, or local configuration. No bind mounts,
+daemon socket mounts, privileged containers, or host shell installations are needed.
+The test container has no network access; image building needs registry/package
+access. Containers and temporary files are cleaned up; image layers remain cached.
+
+The Containerfile pins Bash **5.2.37** and Nushell **0.114.1** images by manifest
+digest. The runner cross-compiles a Go test binary with the `shell_e2e` build tag.
+Its Go PTY driver uses Linux terminal ioctls from the existing `golang.org/x/sys`
+dependency and embedded Bash/Nu setup scripts. It installs adapters through the
+real CLI command, starts interactive Bash/Readline and Nu/Reedline,
+presses Tab, and reads the line-editor buffer. It verifies on-demand Bash loading,
+Nu autoload, quotes, Unicode, paths, context-dependent values, real `compopt`
+NoSpace/KeepOrder behavior, cursor edits, and binary replacement without adapter
+reinstallation. Initialization markers prove that requests bypass normal startup.
+Missing/wrong-version shells and missing runtimes are errors, never skips.
+
+The lighter `TestNativeShellCompletion` Go test still uses locally available
+shells and can skip unavailable ones. The separate container suite is the required
+CI guarantee and also runs in the dependency-update quality gate.
 
 ## Examples and coverage
 
@@ -56,6 +91,7 @@ complete repository.
 
 - Go linting: Linux, macOS, Windows.
 - Runtime tests: minimum/stable Go on each OS, including example binaries.
+- Shell E2E: a required Linux job using rootless Podman and pinned Bash/Nushell images.
 - Shared checks: once on Linux; formats, module archives, workflows, example code,
   benchmark-adapter correctness, fuzzing, and vulnerabilities. Timing measurements
   are run separately on an idle machine, not in CI.

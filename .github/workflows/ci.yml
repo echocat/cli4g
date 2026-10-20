@@ -117,6 +117,26 @@ jobs:
           retention-days: 1
           if-no-files-found: warn
 
+  shell-e2e:
+    name: Shell E2E (rootless Podman)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install mise
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+
+      - name: Set up rootless Podman
+        uses: ./.github/actions/setup-rootless-podman
+
+      - name: Test Bash and Nushell in real terminals
+        run: mise run test:shells --engine podman
+
   quality:
     name: Quality gate
     runs-on: ubuntu-latest
@@ -193,7 +213,7 @@ jobs:
 
   finish:
     name: Finish
-    needs: [ lint, quality, test, coverage ]
+    needs: [ lint, quality, test, shell-e2e, coverage ]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -203,12 +223,14 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          SHELL_E2E_RESULT: ${{ needs.shell-e2e.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
         run: |
           if [[ "$LINT_RESULT" != "success" ||
                 "$QUALITY_RESULT" != "success" ||
-                 "$TEST_RESULT" != "success" ||
+                "$TEST_RESULT" != "success" ||
+                "$SHELL_E2E_RESULT" != "success" ||
                  "$COVERAGE_RESULT" != "success" ]]; then
-            echo "::error::Required CI jobs did not all succeed: lint=${LINT_RESULT}, quality=${QUALITY_RESULT}, test=${TEST_RESULT}, coverage=${COVERAGE_RESULT}"
+            echo "::error::Required CI jobs did not all succeed: lint=${LINT_RESULT}, quality=${QUALITY_RESULT}, test=${TEST_RESULT}, shell-e2e=${SHELL_E2E_RESULT}, coverage=${COVERAGE_RESULT}"
             exit 1
           fi

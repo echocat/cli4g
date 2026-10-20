@@ -174,6 +174,8 @@ func (this Invocation[O]) Argument(i int) (*Argument[any, any], any) {
 // handler, failures close this invocation before reporting. Without one,
 // the caller retains cleanup responsibility. Successful invocations must be closed.
 // A help invocation executes only the application's HelpHandler.
+// A completion request invocation executes only its protocol operation. Public
+// completion commands execute through the ordinary command lifecycle.
 // Context streams apply to handlers; file values already resolved by Parse
 // retain their original streams. Use the same stream context for both phases.
 func (this *Invocation[O]) Execute(ctx context.Context) (err error) {
@@ -237,6 +239,10 @@ func (this *Invocation[O]) execute(ctx context.Context, target *Container) error
 	ctx = withInvocationContext(ctx, this)
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if this.lifecycle.operation != nil {
+		*target = this.frames[len(this.frames)-1].container
+		return this.lifecycle.operation(withContainerContext(ctx, *target))
 	}
 	if this.HelpRequested() {
 		*target = this.frames[len(this.frames)-1].container
