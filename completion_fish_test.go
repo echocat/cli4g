@@ -29,6 +29,8 @@ func TestFishCompletionInputPreservesLiteralWordsAndCursor(t *testing.T) {
 		{`tool --context "\n" --namespace `, completionAtEnd("--context", `\n`, "--namespace", "")},
 		{`tool --context \u00fcber --namespace `, completionAtEnd("--context", "über", "--namespace", "")},
 		{`tool --context \U0001f600 --namespace `, completionAtEnd("--context", "😀", "--namespace", "")},
+		{`tool --context \U0010ffff --namespace `, completionAtEnd("--context", "\U0010ffff", "--namespace", "")},
+		{`tool --context \377 --namespace `, completionAtEnd("--context", string([]byte{0xff}), "--namespace", "")},
 		{`tool --context \x61\141\cb --namespace `, completionAtEnd("--context", "aa\x02", "--namespace", "")},
 		{"tool --context a\\\nb --namespace ", completionAtEnd("--context", "ab", "--namespace", "")},
 		{"tool --context 'a\nb' --namespace ", completionAtEnd("--context", "a\nb", "--namespace", "")},
@@ -55,6 +57,16 @@ func TestFishCompletionInputPreservesLiteralWordsAndCursor(t *testing.T) {
 	require.Error(t, err)
 	_, err = fishCompletionRequest("tool", 4)
 	require.Error(t, err)
+}
+
+func TestFishCompletionRejectsOutOfRangeEscapes(t *testing.T) {
+	for _, escape := range []string{`\400`, `\777`, `\uD800`, `\uDFFF`, `\U00110000`, `\U80000000`, `\UFFFFFFFF`} {
+		t.Run(escape, func(t *testing.T) {
+			line := "tool --context " + escape + " --namespace "
+			_, err := fishCompletionRequest(line, len(line))
+			require.Error(t, err)
+		})
+	}
 }
 
 func TestFishCompletionProtocolPreservesNewlinesAndSuppressesInvalidRequests(t *testing.T) {
@@ -84,7 +96,11 @@ func TestFishCompletionProtocolPreservesNewlinesAndSuppressesInvalidRequests(t *
 	assert.Equal(t, "a\n", input.Prefix)
 	assert.Equal(t, "b", input.Suffix)
 	assert.Contains(t, output.String(), "a\nb-value\x00")
-	for _, args := range [][]string{{"1", "fish"}, {"1", "fish", "different\n", "tool --value a\n"}, {"1", "fish", "tool\n", "tool\n"}} {
+	for _, args := range [][]string{
+		{"1", "fish"}, {"1", "fish", "different\n", "tool --value a\n"}, {"1", "fish", "tool\n", "tool\n"},
+		{"1", "fish", "tool --value \\777\n", "tool --value \\777\n"},
+		{"1", "fish", "tool --value \\UFFFFFFFF\n", "tool --value \\UFFFFFFFF\n"},
+	} {
 		output.Reset()
 		require.NoError(t, app.ParseAndExecute(ctx, nil, append([]string{"__complete"}, args...)...))
 		assert.Equal(t, "1\x000\x000\x000\x00\x00\x00", output.String())

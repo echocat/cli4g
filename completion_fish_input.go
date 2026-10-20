@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Fish supplies the native process boundaries. This best-effort lexer removes
@@ -41,7 +42,10 @@ func fishCompletionRequest(line string, point int) (CompletionRequest, error) {
 			}
 			switch {
 			case char == '\\' && i+1 < len(line) && (quote == 0 || strings.ContainsRune("\\'", rune(line[i+1])) && quote == '\'' || strings.ContainsRune("\\\"$\n", rune(line[i+1])) && quote == '"'):
-				value, size := fishCompletionEscape(line[i:], quote)
+				value, size, err := fishCompletionEscape(line[i:], quote)
+				if err != nil {
+					return CompletionRequest{}, err
+				}
 				word.WriteString(value)
 				i += size
 			case (char == '\'' || char == '"') && (quote == 0 || quote == char):
@@ -86,19 +90,19 @@ func fishCompletionRequest(line string, point int) (CompletionRequest, error) {
 	return CompletionRequest{Words: words[command:], Word: current - command, Offset: offset}, nil
 }
 
-func fishCompletionEscape(input string, quote byte) (string, int) {
+func fishCompletionEscape(input string, quote byte) (string, int, error) {
 	char := input[1]
 	if char == '\n' {
-		return "", 2
+		return "", 2, nil
 	}
 	if quote != 0 {
-		return string(char), 2
+		return string(char), 2, nil
 	}
 	if index := strings.IndexByte("abefnrtv", char); index >= 0 {
-		return string("\a\b\x1b\f\n\r\t\v"[index]), 2
+		return string("\a\b\x1b\f\n\r\t\v"[index]), 2, nil
 	}
 	if char == 'c' && len(input) >= 3 {
-		return string(input[2] & 0x1f), 3
+		return string(input[2] & 0x1f), 3, nil
 	}
 	base, begin, limit := 16, 2, 0
 	switch char {
@@ -121,14 +125,26 @@ func fishCompletionEscape(input string, quote byte) (string, int) {
 		end++
 	}
 	if end > begin {
-		if value, err := strconv.ParseUint(input[begin:end], base, 32); err == nil {
-			if char == 'x' || char == 'X' || base == 8 {
-				return string([]byte{byte(value)}), end
-			}
-			return string(rune(value)), end
+		value, err := strconv.ParseUint(input[begin:end], base, 32)
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid Fish numeric escape")
 		}
+		if char == 'x' || char == 'X' || base == 8 {
+			if value > 0xff {
+				return "", 0, fmt.Errorf("invalid Fish byte escape")
+			}
+			return string([]byte{byte(value)}), end, nil
+		}
+		if value > utf8.MaxRune {
+			return "", 0, fmt.Errorf("invalid Fish Unicode escape")
+		}
+		decoded := rune(value)
+		if !utf8.ValidRune(decoded) {
+			return "", 0, fmt.Errorf("invalid Fish Unicode escape")
+		}
+		return string(decoded), end, nil
 	}
-	return string(char), 2
+	return string(char), 2, nil
 }
 
 func fishCompletionExpressionEnd(line string, start int) int {
