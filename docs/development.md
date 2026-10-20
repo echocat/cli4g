@@ -119,6 +119,10 @@ complete repository.
 - Coverage: one Coveralls upload containing every matrix profile.
 - CodeQL: separate manual-build analysis.
 
+New runs automatically cancel superseded runs of the same pull request. Go
+package builds use `GOFLAGS=-p=2`; Go processes use `GOMAXPROCS=4`, or `2` on macOS.
+This bounds simultaneous compiler and analysis work on the hosted runners.
+
 Tool requests are in `mise.toml`; lockfiles select exact versions and checksums.
 The weekly dependency workflow verifies updates with `check:full` before opening
 a draft PR. Tool updates require releases at least seven days old.
