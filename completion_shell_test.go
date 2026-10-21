@@ -46,29 +46,39 @@ func TestNativeShellCompletion(t *testing.T) {
 		require.NoError(t, err)
 		paths[shell] = path
 	}
-	assertBash := func(t *testing.T, line, current string, want []string) {
-		t.Helper()
-		if _, err := exec.LookPath("bash"); err != nil {
-			t.Skip("Bash is not installed")
-		}
-		if err := exec.Command("bash", "-c", "((BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4)))").Run(); err != nil {
-			t.Skip("Bash 4.4 or newer is required")
-		}
-		command := exec.Command("bash", "--noprofile", "--norc", "-c", `
-source "$1"
+	bashDriver := filepath.Join(directory, "complete.bash")
+	require.NoError(t, os.WriteFile(bashDriver, []byte(`source "$1"
 compopt() { :; }
 COMP_LINE="$2"
 COMP_POINT="$5"
-[[ $(complete -p cli4g-completion-test) =~ -F\ ([^\ ]+) ]]
+[[ $(complete -p cli4g-completion-test) =~ -F\ ([^\ ]+) ]] || exit 1
 "${BASH_REMATCH[1]}" "$3" "$4" ""
 if ((${#COMPREPLY[@]})); then printf '%s\0' "${COMPREPLY[@]}"; fi
-`, "--", paths[CompletionBash], line, binary, current, strconv.Itoa(len(line)))
+`), 0600))
+	assertBash := func(t *testing.T, line, current string, want []string) {
+		t.Helper()
+		bash := bashForCompletionTest(t)
+		command := exec.Command(bash, "--noprofile", "--norc", bashDriver, paths[CompletionBash], line, binary, current, strconv.Itoa(len(line)))
 		command.Dir = directory
+		// Exercise %q's C-locale escaping regardless of the host locale. The
+		// mandatory terminal suite separately covers the UTF-8 locale.
+		command.Env = append(os.Environ(), "LC_ALL=C")
 		output, err := command.CombinedOutput()
 		require.NoError(t, err, "%s", output)
 		values := []string{}
 		if len(output) > 0 {
-			values = strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+			quoted := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+			// These controlled fixture suggestions are shell syntax. Execute them
+			// through the echo fixture to compare native arguments, not %q's
+			// locale-dependent spelling (for example über vs $'\303\274ber').
+			arguments := filepath.Join(directory, "completion-arguments.bash")
+			require.NoError(t, os.WriteFile(arguments, []byte("exec \"$1\" __echo-args "+strings.Join(quoted, " ")+"\n"), 0600))
+			command = exec.Command(bash, "--noprofile", "--norc", arguments, binary)
+			command.Dir = directory
+			command.Env = append(os.Environ(), "LC_ALL=C")
+			output, err = command.CombinedOutput()
+			require.NoError(t, err, "%s", output)
+			require.NoError(t, json.Unmarshal(output, &values), "%s", output)
 		}
 		assert.Equal(t, want, values)
 	}
@@ -89,13 +99,13 @@ if ((${#COMPREPLY[@]})); then printf '%s\0' "${COMPREPLY[@]}"; fi
 	t.Run("bash", func(t *testing.T) {
 		assertBash(t, name+" --format=ya", "ya", []string{"yaml"})
 		assertBash(t, name+" --format ü", "ü", []string{"über"})
-		assertBash(t, name+" --format 'two wo", "two wo", []string{"'two words'"})
+		assertBash(t, name+" --format 'two wo", "two wo", []string{"two words"})
 		assertBash(t, name+" --context cluster-b --namespace cl", "cl", []string{"cluster-b-namespace"})
 		assertBash(t, name+" get po", "po", []string{"pods"})
 		assertBash(t, name+" --initial", "--initial", []string{"--initial"})
 		assertBash(t, name+" --format nope", "nope", []string{})
 		assertBash(t, name+" --input=config", "config", []string{"config.yaml"})
-		assertBash(t, name+` --input="space fi`, "space fi", []string{`"space file.yaml"`})
+		assertBash(t, name+` --input="space fi`, "space fi", []string{"space file.yaml"})
 		if runtime.GOOS != "windows" {
 			assertBash(t, name+" --input=colon:fi", "fi", []string{"file.yaml"})
 		}
