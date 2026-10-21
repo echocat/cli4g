@@ -1,5 +1,5 @@
 // Package cli builds command-line applications with typed options, subcommands,
-// flags, arguments, environment values, and automatic help.
+// flags, arguments, environment values, automatic help, and shell completion.
 //
 // Start with [NewApplication], add a handler with [ApplicationRequirement.WithHandler],
 // and run [ApplicationRequirement.MustCreateParseAndExecute] from main.
@@ -127,6 +127,204 @@
 // selected profiles. [ProfilesFromContext] and [ContextContainsProfile] make
 // this selection available throughout parsing and execution, including factories,
 // decoding, help, and error callbacks.
+//
+// # Shell completion
+//
+// [ApplicationRequirement.WithCompletion] is an opt-in shortcut. True assigns the
+// current [DefaultCompletionCommand] and [DefaultCompletionRequestCommandName];
+// false clears both configuration fields, including custom values. There is no
+// additional enabled state and Create never fills empty values from defaults.
+// The standard engine derives suggestions from the existing CLI definition.
+// Users install a native adapter once, without editing their shell configuration:
+//
+//	tool completion install bash
+//	tool completion install fish
+//	tool completion install nu
+//	tool completion install powershell
+//	tool completion install zsh
+//
+// Bash 4.4+ uses the bash-completion package's on-demand loader. Nushell 0.114+
+// uses its user autoload directory on the next interactive startup. PowerShell
+// 5.1+ registers a native argument completer through static dot-source blocks in
+// the installed pwsh/powershell hosts' CurrentUserAllHosts profiles. The installer
+// discovers those paths without loading profiles, preserves existing profile
+// content and encoding, and writes a UTF-8-with-BOM adapter below the first
+// profile's cli4g-completions directory. Both Windows PowerShell and PowerShell 7
+// are configured when installed; install again after adding another host. Existing
+// execution policies apply. No application process runs when the adapter is loaded.
+// Source the installed file (dot-source it in PowerShell) to activate it in an
+// existing session. For packaging, supply a
+// directory after the shell name or use [Application.CompletionScript] to obtain
+// an adapter without installing it. A shell subcommand also prints it to stdout:
+//
+//	tool completion bash
+//
+// Bash quotes suggestions as literal arguments, including values containing
+// dollar signs, backticks, quotes and whitespace. This applies to native path
+// suggestions as well. Readline still controls menus and word replacement; it
+// does not expand suggestion values or treat non-path suggestions as directories.
+// Simple single/double quotes are supported; completion inside an ANSI-C quoted
+// word is suppressed because the request lexer does not decode its escapes.
+// After an adapter implementation update, rerun the install command and source
+// the generated file (or start a new shell). Ordinary application schema updates
+// do not require reinstalling adapters.
+//
+// Nushell's command-wide completion input, verified with Nu 0.114.1, stops at the
+// cursor. Dependencies must therefore precede the value being completed:
+//
+//	tool --context cluster-b --namespace cl<Tab>
+//
+// Completing an earlier argument preserves later arguments in the editor, but
+// those later arguments are not visible to the provider. For example, completing
+// --namespace before a later --context cannot use that context; an available
+// environment/default dependency is used instead, or the dependency is absent.
+// The adapter does not reconstruct missing input from commandline/get-cursor,
+// whose REPL state can be stale during completion, and does not modify global
+// keybindings to capture the buffer. This is a native Nu input limitation, not
+// a restriction of [Application.Complete] or its protocol: callers supplying
+// words after the cursor retain the full dependency context.
+//
+// An explicit PowerShell installation directory writes only the adapter and does
+// not edit profiles. PowerShell sends literal AST values and UTF-8 byte cursor
+// offsets through an ASCII-safe Base64/JSON transport, including on Windows
+// PowerShell 5.1's legacy native pipeline. Tokens after the cursor remain available
+// for dependencies. Variables and expressions are not evaluated to collect values.
+// Candidates include descriptions and use literal quoting, including legacy native
+// argument escaping. PowerShell removes even a quoted scalar --% during native
+// argument binding, so this literal value uses the fixed expression @('--%').
+// Its singleton array passes exactly one native argument without enabling verbatim
+// handling of later arguments. The collector recognizes only that exact generated
+// array form as literal --%; other expressions remain unevaluated dependency data.
+// Paths normally use PowerShell's filename completer; literal
+// Unix colon filenames use filesystem enumeration because the provider interprets
+// colons as drives. Candidate order is preserved. The user's PSReadLine binding
+// determines whitespace insertion; the adapter does not change that binding.
+// See [Application.InstallCompletion] and [CompletionProtocolVersion] for details.
+//
+// Zsh 5.8+ uses its native compinit/fpath autoloading. The default installer writes
+// _Name below XDG_DATA_HOME/zsh/site-functions (otherwise
+// ~/.local/share/zsh/site-functions), and
+// appends a static block to .zshrc in Zsh's startup directory. That directory is
+// discovered from the installed zsh, including non-exported ZDOTDIR settings in
+// .zshenv. Discovery runs only during installation. The block extends fpath,
+// initializes compinit if needed, and registers an autoload function; it starts
+// neither the application nor the adapter at shell startup. Existing user content,
+// widgets and completion styles are preserved. Explicit directories write only
+// the autoload file for packaging. Source that file after compinit for an existing
+// session. Run installation again after relocating the startup directory.
+//
+// The Zsh adapter uses native words and cursor prefix/suffix fragments, including
+// unfinished quotes and arguments after the cursor. It never evaluates expressions
+// while collecting dependency values. Candidates carry descriptions; compadd
+// provides literal quoting and NoSpace/KeepOrder, and _files handles native paths.
+// ZLE settings control whether completion operates inside a word (COMPLETE_IN_WORD)
+// and how menu selection inserts spaces. The adapter retains those settings.
+//
+// Fish 3.6+ autoloads Name.fish from its user completion directory, normally
+// XDG_CONFIG_HOME/fish/completions or ~/.config/fish/completions. The installer
+// discovers __fish_config_dir with fish --no-config, only during installation.
+// It leaves config.fish and universal variables untouched. Source the returned
+// file to refresh an existing session that already loaded command completions.
+// Explicit directories support packaging and custom fish_complete_path entries.
+// Loading the adapter starts no application process; only Name's completion
+// definitions are replaced, with no changes to global widgets or other commands.
+//
+// Each Fish query transmits the complete current process and its cursor prefix,
+// preserving empty/multiline arguments, simple quotes/escapes, and arguments after
+// the cursor. Variables, globs and substitutions remain literal dependency data;
+// they are never evaluated by the collector. Fish quotes inserted candidates,
+// displays descriptions, completes paths natively, and preserves KeepOrder (the
+// engine sorts other candidate results). Values use NUL-framed records; tabs in
+// candidate values are omitted because Fish reserves the tab for descriptions,
+// and multiline descriptions are displayed on one line. Fish controls whitespace:
+// it omits spaces after punctuation such as "=" and "/", but its public completion
+// API cannot force NoSpace on arbitrary values. Fish also retains native word-
+// suffix matching when completing inside a token. See [Application.CompletionScript]
+// and [CompletionProtocolVersion] for the adapter and transport contracts.
+//
+// ApplicationRequirement.CompletionCommand is an ordinary CommandRequirementLike.
+// Nil means absent. Create compiles it alongside Commands without modifying the
+// builder list or shared default. It uses the same parsing, inherited inputs,
+// validation, initialization, execution, cleanup, profiles, help and depth limits
+// as every other command. Parent required flags also apply; required positional
+// parent arguments cannot coexist with subcommands. Commands/Command and typed
+// FindCommand expose the actual compiled command, not a metadata substitute.
+//
+// [DefaultCompletionCommand] is a replaceable, preconfigured command requirement.
+// [NewCompletionCommand] creates a fresh version for per-application changes:
+//
+//	WithCompletion(true).
+//	    WithCompletionCommand(NewCompletionCommand().WithName("shells"))
+//
+// Supply any custom CommandRequirement through WithCompletionCommand instead.
+// [CompletionApplicationFromContext] gives ordinary custom handlers access to the
+// renderer, installer and direct completion API without knowing the root options
+// type. Configure global defaults before use, without concurrent modification;
+// already compiled applications keep independent definitions.
+//
+// ApplicationRequirement.CompletionRequestCommandName independently configures
+// the special adapter entry. Empty disables it. WithCompletion(true) assigns the
+// current replaceable DefaultCompletionRequestCommandName (initially "__complete").
+// This name is not registered as a Command and never appears in Commands(), help
+// or suggestions. It must not collide with any root command/alias, including
+// inactive profiles. Keep it stable across upgrades, or regenerate adapters/provide
+// a compatibility entry point when changing it. Public command changes do not
+// affect installed adapters; the wire protocol is independent of either name.
+//
+// Adapters contain no flags, commands, enum snapshots, or version-specific binary
+// paths. At completion time they query the currently selected executable through
+// [CompletionProtocolVersion]; replacing the binary therefore updates suggestions
+// automatically. Sourcing an adapter starts no application process. Each query
+// starts one process; startup code and Go init functions remain the application's
+// responsibility. Query callbacks receive [CompletionQueryTimeout] as a cooperative
+// deadline. cli4g does not maintain a background service or persistent result cache.
+//
+// Commands, aliases, visible flags, enum values, bools, and file inputs are
+// completed automatically. Noncumulative flags already used are omitted from name
+// suggestions. Slice codecs delegate to their element codec, and map codecs
+// delegate the value after key=. codec.Completer adds context-dependent values,
+// such as namespaces selected by --kubeconfig and --context. Its input contains
+// canonical flag occurrence maps, arguments by name and position, command scopes,
+// active profiles, and the current word/cursor target. Neither name completion nor
+// metadata inspection invokes value completers. Providers return unquoted tokens
+// and optional descriptions; shell adapters own quoting and display.
+// The regular options structs and command definitions are the single CLI schema;
+// the built-in shell entry point constructs the completion context automatically.
+// To attach a function to an existing codec, use codec.WithCompletionHandler:
+//
+//	WithCodec(codec.WithCompletionHandler(codec.NewString(), completeNamespaces), "namespace")
+//
+// A type:"namespace" tag selects that codec for the regular field. No custom
+// codec wrapper type or ToRaw implementation is needed. For builder-defined
+// inputs, [FlagRequirement.WithCompletionHandler] and
+// [ArgumentRequirement.WithCompletionHandler] customize one flag/argument without
+// changing its parsing codec. Their handler runs first; Handled=false delegates
+// to the codec, then enum/bool/path defaults. See [CompletionHandler].
+//
+// [Application.Complete] is the direct Go API. It accepts a [CompletionRequest]
+// and [ParseOpts], tolerates unknown and incomplete input, and never constructs
+// options or runs their lifecycle. Raw CLI tokens remain available even if they
+// would not decode. Known flags delimit missing required values for recovery;
+// literal option-looking values can be supplied inline. Other complete arguments
+// after the cursor remain visible when supplied by the adapter/caller.
+// codec.CompletionInput.Effective lazily reads dependencies with CLI > environment
+// > declared-default precedence and identifies their source. Factory-only values
+// are unavailable. Defaults and other inputs are not resolved to runtime resources.
+// Shell expressions/substitutions are not executed to discover dependency values.
+//
+// Direct API errors are returned without invoking the application's error handler.
+// Adapter queries turn failures into empty answers so terminal editing remains
+// usable. Providers doing I/O must honor cancellation and close their own request
+// resources. A provider-side in-memory cache does not span per-query processes;
+// persistent caches must account for all configuration/context dependencies.
+//
+// Only a nonempty configured request name is recognized specially in the first
+// token by Parse and ParseAndExecute. Parse returns a metadata-only invocation;
+// Execute serves the query using context streams, without constructing, validating
+// or initializing ordinary options or running business handlers. Use -- before a
+// literal request-name root argument. Standard --help retains its usual bypass
+// behavior for the ordinary public command. The direct Complete API remains
+// available regardless of either configuration field.
 //
 // # Lifecycle and errors
 //

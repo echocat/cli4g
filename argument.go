@@ -11,18 +11,19 @@ import (
 // Argument describes a positional input. Use [Invocation.Argument] for parsed V
 // and [Argument.Default] for its resource-free default R.
 type Argument[V, R any] struct {
-	name         string
-	profiles     []string
-	description  string
-	required     bool
-	placeholder  string
-	codec        codec.Codec[V, R]
-	valueType    reflect.Type
-	fieldPath    []string
-	binding      *fieldBinding
-	arity        valueArity
-	defaultValue *valueDefault[R]
-	index        int // position in the compiled container's argument definitions
+	name              string
+	profiles          []string
+	description       string
+	required          bool
+	placeholder       string
+	codec             codec.Codec[V, R]
+	completionHandler CompletionHandler
+	valueType         reflect.Type
+	fieldPath         []string
+	binding           *fieldBinding
+	arity             valueArity
+	defaultValue      *valueDefault[R]
+	index             int // position in the compiled container's argument definitions
 }
 
 // Profiles returns a copy of the explicit profile assignments; empty means always active.
@@ -49,6 +50,11 @@ func (this *Argument[V, R]) ValueType() reflect.Type { return this.valueType }
 func (this *Argument[V, R]) Codec() codec.Codec[V, R] {
 	return this.codec
 }
+
+// CompletionHandler returns the explicitly configured argument handler, or nil
+// when value completion uses only the codec and standard handler. Codec returns
+// the effective codec, including the captured argument override.
+func (this *Argument[V, R]) CompletionHandler() CompletionHandler { return this.completionHandler }
 
 func (this *Argument[V, R]) HasDefault() bool { return this.defaultValue != nil }
 

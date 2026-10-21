@@ -50,6 +50,10 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up rootless Podman
+        if: steps.update.outputs.changed == 'true'
+        uses: ./.github/actions/setup-rootless-podman
+
       - name: Verify updates
         if: steps.update.outputs.changed == 'true'
         run: mise run check:full

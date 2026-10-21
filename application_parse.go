@@ -21,6 +21,9 @@ import (
 // Direct Execute calls from parse hooks share this operation's error boundary.
 // Context streams are available throughout parsing and the options lifecycle.
 // File aliases resolve now; pass the same stream context to Execute.
+// A configured completion request name in the first token instead creates a
+// metadata-only invocation without constructing options. The public completion
+// command uses the ordinary lifecycle. Use -- before a literal request-name value.
 func (this *Application[O]) Parse(ctx context.Context, opts *ParseOpts, vs ...string) (_ *Invocation[O], err error) {
 	ctx, err = this.prepareParseContext(ctx)
 	if err != nil {
@@ -42,6 +45,21 @@ func (this *Application[O]) prepareParseContext(ctx context.Context) (context.Co
 // The operation boundary prepares streams exactly once, before parsing or
 // managed execution. The incoming error-boundary marker remains unchanged.
 func (this *Application[O]) parsePrepared(ctx context.Context, opts *ParseOpts, vs ...string) (_ *Invocation[O], err error) {
+	if this.definition.completionRequestCommandName != "" && len(vs) > 0 && vs[0] == this.definition.completionRequestCommandName {
+		invocation := this.newMetadataInvocation(nil)
+		invocation.lifecycle.ready = true
+		args := slices.Clone(vs[1:])
+		var captured *ParseOpts
+		if opts != nil {
+			copy := *opts
+			copy.Profiles = slices.Clone(opts.Profiles)
+			captured = &copy
+		}
+		invocation.lifecycle.operation = func(ctx context.Context) error {
+			return this.queryCompletion(ctx, captured, args)
+		}
+		return invocation, nil
+	}
 	var input parseInput
 	var profiles selectedProfiles
 	if opts != nil {

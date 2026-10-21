@@ -86,6 +86,13 @@ depends = [
 description = "Check that all packages compile"
 run = "go build ./..."
 
+[tasks."test:go:darwin-arm64"]
+description = "Cross-build all root-module packages for Darwin ARM64"
+env.GOOS = "darwin"
+env.GOARCH = "arm64"
+env.CGO_ENABLED = "0"
+run = "go build ./..."
+
 [tasks."test:go:code"]
 extends = "go_test"
 description = "Test all Go packages"
@@ -94,6 +101,18 @@ description = "Test all Go packages"
 description = "Build a Go module archive and test it without nested modules or Git metadata"
 env.GOWORK = "off"
 run = 'go test -count=1 -v ./internal/integration -run "^TestModuleArchive$" -args -module-archive'
+
+[tasks."test:shells"]
+description = "Run mandatory Bash/Fish/Nushell/PowerShell/Zsh terminal E2E tests in Podman (preferred) or Docker"
+usage = '''
+flag "--engine <engine>" help="Container engine: auto, podman or docker" default="auto"
+flag "--coverage" help="Collect real shell fixture coverage in profile.shells.cov" default=#false
+'''
+env.GOWORK = "off"
+shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
+run = '''
+{% if usage.coverage %}go test -count=1 -v -timeout=20m -covermode=atomic "-coverprofile=profile.shell-runner.cov" ./internal/shelltestcmd -run '^TestRunShellE2E$' -args -shell-engine {% else %}go run ./internal/shelltestcmd --engine {% endif %}{% if os() == 'windows' %}'{{usage.engine | replace(from="'", to="''")}}'{% else %}{{usage.engine | quote}}{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+'''
 
 [tasks."test:benchmarks"]
 description = "Check benchmark adapters, formatting, module files, vet, and lint"
@@ -209,7 +228,10 @@ depends = ["lint:go:code", "lint:go:vet"]
 [tasks."lint:go:code"]
 description = "Lint all Go packages"
 tools.golangci-lint = "{{vars.golangci_lint}}"
-run = 'golangci-lint run --config "{{config_root}}/.golangci.yaml"'
+run = [
+  'golangci-lint run --config "{{config_root}}/.golangci.yaml"',
+  'golangci-lint run --config "{{config_root}}/.golangci.yaml" --build-tags=shell_e2e ./internal/shelltestcmd',
+]
 
 [tasks."lint:go:vet"]
 description = "Vet all packages"
@@ -262,4 +284,4 @@ depends = ["format:check", "lint", "test --race"]
 
 [tasks."check:full"]
 description = "Run all checks, the Go version matrix, and vulnerability scans"
-depends = ["check", "check:quality", "test:matrix", "test:benchmarks"]
+depends = ["check", "check:quality", "test:matrix", "test:benchmarks", "test:shells"]

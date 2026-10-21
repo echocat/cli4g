@@ -32,6 +32,9 @@ func TestModuleArchive(t *testing.T) {
 	for _, name := range strings.Split(strings.TrimSuffix(listed.Stdout, "\x00"), "\x00") {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		info, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			continue // A working-tree deletion or rename may still be in the index.
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

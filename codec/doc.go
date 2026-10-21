@@ -87,6 +87,63 @@
 // enums require String output to be accepted by Set. Undeclared input tokens are
 // rejected before UnmarshalText/Set; Resolve still creates fresh runtime targets.
 //
+// # Context-aware completion
+//
+// [WithCompletionHandler] attaches a callback to an existing codec:
+//
+//	codec.WithCompletionHandler(codec.NewString(), completeNamespaces)
+//
+// This keeps the codec's ordinary parsing, defaults, enum metadata, accumulation
+// and type binding. No additional codec type or ToRaw method is required. The
+// callback receives the same [CompletionInput] as a custom [Completer]. Return
+// Handled=false to delegate to the original codec's completer and defaults.
+// A flag/argument handler configured by the CLI builder runs before this callback.
+//
+// A codec may implement [Completer] in addition to Codec. Its Complete method is
+// called only when that codec's value is being completed, never during creation,
+// ordinary parsing, help, or flag-name completion. It may query external systems;
+// unlike Enum, its suggestions need not describe a finite valid set. Keep Enum
+// metadata context-independent even when Complete performs dynamic work.
+//
+// [CompletionInput] exposes the current prefix/suffix, target and value-token
+// index, selected command path/profiles, explicit flag occurrence maps, positional
+// arguments by name and order, and per-command scopes. Input is a best-effort,
+// read-only snapshot, not a validated invocation. Tokens may be empty, missing,
+// invalid, repeated or after the cursor. An absent flag, a bare bool, a missing
+// flag value and an explicitly empty value remain distinguishable. Map keys use
+// canonical flag names; Effective.Flag also accepts aliases. Scopes preserve
+// ownership, while Flags projects visible canonical names and Arguments refers
+// to the deepest selected container.
+//
+// Effective implements [CompletionValues] for lazy dependency lookup. It reports
+// [CompletionCLI], [CompletionEnvironment], or [CompletionDefault] and returns
+// independent resource-free tokens, not resolved runtime objects. Defaults use
+// UsageDefault formatting; CLI and environment inputs retain their ordinary
+// usage. No options factory or unrelated default/environment callback is run.
+// This lets a namespace completer read --context and --kubeconfig without opening
+// every file or initializing the rest of the application.
+//
+// Return a [CompletionResult] with Handled=true for an authoritative answer,
+// including no matches. Handled=false falls back to actual enum variants. Files
+// or Directories requests shell-native path completion; FilePrefix supports
+// compound values such as key=path. Candidates contain literal, unquoted tokens
+// and optional descriptions. Do not return help-safe/redacted display labels as
+// executable input. [Complete] formats actual enum requirements and handles
+// multi-token variants by matching earlier value tokens.
+//
+// Raw forwards this capability, NewSlice delegates each element, and NewMap
+// delegates the portion after the first '=' while preserving surrounding context.
+// Custom wrappers must implement ToRaw as Raw(ctx, wrapper) instead of delegating
+// to an embedded codec, or the wrapper's optional methods would be lost.
+//
+// Completion receives a deadline/cancellation context. Providers must honor it,
+// close request-owned resources and remain concurrent-safe. The caller's context
+// can carry application-specific clients/services without changing the input
+// snapshot. Shell queries generally run in a new process; a codec-local memory
+// cache alone does not cache across queries. A persistent cache must distinguish
+// dependencies such as configuration files, selected cluster and working directory.
+// No additional dependencies, including Kubernetes clients, are required by codec.
+//
 // # Context streams
 //
 // [ContextWithStdio] supplies borrowed stdin, stdout and stderr streams. Read them

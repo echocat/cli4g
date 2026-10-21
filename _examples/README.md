@@ -19,6 +19,7 @@ Run from the repository root with `mise example <name> [arguments...]`.
 | [validation-errors](validation-errors) | Explicit validation markers, technical errors, and preserved causes |
 | [environment](environment) | CLI/environment/default priority |
 | [enums](enums) | Typed text/Value enums, enum tags, and choices in help and errors |
+| [completion](completion) | The `ship` deployment tool with automatic completion and inventory-aware namespace/service suggestions |
 | [profiles](profiles) | Per-parse typed flag, argument, and command variants |
 | [repeatable-flags](repeatable-flags) | Collecting repeated flag values in a slice |
 | [date-time](date-time) | Date/DateTime codecs, custom layouts, and repeatable dates |

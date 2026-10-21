@@ -172,9 +172,20 @@ func (this raw[V, R]) ParseRequirementInto(ctx context.Context, usage Usage, pre
 	return result, SanitizeError(err, "value could not be decoded")
 }
 
-func (this raw[V, R]) RequirementType() reflect.Type { return reflect.TypeFor[R]() }
+func (this raw[V, R]) RequirementType() reflect.Type {
+	typ := reflect.TypeFor[R]()
+	if typ.Kind() == reflect.Interface {
+		if source, ok := this.source.(interface{ RequirementType() reflect.Type }); ok {
+			return source.RequirementType()
+		}
+	}
+	return typ
+}
 
 func (this raw[V, R]) IsBoolFlag() bool {
+	if reflect.TypeFor[V]().Kind() == reflect.Bool {
+		return true
+	}
 	trait, ok := this.source.(interface{ IsBoolFlag() bool })
 	return ok && trait.IsBoolFlag()
 }

@@ -17,7 +17,11 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	if r == nil || r.Name == "" {
 		return nil, errSchema("application needs a name")
 	}
-	definition := &definitionLifecycle{fallbackToStdio: r.FallbackToStdio, maxCommandDepth: r.MaxCommandDepth}
+	definition := &definitionLifecycle{fallbackToStdio: r.FallbackToStdio, maxCommandDepth: r.MaxCommandDepth,
+		completionRequestCommandName: r.CompletionRequestCommandName}
+	if err := validateCompletionRequestName(definition.completionRequestCommandName); err != nil {
+		return nil, fmt.Errorf("application %q: %w", r.Name, err)
+	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, definition.Close())
@@ -68,7 +72,11 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 	definition.errorHandler = app.errorHandler
 	root := &compileNode{draft: draft, container: app}
 	active := make(map[commandRequirementIdentity]bool)
-	for _, requirement := range r.Commands {
+	commands := r.Commands
+	if r.CompletionCommand != nil {
+		commands = append(slices.Clone(commands), r.CompletionCommand)
+	}
+	for index, requirement := range commands {
 		child, err := createRequirementNode(requirement, app.commands, []containerSchema{draft.schema}, active, r.MaxCommandDepth)
 		if err != nil {
 			if depth, ok := err.(*commandDepthError); ok {
@@ -78,7 +86,17 @@ func (r *ApplicationRequirement[O]) Create() (_ *Application[O], err error) {
 		}
 		root.children = append(root.children, child)
 		command := child.container.(CommandLike)
+		if definition.completionRequestCommandName != "" {
+			for _, name := range command.Names() {
+				if name == definition.completionRequestCommandName {
+					return nil, errSchema("application %q: command name or alias %q is reserved for completion requests", r.Name, name)
+				}
+			}
+		}
 		app.commands = append(app.commands, command)
+		if index == len(r.Commands) {
+			definition.completionCommand = command
+		}
 		if len(command.Profiles()) == 0 {
 			for _, name := range command.Names() {
 				app.commandsByName[name] = command
