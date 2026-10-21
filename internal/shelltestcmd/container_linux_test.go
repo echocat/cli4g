@@ -229,6 +229,7 @@ func TestContainerShellCompletion(t *testing.T) {
 		}
 		environment.assertRequestsSkipInitialization()
 	})
+	t.Run("nushell_cursor_context", testNushellCursorContext)
 	t.Run("zsh_zle", testZshCompletion)
 	t.Run("zsh_custom_zdotdir", testZshCustomStartup)
 	t.Run("fish_reader", testFishCompletion)

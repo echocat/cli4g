@@ -29,7 +29,10 @@ import (
 //   - __complete 1 nu: stdin contains exactly one JSON CompletionRequest, limited to
 //     1 MiB. An optional raw=true additionally removes simple Nu literal quoting
 //     from span tokens; it never evaluates expressions. stdout is a JSON
-//     codec.CompletionResult. Input excludes the executable.
+//     codec.CompletionResult. Input excludes the executable. The Nu 0.114.1
+//     adapter receives only arguments before the cursor; dependency flags must
+//     precede the value being completed. The protocol itself accepts later words
+//     when supplied by a caller.
 //   - __complete 1 powershell: the same JSON request/result as nu, without raw
 //     token normalization, each wrapped in standard Base64. The decoded request
 //     is limited to 1 MiB. ASCII-only transport preserves Unicode even with

@@ -42,6 +42,8 @@ ship completion install nu
 # ship --context production --namespace payments deploy ch<Tab>
 ```
 
+Nu 0.114.1 supplies only input before the cursor to the completer. Put dependency flags before the value you complete; later arguments stay in the editor but cannot affect suggestions.
+
 In **Windows PowerShell 5.1+ or PowerShell 7+**:
 
 ```powershell
@@ -71,7 +73,7 @@ The standard handler completes `deploy`, flag names, the `development`/`producti
 - Namespace suggestions depend on the context and the selected service.
 - Service suggestions depend on the context and namespace.
 
-cli4g supplies the complete input context, filters prefixes, and handles shell output. The callbacks return plain values; the same inventory is used by the normal deployment handler. A real client lookup would use the supplied cancellation context. Installed adapters continue to work after binary updates.
+cli4g supplies the input context available from the shell, filters prefixes, and handles shell output. The callbacks return plain values; the same inventory is used by the normal deployment handler. A real client lookup would use the supplied cancellation context. Installed adapters continue to work after binary updates.
 
 The public setup command is the ordinary `DefaultCompletionCommand`, initially named `completion`. It uses the same lifecycle and parent requirements as `deploy`. Applications can replace it with `WithCompletionCommand(...)`, including a fresh `NewCompletionCommand().WithName("shells")`. Only the separate request entry (initially `__complete`) bypasses normal validation and initialization. Configure it with `WithCompletionRequestCommandName`; empty disables it.
 

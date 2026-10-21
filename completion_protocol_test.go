@@ -50,6 +50,26 @@ func TestCompletionProtocolRejectsMalformedRequestsQuietly(t *testing.T) {
 	}
 }
 
+func TestNushellProtocolRetainsDependenciesAfterCursorWhenSupplied(t *testing.T) {
+	provider := codec.WithCompletionHandler(codec.NewString(), func(ctx context.Context, input codec.CompletionInput) (codec.CompletionResult, error) {
+		value, _, err := input.Effective.Flag(ctx, "context")
+		result := codec.CompletionResult{Handled: true}
+		for _, name := range value.Values {
+			result.Candidates = append(result.Candidates, codec.CompletionCandidate{Value: name + "-namespace"})
+		}
+		return result, err
+	})
+	app := NewSimpleApplication("tool").WithCompletion(true).
+		WithFlag(NewFlag(codec.NewString(), "context")).WithFlag(NewFlag(provider, "namespace")).MustCreate()
+	defer func() { assert.NoError(t, app.Close()) }()
+	var output bytes.Buffer
+	ctx := ContextWithStdio(nil, strings.NewReader(`{"words":["--namespace","cl","--context","cluster-b"],"word":1,"offset":2,"raw":true}`), &output, nil)
+	require.NoError(t, app.ParseAndExecute(ctx, nil, DefaultCompletionRequestCommandName, "1", "nu"))
+	var result codec.CompletionResult
+	require.NoError(t, json.Unmarshal(output.Bytes(), &result))
+	assert.Equal(t, []string{"cluster-b-namespace"}, completionTexts(result))
+}
+
 func TestCompletionInstallationIsIdempotentAndProtectsExistingFiles(t *testing.T) {
 	app := NewSimpleApplication("tool").WithCompletionRequestCommandName(DefaultCompletionRequestCommandName).MustCreate()
 	defer func() { assert.NoError(t, app.Close()) }()

@@ -169,6 +169,21 @@
 // the generated file (or start a new shell). Ordinary application schema updates
 // do not require reinstalling adapters.
 //
+// Nushell's command-wide completion input, verified with Nu 0.114.1, stops at the
+// cursor. Dependencies must therefore precede the value being completed:
+//
+//	tool --context cluster-b --namespace cl<Tab>
+//
+// Completing an earlier argument preserves later arguments in the editor, but
+// those later arguments are not visible to the provider. For example, completing
+// --namespace before a later --context cannot use that context; an available
+// environment/default dependency is used instead, or the dependency is absent.
+// The adapter does not reconstruct missing input from commandline/get-cursor,
+// whose REPL state can be stale during completion, and does not modify global
+// keybindings to capture the buffer. This is a native Nu input limitation, not
+// a restriction of [Application.Complete] or its protocol: callers supplying
+// words after the cursor retain the full dependency context.
+//
 // An explicit PowerShell installation directory writes only the adapter and does
 // not edit profiles. PowerShell sends literal AST values and UTF-8 byte cursor
 // offsets through an ASCII-safe Base64/JSON transport, including on Windows
