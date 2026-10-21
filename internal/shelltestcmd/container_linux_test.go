@@ -163,7 +163,7 @@ func TestContainerShellCompletion(t *testing.T) {
 			{` --format "two wo`, ` --format "two words" `}, {" get po", " get pods "},
 			{" --context cluster-b --namespace cl", " --context cluster-b --namespace cluster-b-namespace "},
 			{" --input=config", " --input=config.yaml "}, {` --input="space fi`, ` --input="space file.yaml" `},
-			{" --input=colon:fi", " --input=colon:file.yaml "}, {" --selector en", ` --selector env\=`},
+			{" --input=colon:fi", " --input=colon:file.yaml "}, {" --selector en", " --selector env="},
 		} {
 			// Keep one terminal alive across all requests: this also checks that
 			// the line editor and loaded completion options reset correctly.
@@ -207,6 +207,8 @@ func TestContainerShellCompletion(t *testing.T) {
 		}
 		environment.assertRequestsSkipInitialization()
 	})
+	t.Run("bash_literal_arguments", testBashLiteralCompletion)
+	t.Run("bash_literal_paths", testBashLiteralPaths)
 	t.Run("nushell_reedline_and_binary_update", func(t *testing.T) {
 		environment := newShellEnvironment(t)
 		terminal := environment.start("nu")

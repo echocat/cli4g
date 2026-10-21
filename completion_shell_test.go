@@ -89,13 +89,13 @@ if ((${#COMPREPLY[@]})); then printf '%s\0' "${COMPREPLY[@]}"; fi
 	t.Run("bash", func(t *testing.T) {
 		assertBash(t, name+" --format=ya", "ya", []string{"yaml"})
 		assertBash(t, name+" --format ü", "ü", []string{"über"})
-		assertBash(t, name+" --format 'two wo", "two wo", []string{"two words"})
+		assertBash(t, name+" --format 'two wo", "two wo", []string{"'two words'"})
 		assertBash(t, name+" --context cluster-b --namespace cl", "cl", []string{"cluster-b-namespace"})
 		assertBash(t, name+" get po", "po", []string{"pods"})
 		assertBash(t, name+" --initial", "--initial", []string{"--initial"})
 		assertBash(t, name+" --format nope", "nope", []string{})
 		assertBash(t, name+" --input=config", "config", []string{"config.yaml"})
-		assertBash(t, name+` --input="space fi`, "space fi", []string{"space file.yaml"})
+		assertBash(t, name+` --input="space fi`, "space fi", []string{`"space file.yaml"`})
 		if runtime.GOOS != "windows" {
 			assertBash(t, name+" --input=colon:fi", "fi", []string{"file.yaml"})
 		}

@@ -147,3 +147,23 @@ func TestBashCompletionInputQuotesSeparatorsUnicodeAndCursor(t *testing.T) {
 		})
 	}
 }
+
+func TestBashCompletionReplacementPrefixRetainsLiteralWordBreaks(t *testing.T) {
+	for _, test := range []struct{ prefix, current, want string }{
+		{"--format=ya", "ya", "--format="},
+		{"--format=", "", "--format="},
+		{"--format=", "''", "--format="},
+		{"--format=", `""`, "--format="},
+		{"--format=two wo", `'two wo'`, "--format="},
+		{"--format=a'b", `"a'b"`, "--format="},
+		{"--format=a'b", "a'b", "--format="},
+		{"--format=$(printf literal)", `'$(printf literal)'`, "--format="},
+		{"colon:fi", "fi", "colon:"},
+		{"--format=ü", "ü", "--format="},
+		{"--format=two wo", "wrong", ""},
+	} {
+		t.Run(test.current, func(t *testing.T) {
+			assert.Equal(t, test.want, bashCompletionReplacementPrefix(test.prefix, test.current))
+		})
+	}
+}

@@ -23,6 +23,9 @@ func (source namespaceCodec) ToRaw(ctx context.Context) codec.Codec[any, any] {
 }
 
 func (source namespaceCodec) Complete(ctx context.Context, input codec.CompletionInput) (codec.CompletionResult, error) {
+	if value, exists := os.LookupEnv("CLI4G_COMPLETION_LITERAL"); exists {
+		return codec.CompletionResult{Handled: true, Candidates: []codec.CompletionCandidate{{Value: value}}}, ctx.Err()
+	}
 	cluster, _, err := input.Effective.Flag(ctx, "context")
 	if err != nil {
 		return codec.CompletionResult{}, err

@@ -133,11 +133,10 @@ func (this *Application[O]) queryCompletion(ctx context.Context, opts *ParseOpts
 		replacementPrefix := ""
 		if err == nil && len(request.Words) > request.Word && request.Word >= 0 {
 			prefix := request.Words[request.Word][:request.Offset]
-			if len(args) == 5 && strings.HasSuffix(prefix, args[4]) {
-				trim := prefix[:len(prefix)-len(args[4])]
-				replacementPrefix = trim
+			if len(args) == 5 {
+				replacementPrefix = bashCompletionReplacementPrefix(prefix, args[4])
 				for i := range result.Candidates {
-					result.Candidates[i].Value = strings.TrimPrefix(result.Candidates[i].Value, trim)
+					result.Candidates[i].Value = strings.TrimPrefix(result.Candidates[i].Value, replacementPrefix)
 				}
 			}
 		}

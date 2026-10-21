@@ -5,6 +5,21 @@ import (
 	"strings"
 )
 
+// Readline may retain balanced quotes in CURRENT even though the CLI scanner
+// has removed them. Reuse the non-evaluating lexer before aligning word breaks.
+func bashCompletionReplacementPrefix(prefix, current string) string {
+	if !strings.HasSuffix(prefix, current) {
+		line := "_ " + current
+		if request, err := bashCompletionRequest(line, len(line)); err == nil && len(request.Words) == 1 {
+			current = request.Words[0]
+		}
+	}
+	if strings.HasSuffix(prefix, current) {
+		return prefix[:len(prefix)-len(current)]
+	}
+	return ""
+}
+
 // Bash owns expansion and execution. This lexer only removes simple quoting and
 // identifies the simple command surrounding the cursor; it never evaluates code.
 func bashCompletionRequest(line string, point int) (CompletionRequest, error) {

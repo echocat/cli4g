@@ -159,6 +159,16 @@
 //
 //	tool completion bash
 //
+// Bash quotes suggestions as literal arguments, including values containing
+// dollar signs, backticks, quotes and whitespace. This applies to native path
+// suggestions as well. Readline still controls menus and word replacement; it
+// does not expand suggestion values or treat non-path suggestions as directories.
+// Simple single/double quotes are supported; completion inside an ANSI-C quoted
+// word is suppressed because the request lexer does not decode its escapes.
+// After an adapter implementation update, rerun the install command and source
+// the generated file (or start a new shell). Ordinary application schema updates
+// do not require reinstalling adapters.
+//
 // An explicit PowerShell installation directory writes only the adapter and does
 // not edit profiles. PowerShell sends literal AST values and UTF-8 byte cursor
 // offsets through an ASCII-safe Base64/JSON transport, including on Windows
