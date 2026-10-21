@@ -74,11 +74,17 @@ empty/multiline values, escapes, non-evaluated substitutions, native suffix matc
 directory-only paths, command decorators, preserved config, and binary replacement.
 Missing/wrong-version shells and missing runtimes are errors, never skips.
 
-`--coverage` instruments the actual fixture binaries, collects their Go runtime
+`--coverage` measures host-side orchestration in `profile.shell-runner.cov`,
+instruments the actual fixture binaries, collects their Go runtime
 coverage from both stopped containers using the engine's copy command, and merges
 it into `profile.shells.cov` with Go's `covdata` tooling. CI includes this artifact
 in the same Coveralls upload as the Go matrix and example profiles, so native
 shell execution contributes to the reported library coverage.
+
+Before upload, `internal/coveragemerge` unions the Go, example and shell profiles
+into `profile.merged.cov`. A block hit in any run remains covered; independent
+zero-hit reports cannot clear it. Output uses Go's set mode and canonical module
+paths, including nested example files, so Coveralls receives each source once.
 
 The lighter `TestNativeShellCompletion` Go test still uses locally available
 shells and can skip unavailable ones. The separate container suite is the required
@@ -106,6 +112,8 @@ complete repository.
 - Go coverage: `profile.cov`.
 - Example-binary coverage: `profile.examples.cov`, including library calls.
 - Shell-fixture coverage: `profile.shells.cov`, including the real adapter queries and installation paths.
+- Shell-runner coverage: `profile.shell-runner.cov`, including real container orchestration.
+- Combined CI coverage: `profile.merged.cov`, the union uploaded to Coveralls.
 - `CLI4G_CI=1` enables race/verbose/coverage for Go tests and binary coverage
   for examples; Go tests then write `profile.cov.full`.
 
@@ -124,6 +132,7 @@ complete repository.
 New runs automatically cancel superseded runs of the same pull request. Go
 package builds use `GOFLAGS=-p=2`; Go processes use `GOMAXPROCS=4`, or `2` on macOS.
 This bounds simultaneous compiler and analysis work on the hosted runners.
+macOS lint additionally uses Go's soft heap budget `GOMEMLIMIT=4GiB`.
 
 Tool requests are in `mise.toml`; lockfiles select exact versions and checksums.
 The weekly dependency workflow verifies updates with `check:full` before opening

@@ -183,6 +183,9 @@ func (this raw[V, R]) RequirementType() reflect.Type {
 }
 
 func (this raw[V, R]) IsBoolFlag() bool {
+	if reflect.TypeFor[V]().Kind() == reflect.Bool {
+		return true
+	}
 	trait, ok := this.source.(interface{ IsBoolFlag() bool })
 	return ok && trait.IsBoolFlag()
 }

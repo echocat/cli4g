@@ -111,7 +111,7 @@ flag "--coverage" help="Collect real shell fixture coverage in profile.shells.co
 env.GOWORK = "off"
 shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
 run = '''
-go run ./internal/shelltestcmd --engine {% if os() == 'windows' %}'{{usage.engine | replace(from="'", to="''")}}'{% else %}{{usage.engine | quote}}{% endif %}{% if usage.coverage %} --coverage{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+{% if usage.coverage %}go test -count=1 -v -timeout=20m -covermode=atomic "-coverprofile=profile.shell-runner.cov" ./internal/shelltestcmd -run '^TestRunShellE2E$' -args -shell-engine {% else %}go run ./internal/shelltestcmd --engine {% endif %}{% if os() == 'windows' %}'{{usage.engine | replace(from="'", to="''")}}'{% else %}{{usage.engine | quote}}{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
 '''
 
 [tasks."test:benchmarks"]

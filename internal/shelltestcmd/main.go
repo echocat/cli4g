@@ -129,7 +129,7 @@ func run(parent context.Context, args []string, output, diagnostics io.Writer) e
 		if len(strings.Split(strings.TrimSpace(string(data)), "\n")) < 2 {
 			return fmt.Errorf("shell E2E produced no coverage data")
 		}
-		_, _ = fmt.Fprintln(output, "Shell fixture coverage:", profile)
+		_, _ = fmt.Fprintln(output, "Shell fixture profile:", profile)
 	}
 	return nil
 }
