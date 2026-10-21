@@ -97,33 +97,6 @@ includes rollback after partial initialization failures; hooks alone need applic
 See [benchmarks and methodology](docs/benchmarks.md) for timings, allocations,
 code size, and cognitive complexity.
 
-## Shell completion
-
-Bash **4.4+**, Fish **3.6+**, Nushell **0.114+**, PowerShell **5.1+**, and Zsh **5.8+**
-adapters query the current binary, so binary updates need no completion reinstall.
-Install once with:
-
-```shell
-your-app completion install bash  # Requires a configured bash-completion loader
-your-app completion install fish  # Autoloaded on the next completion in a new session
-your-app completion install nu    # Autoloaded at the next interactive Nu startup
-your-app completion install powershell  # Loaded through the user profiles on next startup
-your-app completion install zsh   # Configures fpath/autoloading for the next Zsh session
-```
-
-`WithCompletion(true)` selects `DefaultCompletionCommand` and
-`DefaultCompletionRequestCommandName`. The public command is a normal command;
-replace it with `WithCompletionCommand(...)`, or rename a fresh
-`NewCompletionCommand().WithName(...)`. The special adapter entry is configured
-independently with `WithCompletionRequestCommandName(...)`. Nil/empty disables
-the respective part; `WithCompletion(false)` clears both.
-Commands, flags, enums, and files work automatically. Use
-[`codec.WithCompletionHandler`](https://pkg.go.dev/github.com/echocat/cli4g/codec#WithCompletionHandler)
-for domain-specific values, or set a handler on an individual flag/argument.
-See the [GoDoc guide](https://pkg.go.dev/github.com/echocat/cli4g#hdr-Shell_completion)
-for API, installation, protocol, lifecycle, and performance details.
-The [completion example](_examples/completion) shows this on the `ship` deployment tool's CLI.
-
 ## Documentation
 
 - [Struct-tag/Annotations reference](docs/annotations.md)
