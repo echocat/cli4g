@@ -106,6 +106,8 @@ func TestContainerPowerShellCompletion(t *testing.T) {
 			}
 		}
 	}
+	t.Run("literal_stop_parsing_marker", testPowerShellStopParsingLiteral)
+	t.Run("literal_stop_parsing_dependency", testPowerShellStopParsingDependency)
 	if got := terminal.complete(name + " --ini"); got != name+" --initial" {
 		t.Errorf("initial binary completion: %q", got)
 	}

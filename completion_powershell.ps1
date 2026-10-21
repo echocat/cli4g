@@ -10,6 +10,11 @@ Register-ArgumentCompleter -CommandName @(@PSCOMMAND@, @PSEXE@) -ScriptBlock {
              $element.NestedExpressions.Count -eq 0)) {
             return [string]$element.Value
         }
+        # Decode only our fixed literal wrapper, never evaluate arbitrary ASTs.
+        if ($element -is [System.Management.Automation.Language.ArrayExpressionAst] -and
+            $element.Extent.Text -ceq "@('--%')") {
+            return '--%'
+        }
         return [string]$element.Extent.Text
     }
     function Read-Prefix([string]$text) {
@@ -21,6 +26,9 @@ Register-ArgumentCompleter -CommandName @(@PSCOMMAND@, @PSEXE@) -ScriptBlock {
         return $text
     }
     function Quote-Literal([string]$value) {
+        # The native binder removes even a quoted scalar --% and changes how
+        # later arguments are passed. A fixed singleton array avoids that path.
+        if ($value -ceq '--%') { return "@('--%')" }
         if ($value -match '^[-\p{L}\p{N}_./:\\=+]+$') { return $value }
         # Legacy native argument passing strips unescaped embedded double quotes.
         if ($PSVersionTable.PSVersion -lt [version]'7.3' -or $PSNativeCommandArgumentPassing -eq 'Legacy') {

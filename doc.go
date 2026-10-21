@@ -190,7 +190,12 @@
 // PowerShell 5.1's legacy native pipeline. Tokens after the cursor remain available
 // for dependencies. Variables and expressions are not evaluated to collect values.
 // Candidates include descriptions and use literal quoting, including legacy native
-// argument escaping. Paths normally use PowerShell's filename completer; literal
+// argument escaping. PowerShell removes even a quoted scalar --% during native
+// argument binding, so this literal value uses the fixed expression @('--%').
+// Its singleton array passes exactly one native argument without enabling verbatim
+// handling of later arguments. The collector recognizes only that exact generated
+// array form as literal --%; other expressions remain unevaluated dependency data.
+// Paths normally use PowerShell's filename completer; literal
 // Unix colon filenames use filesystem enumeration because the provider interprets
 // colons as drives. Candidate order is preserved. The user's PSReadLine binding
 // determines whitespace insertion; the adapter does not change that binding.
