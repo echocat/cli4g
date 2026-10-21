@@ -78,7 +78,7 @@ Qualitative ratings for the [compared versions](_benchmarks):
 | Lifecycle and resource cleanup | ★★★ | ★★☆ | ★★☆ | ★★☆ | — |
 | Compile once, isolated concurrent parses | ★★★ | — | — | — | — |
 | Per-parse schema profiles | ★★★ | — | — | — | — |
-| Shell completion | ★★☆ | ★★★ | ★★★ | — | — |
+| Shell completion | ★★★ | ★★★ | ★★★ | — | — |
 | Setup/compile + first invocation speed[^performance] | ★★☆ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
 | Parse/execute speed on reuse[^performance] | ★★★ | ★★☆ | ★★★ | ★☆☆ | ★★★ |
 
