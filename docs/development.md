@@ -13,6 +13,8 @@ mise run check:full
 | Command | Purpose |
 | --- | --- |
 | `mise run format` | Format Go code and tidy modules |
+| `mise run tidy` | Tidy the root, benchmark, and all example modules |
+| `mise run tidy:check` | Check all module files without changing them |
 | `mise run lint` | Check Go, modules, and workflows |
 | `mise run test` | Test Go code and examples |
 | `mise run test:go --race` | Go tests with race detection |
@@ -116,6 +118,31 @@ complete repository.
 - Combined CI coverage: `profile.merged.cov`, the union uploaded to Coveralls.
 - `CLI4G_CI=1` enables race/verbose/coverage for Go tests and binary coverage
   for examples; Go tests then write `profile.cov.full`.
+
+## Go dependency updates
+
+The root, `_benchmarks`, and every directory under `_examples` are independent
+Go modules. Nested modules use a local `replace` for cli4g, so an update to the
+root's dependencies can also require changes to their `go.mod` or `go.sum` files.
+Dependabot grouping does not guarantee those transitive checksum updates.
+
+After updating dependencies, including on a Dependabot PR, run:
+
+```shell
+mise run tidy
+mise run tidy:check
+mise run check:full
+```
+
+`tidy` processes the root first, then the benchmark and example modules, with
+`GOWORK=off` and the locked Go toolchain. Commit all resulting module-file changes
+with the dependency update. Do not edit `go.sum` by hand or remove older versions
+just because a newer version is selected: their `go.mod` checksums can still be
+needed to resolve the module graph.
+
+The standard local `check` includes the same all-module check through `lint`.
+CI runs it before the expensive quality checks and fails with the module's name
+and the required diff. It does not silently repair or commit changes.
 
 ## CI
 
