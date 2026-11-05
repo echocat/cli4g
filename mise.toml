@@ -56,9 +56,13 @@ tools.golangci-lint = "{{vars.golangci_lint}}"
 run = "golangci-lint fmt"
 
 [tasks."format:go:mod"]
-description = "Tidy the Go module"
+description = "Tidy the root, benchmark, and example modules"
 alias = "tidy"
-run = "go mod tidy"
+dir = "{{config_root}}"
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+run = "go run ./internal/moduletidy"
 
 [tasks."format:check"]
 description = "Check formatting in all packages"
@@ -239,9 +243,13 @@ alias = "vet"
 run = "go vet ./..."
 
 [tasks."lint:mod"]
-description = "Check that the Go module is tidy"
+description = "Check that the root, benchmark, and example modules are tidy"
 alias = "tidy:check"
-run = "go mod tidy -diff"
+dir = "{{config_root}}"
+env.GOWORK = "off"
+env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
+env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
+run = "go run ./internal/moduletidy -check"
 
 [tasks."lint:workflow"]
 description = "Lint GitHub Actions workflows"

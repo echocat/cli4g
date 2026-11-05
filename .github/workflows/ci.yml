@@ -185,9 +185,12 @@ jobs:
             ~/.cache/golangci-lint
           key: quality-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock', 'go.mod', 'go.sum') }}
 
+      - name: Check all Go module files
+        run: mise run tidy:check
+
       - name: Run quality gate
         run: >-
-          mise run format:check ::: lint:mod ::: lint:workflow :::
+          mise run format:check ::: lint:workflow :::
           test:examples:code ::: test:module ::: test:benchmarks ::: test:fuzz ::: vuln
 
   coverage:
