@@ -178,8 +178,9 @@ env.GOWORK = "off"
 env.GOOS = "{% if os() == 'macos' %}darwin{% else %}{{ os() }}{% endif %}"
 env.GOARCH = "{% if arch() == 'x64' %}amd64{% else %}{{ arch() }}{% endif %}"
 shell = "{% if os() == 'windows' %}pwsh -Command{% else %}sh -o errexit -c{% endif %}"
+# Sequential instrumented builds can exceed Go's 10-minute default on macOS CI.
 run = '''
-go test -count=1 -v ./internal/integration -run "^TestExamples$" {% for arg in usage.args | default(value=[]) %}{% if os() == 'windows' %}'{{arg | replace(from="'", to="''")}}'{% else %}{{arg | quote}}{% endif %} {% endfor %}-args -examples=smoke {% if usage.coverage or get_env(name='CLI4G_CI', default='0') == '1' %}-examples-coverprofile="{{config_root}}/profile.examples.cov"{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
+go test -count=1 -v -timeout=20m ./internal/integration -run "^TestExamples$" {% for arg in usage.args | default(value=[]) %}{% if os() == 'windows' %}'{{arg | replace(from="'", to="''")}}'{% else %}{{arg | quote}}{% endif %} {% endfor %}-args -examples=smoke {% if usage.coverage or get_env(name='CLI4G_CI', default='0') == '1' %}-examples-coverprofile="{{config_root}}/profile.examples.cov"{% endif %}{% if os() == 'windows' %}; exit $LASTEXITCODE{% endif %}
 '''
 
 [tasks."example:run"]
